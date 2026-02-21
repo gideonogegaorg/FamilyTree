@@ -39,8 +39,12 @@
 
     <footer class="border-top footer text-muted">
         <div class="container">
-            @{ var version = System.Reflection.Assembly.GetExecutingAssembly().GetCustomAttribute<System.Reflection.AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "0.0.0"; }
-            &copy; Family Tree @version - <a asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
+            @{
+                var fullVersion = System.Reflection.Assembly.GetExecutingAssembly().GetCustomAttribute<System.Reflection.AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "0.0.0";
+                var digits = System.Text.RegularExpressions.Regex.Replace(fullVersion, @"\D", "");
+                var displayVersion = digits.Length >= 6 ? $"{digits.Substring(0, 4)}-{digits.Substring(4, 2)}" : fullVersion;
+            }
+            &copy; Family Tree <span data-informational-version="@fullVersion" class="visually-hidden">@fullVersion</span>@displayVersion - <a asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
         </div>
     </footer>
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
