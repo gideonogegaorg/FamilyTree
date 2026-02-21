@@ -39,7 +39,8 @@
 
     <footer class="border-top footer text-muted">
         <div class="container">
-            &copy; Family Tree @(System.Reflection.Assembly.GetExecutingAssembly().GetCustomAttribute<System.Reflection.AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "0.0.0") - <a asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
+            @{ var version = System.Reflection.Assembly.GetExecutingAssembly().GetCustomAttribute<System.Reflection.AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "0.0.0"; }
+            &copy; Family Tree @version - <a asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
         </div>
     </footer>
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
