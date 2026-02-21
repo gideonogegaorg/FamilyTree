@@ -9,6 +9,9 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    outputs:
+      assembly_version: ${{ steps.setversion.outputs.assembly_version }}
+      dll_version: ${{ steps.setversion.outputs.dll_version }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -20,18 +23,23 @@ jobs:
           dotnet-version: '10.0.x'
 
       - name: Set DLL version
+        id: setversion
         run: |
           YEAR=$(date +%Y)
           MONTH=$(date +%m)
           RUN_ID=${{ github.run_id }}
           BUILD=$(( RUN_ID % 65535 ))
           REVISION=$(( (RUN_ID / 65535) % 65535 ))
-          echo "ASSEMBLY_VERSION=$YEAR.$MONTH.$BUILD.$REVISION" >> $GITHUB_ENV
+          ASSEMBLY_VERSION="$YEAR.$MONTH.$BUILD.$REVISION"
           if [ "${{ github.ref_name }}" = "dev" ]; then
-            echo "DLL_VERSION=DEV-$(date +%Y%m)$RUN_ID" >> $GITHUB_ENV
+            DLL_VERSION="DEV-$(date +%Y%m)$RUN_ID"
           else
-            echo "DLL_VERSION=$(date +%Y%m)$RUN_ID" >> $GITHUB_ENV
+            DLL_VERSION="$(date +%Y%m)$RUN_ID"
           fi
+          echo "ASSEMBLY_VERSION=$ASSEMBLY_VERSION" >> $GITHUB_ENV
+          echo "DLL_VERSION=$DLL_VERSION" >> $GITHUB_ENV
+          echo "assembly_version=$ASSEMBLY_VERSION" >> $GITHUB_OUTPUT
+          echo "dll_version=$DLL_VERSION" >> $GITHUB_OUTPUT
 
       - name: Build
         run: |
@@ -60,6 +68,8 @@ jobs:
     env:
       DEPLOY_PATH: ${{ github.ref == 'refs/heads/main' && format('/var/www/family.{0}', secrets.DEPLOY_DOMAIN) || github.ref == 'refs/heads/dev' && format('/var/www/family-dev.{0}', secrets.DEPLOY_DOMAIN) || '' }}
       BRANCH: ${{ github.ref_name }}
+      ASSEMBLY_VERSION: ${{ needs.build.outputs.assembly_version }}
+      DLL_VERSION: ${{ needs.build.outputs.dll_version }}
     steps:
       - name: Validate deploy config
         run: |
@@ -106,7 +116,11 @@ jobs:
             CLONE_DIR="/git/family/${{ env.BRANCH }}"
             rm -rf "$CLONE_DIR"
             git clone -b ${{ env.BRANCH }} https://${{ secrets.GH_PAT }}@github.com/${{ github.repository }}.git "$CLONE_DIR"
-            dotnet publish "$CLONE_DIR/src/Family.Web/Family.Web.csproj" -c Release -o "${{ env.DEPLOY_PATH }}"
+            dotnet publish "$CLONE_DIR/src/Family.Web/Family.Web.csproj" -c Release -o "${{ env.DEPLOY_PATH }}" \
+              -p:Version=${{ env.ASSEMBLY_VERSION }} \
+              -p:AssemblyVersion=${{ env.ASSEMBLY_VERSION }} \
+              -p:FileVersion=${{ env.ASSEMBLY_VERSION }} \
+              -p:InformationalVersion=${{ env.DLL_VERSION }}
             mkdir -p "${{ env.DEPLOY_PATH }}/scripts"
             cp -r "$CLONE_DIR/scripts/"* "${{ env.DEPLOY_PATH }}/scripts/"
             rm -rf "$CLONE_DIR"

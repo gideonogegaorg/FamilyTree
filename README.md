@@ -32,6 +32,22 @@ The deploy job uses GitHub **Environments** (`main` and `dev`). For each environ
 
 See [.github/workflows/build.yml](.github/workflows/build.yml) for the pipeline.
 
+### Validating version on Linux
+
+On the server, the deployed DLL’s **InformationalVersion** is set by the pipeline (e.g. `202602123456789` for main, `DEV-202602123456789` for dev). To check it:
+
+- **From the DLL** (SSH into the server):
+  ```bash
+  DEPLOY_PATH=/var/www/family.gideonogega.com   # or family-dev.gideonogega.com for dev
+  strings "$DEPLOY_PATH/Family.Web.dll" | grep -E '^(DEV-)?[0-9]{12,}$'
+  ```
+  Or run the helper script (from the deploy directory): `./scripts/check-version.sh` (set `DEPLOY_PATH` if needed).
+
+- **From the live site**:
+  ```bash
+  curl -s https://family.gideonogega.com/ | grep -o 'Family Tree [^ -]*'
+  ```
+
 ### Adding a new subdomain on the server
 
 Use the provisioning script (run on the EC2 instance):
