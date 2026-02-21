@@ -3,3 +3,6 @@
 
 # C# diff and line endings
 *.cs diff=csharp text
+
+# Shell scripts (LF; mark executable after adding: git ls-files '*.sh' | xargs git update-index --chmod=+x)
+*.sh text eol=lf
