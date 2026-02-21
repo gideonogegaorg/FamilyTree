@@ -1,0 +1,5 @@
+# Normalize line endings and encoding
+* text=auto encoding=UTF-8
+
+# C# diff and line endings
+*.cs diff=csharp text

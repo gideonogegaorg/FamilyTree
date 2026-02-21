@@ -1,0 +1,117 @@
+# Subdomain Provisioning Guide (.NET / Nginx / Ubuntu)
+
+Infrastructure required to host a .NET subdomain on the EC2 instance. Replace `example.com` and `YOUR_DOMAIN` with your own domain.
+
+## Prerequisites
+
+1. **DNS**: An A record for the subdomain pointing to the EC2 Elastic IP (e.g. `family-dev.example.com` → your IP).
+2. **SSL certificates**: Let's Encrypt certs in place for your domain (see [Let's Encrypt setup](#lets-encrypt-setup) below).
+3. **Port**: An unused local port for the .NET app (e.g. 5000 main, 5001 family, 5002 family-dev).
+
+---
+
+## Let's Encrypt setup
+
+Do this once per server (or per base domain). The provisioning script expects certs at `/etc/letsencrypt/live/<cert_domain>/`.
+
+### 1. Install Certbot (Ubuntu/Debian)
+
+```bash
+sudo apt update
+sudo apt install -y certbot
+# Optional: certbot plugin for Nginx (if you use it for HTTP-01)
+sudo apt install -y python3-certbot-nginx
+```
+
+### 2. Obtain a certificate
+
+**Option A – Single subdomain (HTTP-01)**  
+Certbot can stand up a temporary HTTP server. Stop Nginx if it’s using port 80, or use Nginx plugin:
+
+```bash
+sudo certbot certonly --standalone -d family.example.com
+# Or with Nginx running:
+sudo certbot certonly --nginx -d family.example.com
+```
+
+Certificates will be in `/etc/letsencrypt/live/family.example.com/`.
+
+**Option B – Wildcard (DNS-01)**  
+For `*.example.com` you must use DNS challenge (Certbot can’t get a wildcard via HTTP):
+
+```bash
+sudo certbot certonly --manual --preferred-challenges dns -d "*.example.com" -d example.com
+```
+
+Follow the prompts and create the requested TXT record in your DNS. Certs will be in `/etc/letsencrypt/live/example.com/` (use `example.com` as the `cert_domain` when running the provisioning script).
+
+### 3. Auto-renewal
+
+Certbot installs a timer. Test and enable:
+
+```bash
+sudo certbot renew --dry-run
+sudo systemctl enable certbot.timer
+```
+
+### 4. Optional: Nginx SSL options
+
+For stronger SSL settings, you can generate DH params and use Certbot’s Nginx snippets (uncomment the matching lines in the generated Nginx config if present):
+
+```bash
+sudo openssl dhparam -out /etc/letsencrypt/ssl-dhparams.pem 2048
+```
+
+Then in your Nginx server block you can add:
+
+```nginx
+include /etc/letsencrypt/options-ssl-nginx.conf;
+ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+```
+
+---
+
+## Provisioning a new subdomain
+
+### Using the script (recommended)
+
+From the repo root on the server:
+
+```bash
+sudo ./scripts/setup-subdomain.sh <subdomain> <port> <service_name> [cert_domain]
+```
+
+- **subdomain**: Full hostname (e.g. `family-dev.example.com`).
+- **port**: Local port for the .NET app (e.g. `5002`).
+- **service_name**: Systemd service name (e.g. `family-dev`).
+- **cert_domain**: Base domain used for the Let’s Encrypt path (e.g. `example.com` → `/etc/letsencrypt/live/example.com/`). Defaults to `example.com` if omitted.
+
+Example:
+
+```bash
+sudo ./scripts/setup-subdomain.sh family-dev.example.com 5002 family-dev example.com
+```
+
+This creates the web directory, systemd unit, and Nginx config (HTTP→HTTPS and proxy to the app). Then deploy your app and start the service:
+
+```bash
+sudo systemctl restart family-dev
+```
+
+### Manual steps (without the script)
+
+#### 1. Directory and permissions
+
+```bash
+sudo mkdir -p /var/www/<subdomain>
+sudo chown -R ubuntu:www-data /var/www/<subdomain>
+sudo chmod -R 775 /var/www/<subdomain>
+```
+
+#### 2. Systemd service
+
+Create `/etc/systemd/system/<service_name>.service` with `WorkingDirectory` and `ExecStart` pointing at `/var/www/<subdomain>` and your chosen port.
+
+#### 3. Nginx
+
+Add a site in `/etc/nginx/sites-available/` with HTTP→HTTPS redirect and a 443 server block that proxies to `http://localhost:<port>`. Set `ssl_certificate` and `ssl_certificate_key` to your Let’s Encrypt paths. Enable the site and reload Nginx.
