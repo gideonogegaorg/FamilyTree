@@ -107,6 +107,9 @@ jobs:
             rm -rf "$CLONE_DIR"
             git clone -b ${{ env.BRANCH }} https://${{ secrets.GH_PAT }}@github.com/${{ github.repository }}.git "$CLONE_DIR"
             dotnet publish "$CLONE_DIR/src/Family.Web/Family.Web.csproj" -c Release -o "${{ env.DEPLOY_PATH }}"
+            mkdir -p "${{ env.DEPLOY_PATH }}/scripts"
+            cp -r "$CLONE_DIR/scripts/"* "${{ env.DEPLOY_PATH }}/scripts/"
+            rm -rf "$CLONE_DIR"
             sudo chown -R ubuntu:www-data ${{ env.DEPLOY_PATH }}
             sudo chmod -R 755 ${{ env.DEPLOY_PATH }}
             sudo systemctl restart ${{ vars.SERVICE_NAME }}

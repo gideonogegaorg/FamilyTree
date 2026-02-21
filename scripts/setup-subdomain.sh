@@ -5,11 +5,11 @@
 # Usage: sudo ./setup-subdomain.sh <subdomain> <port> <service_name> [cert_domain]
 #   subdomain   Full hostname (e.g. family-dev.example.com)
 #   port        Local port for the .NET app (e.g. 5002)
-#   service_name  Systemd service name (e.g. family-dev)
+#   service_name  Systemd service name; match pipeline SERVICE_NAME (main=family-web, dev=family-web-dev)
 #   cert_domain  Optional. Base domain for Let's Encrypt cert path
 #                (e.g. example.com → /etc/letsencrypt/live/example.com/).
 #                Default: example.com (replace with your cert domain).
-# Example: sudo ./setup-subdomain.sh family-dev.example.com 5002 family-dev example.com
+# Example: sudo ./setup-subdomain.sh family-dev.example.com 5002 family-web-dev example.com
 # See docs/subdomain-provisioning.md for Let's Encrypt setup.
 # ==============================================================================
 
@@ -18,7 +18,7 @@ set -e
 # 1. VALIDATION
 if [ "$#" -lt 3 ] || [ "$#" -gt 4 ]; then
     echo "Usage: sudo $0 <subdomain> <port> <service_name> [cert_domain]"
-    echo "Example: sudo $0 family-dev.example.com 5002 family-dev example.com"
+    echo "Example: sudo $0 family-dev.example.com 5002 family-web-dev example.com"
     exit 1
 fi
 

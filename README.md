@@ -38,7 +38,8 @@ Use the provisioning script (run on the EC2 instance):
 
 ```bash
 sudo ./scripts/setup-subdomain.sh <subdomain> <port> <service_name> [cert_domain]
-# Example: sudo ./scripts/setup-subdomain.sh family-dev.example.com 5002 family-dev example.com
+# Example (dev): sudo ./scripts/setup-subdomain.sh family-dev.example.com 5002 family-web-dev example.com
+# Then: sudo systemctl restart family-web-dev
 ```
 
-This creates the web directory, systemd service, and Nginx config. Full prerequisites and manual steps: [docs/subdomain-provisioning.md](docs/subdomain-provisioning.md).
+This creates the web directory, systemd service, and Nginx config. The GitHub Actions pipeline publishes the app into that directory, copies the repo’s **scripts** into a **scripts** subfolder there, removes the clone, then restarts the service. You can run scripts from the deployed site (e.g. `sudo /var/www/family.example.com/scripts/setup-subdomain.sh ...`). Full prerequisites and manual steps: [docs/subdomain-provisioning.md](docs/subdomain-provisioning.md).

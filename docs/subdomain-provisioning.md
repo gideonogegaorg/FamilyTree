@@ -83,19 +83,22 @@ sudo ./scripts/setup-subdomain.sh <subdomain> <port> <service_name> [cert_domain
 
 - **subdomain**: Full hostname (e.g. `family-dev.example.com`).
 - **port**: Local port for the .NET app (e.g. `5002`).
-- **service_name**: Systemd service name (e.g. `family-dev`).
+- **service_name**: Systemd service name; use the same as the pipeline’s `SERVICE_NAME` for that branch (e.g. `family-web` for main, `family-web-dev` for dev).
 - **cert_domain**: Base domain used for the Let’s Encrypt path (e.g. `example.com` → `/etc/letsencrypt/live/example.com/`). Defaults to `example.com` if omitted.
 
 Example:
 
 ```bash
-sudo ./scripts/setup-subdomain.sh family-dev.example.com 5002 family-dev example.com
+# Dev site (matches pipeline SERVICE_NAME for dev)
+sudo ./scripts/setup-subdomain.sh family-dev.example.com 5002 family-web-dev example.com
+# Main site
+sudo ./scripts/setup-subdomain.sh family.example.com 5001 family-web example.com
 ```
 
-This creates the web directory, systemd unit, and Nginx config (HTTP→HTTPS and proxy to the app). Then deploy your app and start the service:
+This creates the web directory, systemd unit, and Nginx config (HTTP→HTTPS and proxy to the app). The GitHub Actions pipeline deploys by cloning to `/git/family/<branch>`, publishing into this directory, copying **scripts** into a **scripts** subfolder here, removing the clone, then restarting the service. The **service_name** must match the `SERVICE_NAME` environment variable for that branch (`family-web` for main, `family-web-dev` for dev). For manual deploy, start the service after copying your app:
 
 ```bash
-sudo systemctl restart family-dev
+sudo systemctl restart family-web-dev
 ```
 
 ### Manual steps (without the script)
