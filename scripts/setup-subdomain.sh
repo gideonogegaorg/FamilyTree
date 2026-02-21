@@ -56,7 +56,7 @@ SERVICE_FILE="/etc/systemd/system/$SERVICE_NAME.service"
 
 cat <<EOF > "$SERVICE_FILE"
 [Unit]
-Description=.NET Web App - $DOMAIN
+Description=$DOMAIN
 After=network.target
 
 [Service]
