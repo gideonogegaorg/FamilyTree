@@ -60,9 +60,9 @@ Description=$DEPLOY_DOMAIN
 After=network.target
 
 [Service]
-WorkingDirectory=$WEB_ROOT/publish
-ExecStart=/usr/bin/dotnet $WEB_ROOT/publish/$DLL_NAME --urls "http://localhost:$PORT"
-EnvironmentFile=$WEB_ROOT/.env
+WorkingDirectory=$WEB_ROOT/site
+ExecStart=/usr/bin/dotnet $WEB_ROOT/site/$DLL_NAME --urls "http://localhost:$PORT"
+EnvironmentFile=-$WEB_ROOT/.env
 Restart=always
 RestartSec=10
 KillSignal=SIGINT
@@ -149,7 +149,7 @@ fi
 
 echo "========================================================"
 echo "Provisioning Complete!"
-echo "1. Deploy your code to: $WEB_ROOT (app in $WEB_ROOT/publish)"
+echo "1. Deploy your code to: $WEB_ROOT (app in $WEB_ROOT/site)"
 echo "2. Put .env in $WEB_ROOT for secrets (e.g. Google auth)"
 echo "3. Start the app: sudo systemctl restart $SERVICE_NAME"
 echo "========================================================"
