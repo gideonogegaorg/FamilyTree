@@ -144,8 +144,8 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script_stop: true
           script: |
+            exec 2>&1
             set -e
-            # Inline env so deploy works without SSH AcceptEnv (server often does not forward env)
             DEPLOY_PATH='${{ env.DEPLOY_PATH }}'
             BRANCH='${{ env.BRANCH }}'
             SETUP_CHANGED='${{ env.SETUP_CHANGED }}'
@@ -162,6 +162,7 @@ jobs:
             OPENTELEMETRY_LOGGINGENDPOINT='${{ env.OPENTELEMETRY_LOGGINGENDPOINT }}'
             OPENTELEMETRY_HEADERS='${{ env.OPENTELEMETRY_HEADERS }}'
             OPENTELEMETRY_METRICSENDPOINT='${{ env.OPENTELEMETRY_METRICSENDPOINT }}'
+            echo "[Deploy] DEPLOY_PATH is set: $([ -n "$DEPLOY_PATH" ] && echo yes || echo EMPTY)"
             echo "[Deploy] Ensuring directory and permissions..."
             sudo mkdir -p "$DEPLOY_PATH"
             sudo chown -R ubuntu:www-data "$DEPLOY_PATH"
