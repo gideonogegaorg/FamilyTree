@@ -97,7 +97,7 @@ sudo ./scripts/configure-service.sh family.example.com 5001 family example.com
 
 This creates the web directory, systemd unit, and Nginx config (HTTP→HTTPS and proxy to the app). The unit runs the app from `$WEB_ROOT/site` and loads env vars from `$WEB_ROOT/.env` if present (optional).
 
-**Pipeline behaviour:** The GitHub Actions deploy job generates `appsettings.json` on the runner, runs `dotnet publish` into `./site`, then SCPs `site/*` and `scripts/configure-service.sh` to the server. It runs **configure-service.sh** only when that script has changed or the systemd service file is missing; otherwise it copies the site output into `$DEPLOY_PATH/site`, ensures `$DEPLOY_PATH/logs` exists, and restarts the service. The **service_name** and **port** must match the `SERVICE_NAME` and `PORT` variables for that environment. For manual deploy, generate `appsettings.json` (e.g. from the template), publish into `./site`, then:
+**Pipeline behaviour:** The GitHub Actions deploy job generates `appsettings.json` on the runner, runs `dotnet publish` into `./site`, then SCPs `site/*` and `scripts/configure-service.sh` to the server. It runs **configure-service.sh** only when that script has changed or the systemd service file is missing; otherwise it copies the site output into `$DEPLOY_PATH/site`, ensures `$DEPLOY_PATH/logs` and `$DEPLOY_PATH/uploads` exist, and restarts the service. User uploads (e.g. profile photos) are stored under `$DEPLOY_PATH/uploads` and served at `/uploads`. The **service_name** and **port** must match the `SERVICE_NAME` and `PORT` variables for that environment. For manual deploy, generate `appsettings.json` (e.g. from the template), publish into `./site`, then:
 
 ```bash
 sudo systemctl restart family-dev

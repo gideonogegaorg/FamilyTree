@@ -121,13 +121,31 @@ jobs:
           fi
           exit $EXIT
 
+      - name: Generate HTML coverage report
+        if: always()
+        run: |
+          COBERTURA_FILES=$(find coverage -type f -name 'coverage.cobertura.xml' 2>/dev/null || true)
+          if [ -z "$COBERTURA_FILES" ]; then
+            echo "No coverage files found; skipping HTML report."
+            exit 0
+          fi
+          dotnet tool install -g dotnet-reportgenerator-globaltool
+          export PATH="$PATH:$HOME/.dotnet/tools"
+          REPORTS=$(echo "$COBERTURA_FILES" | tr '\n' ';' | sed 's/;$//')
+          mkdir -p coverage/combined
+          reportgenerator -reports:"$REPORTS" -targetdir:coverage/combined/html -reporttypes:Html || true
+          echo "HTML report in coverage/combined/html/index.html"
+
       - name: Upload coverage results
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: coverage-results
-          path: coverage/**/coverage.cobertura.xml
+          path: |
+            coverage/**/coverage.cobertura.xml
+            coverage/combined/
           retention-days: 30
+          if-no-files-found: ignore
 
   tag:
     if: github.event_name == 'push'
@@ -196,6 +214,7 @@ jobs:
       - name: Generate appsettings.json for deploy
         env:
           SERILOG_LOG_PATH: ${{ env.DEPLOY_PATH }}/logs
+          UPLOADS_PATH: ${{ env.DEPLOY_PATH }}/uploads
           TELEMETRY_ENVIRONMENT_NAME: ${{ github.ref_name }}
         run: bash scripts/generate-appsettings.sh
 
@@ -253,7 +272,7 @@ jobs:
             STAGING="/tmp/family-deploy-${{ github.run_id }}"
             trap 'rm -rf "$STAGING"' EXIT
             echo "[Deploy] Ensuring directory..."
-            sudo mkdir -p "$DEPLOY_PATH/site" "$DEPLOY_PATH/logs"
+            sudo mkdir -p "$DEPLOY_PATH/site" "$DEPLOY_PATH/logs" "$DEPLOY_PATH/uploads"
             sudo chown -R ubuntu:www-data "$DEPLOY_PATH"
             if [ "$SETUP_CHANGED" = "true" ] || [ ! -f "/etc/systemd/system/${SERVICE_NAME}.service" ]; then
               echo "[Deploy] Running configure-service.sh..."
