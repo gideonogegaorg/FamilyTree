@@ -145,23 +145,26 @@ jobs:
           script_stop: true
           envs: DEPLOY_PATH,BRANCH,SETUP_CHANGED,FULL_HOSTNAME,PORT,SERVICE_NAME,CERT_DOMAIN,GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET,ASSEMBLY_VERSION,DLL_VERSION,OPENTELEMETRY_ENABLED,OPENTELEMETRY_OTLPEXPORTENDPOINT,OPENTELEMETRY_LOGGINGENDPOINT,OPENTELEMETRY_HEADERS,OPENTELEMETRY_METRICSENDPOINT
           script: |
+            set -e
+            echo "[Deploy] Ensuring directory and permissions..."
             sudo mkdir -p $DEPLOY_PATH
             sudo chown -R ubuntu:www-data $DEPLOY_PATH
             cd $DEPLOY_PATH
-            # Use current repo URL so deploy works after repo move; GH_PAT must have repo access to github.repository
             REPO_URL="https://${{ secrets.GH_PAT }}@github.com/${{ github.repository }}.git"
             if [ ! -d .git ]; then
-              echo "Initial clone into $DEPLOY_PATH..."
+              echo "[Deploy] Initial clone..."
               git clone -b $BRANCH "$REPO_URL" .
             else
+              echo "[Deploy] Updating remote URL and fetching..."
               git remote set-url origin "$REPO_URL"
             fi
             git fetch origin $BRANCH
             git reset --hard origin/$BRANCH
             if [ "$SETUP_CHANGED" = "true" ] || [ ! -f "/etc/systemd/system/${SERVICE_NAME}.service" ]; then
-              echo "Running configure-service.sh (script changed or service missing)..."
+              echo "[Deploy] Running configure-service.sh..."
               sudo bash "$DEPLOY_PATH/scripts/configure-service.sh" "$FULL_HOSTNAME" "$PORT" "$SERVICE_NAME" "$CERT_DOMAIN"
             fi
+            echo "[Deploy] Writing .env..."
             echo "Authentication__Google__ClientId=$GOOGLE_CLIENT_ID" > .env
             echo "Authentication__Google__ClientSecret=$GOOGLE_CLIENT_SECRET" >> .env
             echo "FAMILY_LOG_PATH=$DEPLOY_PATH/logs" >> .env
@@ -175,13 +178,16 @@ jobs:
             chmod 600 .env
             mkdir -p ./logs
             sudo chown ubuntu:www-data ./logs
+            echo "[Deploy] Publishing..."
             dotnet publish src/GMO.Family.Web/GMO.Family.Web.csproj -c Release -o ./publish \
               -p:Version=$ASSEMBLY_VERSION \
               -p:AssemblyVersion=$ASSEMBLY_VERSION \
               -p:FileVersion=$ASSEMBLY_VERSION \
               -p:InformationalVersion=$DLL_VERSION
+            echo "[Deploy] Fixing ownership and restarting service..."
             sudo chown -R ubuntu:www-data $DEPLOY_PATH
             sudo systemctl restart $SERVICE_NAME
+            echo "[Deploy] Done."
 
       - name: Revoke Runner IP (Cleanup)
         if: always()
