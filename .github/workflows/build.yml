@@ -143,23 +143,39 @@ jobs:
           username: ubuntu
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script_stop: true
-          envs: DEPLOY_PATH,BRANCH,SETUP_CHANGED,FULL_HOSTNAME,PORT,SERVICE_NAME,CERT_DOMAIN,GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET,ASSEMBLY_VERSION,DLL_VERSION,OPENTELEMETRY_ENABLED,OPENTELEMETRY_OTLPEXPORTENDPOINT,OPENTELEMETRY_LOGGINGENDPOINT,OPENTELEMETRY_HEADERS,OPENTELEMETRY_METRICSENDPOINT
           script: |
             set -e
+            # Inline env so deploy works without SSH AcceptEnv (server often does not forward env)
+            DEPLOY_PATH='${{ env.DEPLOY_PATH }}'
+            BRANCH='${{ env.BRANCH }}'
+            SETUP_CHANGED='${{ env.SETUP_CHANGED }}'
+            FULL_HOSTNAME='${{ env.FULL_HOSTNAME }}'
+            PORT='${{ env.PORT }}'
+            SERVICE_NAME='${{ env.SERVICE_NAME }}'
+            CERT_DOMAIN='${{ env.CERT_DOMAIN }}'
+            GOOGLE_CLIENT_ID='${{ env.GOOGLE_CLIENT_ID }}'
+            GOOGLE_CLIENT_SECRET='${{ env.GOOGLE_CLIENT_SECRET }}'
+            ASSEMBLY_VERSION='${{ env.ASSEMBLY_VERSION }}'
+            DLL_VERSION='${{ env.DLL_VERSION }}'
+            OPENTELEMETRY_ENABLED='${{ env.OPENTELEMETRY_ENABLED }}'
+            OPENTELEMETRY_OTLPEXPORTENDPOINT='${{ env.OPENTELEMETRY_OTLPEXPORTENDPOINT }}'
+            OPENTELEMETRY_LOGGINGENDPOINT='${{ env.OPENTELEMETRY_LOGGINGENDPOINT }}'
+            OPENTELEMETRY_HEADERS='${{ env.OPENTELEMETRY_HEADERS }}'
+            OPENTELEMETRY_METRICSENDPOINT='${{ env.OPENTELEMETRY_METRICSENDPOINT }}'
             echo "[Deploy] Ensuring directory and permissions..."
-            sudo mkdir -p $DEPLOY_PATH
-            sudo chown -R ubuntu:www-data $DEPLOY_PATH
-            cd $DEPLOY_PATH
+            sudo mkdir -p "$DEPLOY_PATH"
+            sudo chown -R ubuntu:www-data "$DEPLOY_PATH"
+            cd "$DEPLOY_PATH"
             REPO_URL="https://${{ secrets.GH_PAT }}@github.com/${{ github.repository }}.git"
             if [ ! -d .git ]; then
               echo "[Deploy] Initial clone..."
-              git clone -b $BRANCH "$REPO_URL" .
+              git clone -b "$BRANCH" "$REPO_URL" .
             else
               echo "[Deploy] Updating remote URL and fetching..."
               git remote set-url origin "$REPO_URL"
             fi
-            git fetch origin $BRANCH
-            git reset --hard origin/$BRANCH
+            git fetch origin "$BRANCH"
+            git reset --hard "origin/$BRANCH"
             if [ "$SETUP_CHANGED" = "true" ] || [ ! -f "/etc/systemd/system/${SERVICE_NAME}.service" ]; then
               echo "[Deploy] Running configure-service.sh..."
               sudo bash "$DEPLOY_PATH/scripts/configure-service.sh" "$FULL_HOSTNAME" "$PORT" "$SERVICE_NAME" "$CERT_DOMAIN"
@@ -185,8 +201,8 @@ jobs:
               -p:FileVersion=$ASSEMBLY_VERSION \
               -p:InformationalVersion=$DLL_VERSION
             echo "[Deploy] Fixing ownership and restarting service..."
-            sudo chown -R ubuntu:www-data $DEPLOY_PATH
-            sudo systemctl restart $SERVICE_NAME
+            sudo chown -R ubuntu:www-data "$DEPLOY_PATH"
+            sudo systemctl restart "$SERVICE_NAME"
             echo "[Deploy] Done."
 
       - name: Revoke Runner IP (Cleanup)
