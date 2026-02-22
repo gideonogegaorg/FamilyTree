@@ -1,13 +1,25 @@
 using System.Diagnostics;
-using Microsoft.AspNetCore.Mvc;
 using Family.Web.Models;
+using Family.Web.Options;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 
 namespace Family.Web.Controllers;
 
 public class HomeController : Controller
 {
+    private readonly IOptionsMonitor<GoogleAuthOptions> _googleAuth;
+
+    public HomeController(IOptionsMonitor<GoogleAuthOptions> googleAuth)
+    {
+        _googleAuth = googleAuth;
+    }
+
+    [AllowAnonymous]
     public IActionResult Index()
     {
+        ViewBag.GoogleAuthEnabled = _googleAuth.CurrentValue.Enabled;
         return View();
     }
 
@@ -16,6 +28,7 @@ public class HomeController : Controller
         return View();
     }
 
+    [AllowAnonymous]
     [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
     public IActionResult Error()
     {
