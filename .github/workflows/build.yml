@@ -20,8 +20,13 @@ jobs:
           dotnet-version: '10.0.x'
       - name: Generate appsettings.json
         run: bash scripts/generate-appsettings.sh
+      - name: Configure NuGet auth for GMO feed
+        run: dotnet nuget update source GMO --username "$GITHUB_USERNAME" --password "$GITHUB_PAT" --store-password-in-clear-text
+        working-directory: src
+      - name: Restore
+        run: dotnet restore src/GMO.Family.sln
       - name: Verify format
-        run: dotnet format src/GMO.Family.sln --verify-no-changes
+        run: dotnet format src/GMO.Family.sln --verify-no-changes --no-restore
 
   build:
     runs-on: ubuntu-latest
