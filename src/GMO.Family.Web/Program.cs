@@ -45,7 +45,10 @@ builder.Host.UseSerilog((context, services, loggerConfig) =>
 
 var otelBuilder = builder.Services.AddOpenTelemetry();
 
-if (telemetryOptions.Enabled)
+var otlpEndpoint = builder.Configuration["Telemetry:Otlp:Endpoint"];
+var hasOtlpEndpoint = !string.IsNullOrWhiteSpace(otlpEndpoint);
+
+if (telemetryOptions.Enabled && hasOtlpEndpoint)
 {
     builder.Services.AddSingleton<TruncatingSpanProcessor>();
 
