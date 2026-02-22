@@ -95,9 +95,9 @@ sudo ./scripts/configure-service.sh family-dev.example.com 5002 family-dev examp
 sudo ./scripts/configure-service.sh family.example.com 5001 family example.com
 ```
 
-This creates the web directory, systemd unit, and Nginx config (HTTP→HTTPS and proxy to the app). The unit runs the app from `$WEB_ROOT/publish` and loads env vars from `$WEB_ROOT/.env`.
+This creates the web directory, systemd unit, and Nginx config (HTTP→HTTPS and proxy to the app). The unit runs the app from `$WEB_ROOT/site` and loads env vars from `$WEB_ROOT/.env` if present (optional).
 
-**Pipeline behaviour:** The GitHub Actions deploy job uses a "git in place" flow: it clones (or updates) the repo into the deploy path, then runs **configure-service.sh** only when the script file has changed (detected by `dorny/paths-filter`) or when the systemd service file for that environment is missing. It then writes `.env` from repository (or environment) secrets: `Authentication__Google__*`, `FAMILY_LOG_PATH`, `Serilog__WriteTo__1__Args__path` (log directory sibling to `./publish`), `Telemetry__EnvironmentName` (main/dev), and when set, `Telemetry__Enabled`, `Telemetry__Otlp__Endpoint`, `Telemetry__Otlp__Headers`, `Telemetry__MetricsEndpoint`, `Telemetry__LoggingEndpoint`. It creates `./logs` and runs `dotnet publish` into `./publish`, then restarts the service. The **service_name** and **port** must match the `SERVICE_NAME` and `PORT` variables for that environment. For manual deploy, ensure `.env` exists in the web root, publish into `./publish`, then:
+**Pipeline behaviour:** The GitHub Actions deploy job generates `appsettings.json` on the runner, runs `dotnet publish` into `./site`, then SCPs `site/*` and `scripts/configure-service.sh` to the server. It runs **configure-service.sh** only when that script has changed or the systemd service file is missing; otherwise it copies the site output into `$DEPLOY_PATH/site`, ensures `$DEPLOY_PATH/logs` exists, and restarts the service. The **service_name** and **port** must match the `SERVICE_NAME` and `PORT` variables for that environment. For manual deploy, generate `appsettings.json` (e.g. from the template), publish into `./site`, then:
 
 ```bash
 sudo systemctl restart family-dev
@@ -117,7 +117,7 @@ sudo chmod -R 775 /var/www/<subdomain>
 
 #### 2. Systemd service
 
-Create `/etc/systemd/system/<service_name>.service` with `WorkingDirectory` set to `/var/www/<subdomain>/publish`, `ExecStart` pointing at the DLL in that directory and your chosen port, and `EnvironmentFile=/var/www/<subdomain>/.env` so the app can load secrets (e.g. Google auth).
+Create `/etc/systemd/system/<service_name>.service` with `WorkingDirectory` set to `/var/www/<subdomain>/site`, `ExecStart` pointing at the DLL in that directory and your chosen port, and optionally `EnvironmentFile=-/var/www/<subdomain>/.env` so the app can load extra env vars (e.g. overrides).
 
 #### 3. Nginx
 

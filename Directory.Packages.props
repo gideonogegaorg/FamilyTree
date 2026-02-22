@@ -7,6 +7,7 @@
     <PackageVersion Include="GMO.OpenTelemetry.Serilog" Version="2026.2.52165.12282" />
     <PackageVersion Include="Microsoft.AspNetCore.Authentication.Google" Version="10.0.1" />
     <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.15.0" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.15.0" />
     <PackageVersion Include="Serilog.Enrichers.Environment" Version="3.0.1" />
     <PackageVersion Include="Serilog.Enrichers.Process" Version="3.0.0" />
     <PackageVersion Include="Serilog.Enrichers.Thread" Version="4.0.0" />

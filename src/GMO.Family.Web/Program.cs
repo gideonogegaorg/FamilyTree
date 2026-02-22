@@ -3,6 +3,9 @@ using GMO.Family.Web.Extensions;
 using GMO.Family.Web.Options;
 using GMO.OpenTelemetry;
 using GMO.OpenTelemetry.Serilog;
+using OpenTelemetry.Exporter;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -26,6 +29,45 @@ builder.Host.UseSerilog((context, services, loggerConfig) =>
 });
 
 var otelBuilder = builder.Services.AddOpenTelemetry();
+
+if (telemetryOptions.Enabled)
+{
+    builder.Services.AddSingleton<TruncatingSpanProcessor>();
+
+    otelBuilder.ConfigureResource(res => res
+        .AddService(telemetryOptions.ServiceName, serviceVersion: telemetryOptions.Version)
+        .AddEnvironmentVariableDetector()
+        .AddTelemetrySdk()
+        .AddAttributes(telemetryOptions.Attributes)
+    );
+
+    builder.Services.Configure<OtlpExporterOptions>(builder.Configuration.GetSection("Telemetry:Otlp"));
+
+    if (telemetryOptions.TraceSourceNames.Any())
+    {
+        otelBuilder.WithTracing(tracing =>
+        {
+            tracing
+                .SetSampler(new AlwaysOnSampler())
+                .AddSource(telemetryOptions.TraceSourceNames.ToArray())
+                .AddAspNetCoreInstrumentation()
+                .AddOtlpExporter(opt =>
+                {
+                    opt.BatchExportProcessorOptions.MaxQueueSize = telemetryOptions.TracesMaxQueueSize;
+                    opt.BatchExportProcessorOptions.ScheduledDelayMilliseconds = telemetryOptions.TracesExportDelayMs;
+                    opt.BatchExportProcessorOptions.ExporterTimeoutMilliseconds = telemetryOptions.TracesExportTimeoutMs;
+                    opt.BatchExportProcessorOptions.MaxExportBatchSize = telemetryOptions.TracesMaxBatchSize;
+                })
+                .AddProcessor(sp => sp.GetRequiredService<TruncatingSpanProcessor>());
+
+            if (telemetryOptions.EnableHttpInstrumentation)
+            {
+                tracing.AddHttpClientInstrumentation(x => x.RecordException = true);
+            }
+        });
+    }
+}
+
 builder.Services.AddMetrics(otelBuilder, telemetryOptions, _ => { });
 
 // Add services to the container.

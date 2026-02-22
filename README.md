@@ -75,7 +75,7 @@ On the server, the deployed DLL’s **InformationalVersion** is set by the pipel
 - **From the DLL** (SSH into the server):
   ```bash
   DEPLOY_PATH=/var/www/family.example.com   # or family-dev.example.com for dev
-  strings "$DEPLOY_PATH/publish/GMO.Family.Web.dll" | grep -E '^(DEV-)?[0-9]{12,}$'
+  strings "$DEPLOY_PATH/site/GMO.Family.Web.dll" | grep -E '^(DEV-)?[0-9]{12,}$'
   ```
 
 - **From the live site**:
@@ -93,4 +93,4 @@ sudo ./scripts/configure-service.sh <subdomain> <port> <service_name> [cert_doma
 # Then: sudo systemctl restart family-dev
 ```
 
-This creates the web directory, systemd service, and Nginx config. The pipeline runs this script **only when** `scripts/configure-service.sh` has changed or the systemd service file is missing; otherwise it just copies the publish output and restarts the service. Full prerequisites and manual steps: [docs/configure-service.md](docs/configure-service.md).
+This creates the web directory, systemd service, and Nginx config. The pipeline runs this script **only when** `scripts/configure-service.sh` has changed or the systemd service file is missing; otherwise it just copies the site output and restarts the service. Full prerequisites and manual steps: [docs/configure-service.md](docs/configure-service.md).

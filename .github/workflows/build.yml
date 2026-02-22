@@ -141,7 +141,7 @@ jobs:
 
       - name: Publish
         run: |
-          dotnet publish src/GMO.Family.Web/GMO.Family.Web.csproj -c Release -o ./publish \
+          dotnet publish src/GMO.Family.Web/GMO.Family.Web.csproj -c Release -o ./site \
             -p:Version=${{ env.ASSEMBLY_VERSION }} \
             -p:AssemblyVersion=${{ env.ASSEMBLY_VERSION }} \
             -p:FileVersion=${{ env.ASSEMBLY_VERSION }} \
@@ -164,13 +164,13 @@ jobs:
             --group-id ${{ secrets.SEC_GROUP_ID }} \
             --protocol tcp --port 22 --cidr ${{ steps.ip.outputs.ipv4 }}/32
 
-      - name: Copy publish output to EC2
+      - name: Copy site output to EC2
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.REMOTE_HOST }}
           username: ubuntu
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: "publish/*,scripts/configure-service.sh"
+          source: "site/*,scripts/configure-service.sh"
           target: "/tmp/family-deploy-${{ github.run_id }}"
 
       - name: Deploy to EC2 via SSH
@@ -191,20 +191,19 @@ jobs:
             SERVICE_NAME='${{ env.SERVICE_NAME }}'
             CERT_DOMAIN='${{ env.CERT_DOMAIN }}'
             STAGING="/tmp/family-deploy-${{ github.run_id }}"
+            trap 'rm -rf "$STAGING"' EXIT
             echo "[Deploy] Ensuring directory..."
-            sudo mkdir -p "$DEPLOY_PATH/publish" "$DEPLOY_PATH/logs"
+            sudo mkdir -p "$DEPLOY_PATH/site" "$DEPLOY_PATH/logs"
             sudo chown -R ubuntu:www-data "$DEPLOY_PATH"
             if [ "$SETUP_CHANGED" = "true" ] || [ ! -f "/etc/systemd/system/${SERVICE_NAME}.service" ]; then
               echo "[Deploy] Running configure-service.sh..."
               sudo bash "$STAGING/scripts/configure-service.sh" "$FULL_HOSTNAME" "$PORT" "$SERVICE_NAME" "$CERT_DOMAIN"
             fi
-            echo "[Deploy] Copying publish output..."
-            cp -r "$STAGING/publish/"* "$DEPLOY_PATH/publish/"
+            echo "[Deploy] Copying site output..."
+            cp -r "$STAGING/site/"* "$DEPLOY_PATH/site/"
             sudo chown -R ubuntu:www-data "$DEPLOY_PATH"
             echo "[Deploy] Restarting service..."
             sudo systemctl restart "$SERVICE_NAME"
-            echo "[Deploy] Cleaning up staging..."
-            rm -rf "$STAGING"
             echo "[Deploy] Done."
 
       - name: Revoke Runner IP (Cleanup)
