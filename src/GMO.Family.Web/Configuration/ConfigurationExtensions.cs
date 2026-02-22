@@ -1,4 +1,4 @@
-namespace Family.Web.Configuration;
+namespace GMO.Family.Web.Configuration;
 
 /// <summary>
 /// Extension methods for <see cref="IConfiguration"/>.

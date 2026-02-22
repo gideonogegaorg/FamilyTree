@@ -1,8 +1,8 @@
-using Family.Web.Configuration;
+using GMO.Family.Web.Configuration;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Options;
 
-namespace Family.Web.Options;
+namespace GMO.Family.Web.Options;
 
 /// <summary>
 /// Google authentication configuration. Resolved from config keys (Authentication:Google:ClientId/ClientSecret)

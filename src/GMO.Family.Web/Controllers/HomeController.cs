@@ -1,11 +1,11 @@
 using System.Diagnostics;
-using Family.Web.Models;
-using Family.Web.Options;
+using GMO.Family.Web.Models;
+using GMO.Family.Web.Options;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Options;
 
-namespace Family.Web.Controllers;
+namespace GMO.Family.Web.Controllers;
 
 public class HomeController : Controller
 {

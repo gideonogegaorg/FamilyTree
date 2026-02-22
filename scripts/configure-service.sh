@@ -27,7 +27,7 @@ PORT=$2
 SERVICE_NAME=$3
 CERT_DOMAIN=${4:-example.com}
 WEB_ROOT="/var/www/$DEPLOY_DOMAIN"
-DLL_NAME="Family.Web.dll" # Change this if your DLL name varies per project
+DLL_NAME="GMO.Family.Web.dll" # Change this if your DLL name varies per project
 
 # Ensure running as root
 if [ "$EUID" -ne 0 ]; then

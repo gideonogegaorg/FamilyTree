@@ -1,4 +1,4 @@
-namespace Family.Web.Models;
+namespace GMO.Family.Web.Models;
 
 public class ErrorViewModel
 {
