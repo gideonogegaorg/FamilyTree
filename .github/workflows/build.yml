@@ -10,9 +10,10 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-    # GH_CLASSIC_PAT must have read:packages so restore can pull GMO.* from GitHub Packages
+    # GITHUB_USERNAME + GITHUB_PAT match %GITHUB_USERNAME% / %GITHUB_PAT% in nuget.config packageSourceCredentials
     env:
-      NUGET_AUTH_TOKEN: ${{ secrets.GH_CLASSIC_PAT }}
+      GITHUB_USERNAME: gideonogega
+      GITHUB_PAT: ${{ secrets.GH_CLASSIC_PAT }}
     outputs:
       assembly_version: ${{ steps.setversion.outputs.assembly_version }}
       dll_version: ${{ steps.setversion.outputs.dll_version }}
@@ -36,8 +37,8 @@ jobs:
 
       - name: Check NuGet auth for GMO feed
         run: |
-          if [ -z "$NUGET_AUTH_TOKEN" ]; then
-            echo "::error::NUGET_AUTH_TOKEN is empty. Add repository secret GH_CLASSIC_PAT (with read:packages) in this repo, or ensure the org secret is available to this repository."
+          if [ -z "$GITHUB_PAT" ]; then
+            echo "::error::GITHUB_PAT is empty. Add repository secret GH_CLASSIC_PAT (with read:packages) in this repo."
             exit 1
           fi
 
