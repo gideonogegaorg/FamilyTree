@@ -10,6 +10,9 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    # GH_CLASSIC_PAT must have read:packages so restore can pull GMO.* from GitHub Packages
+    env:
+      NUGET_AUTH_TOKEN: ${{ secrets.GH_CLASSIC_PAT }}
     outputs:
       assembly_version: ${{ steps.setversion.outputs.assembly_version }}
       dll_version: ${{ steps.setversion.outputs.dll_version }}
