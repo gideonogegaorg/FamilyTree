@@ -1,10 +1,12 @@
+using GMO.Family.Web.Data;
 using GMO.Family.Web.Options;
 
-using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Authentication.Google;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 
 namespace GMO.Family.Web.Extensions;
 
@@ -24,34 +26,48 @@ public static class AuthenticationExtensions
     }
 
     /// <summary>
-    /// Registers Google authentication when ClientId and ClientSecret are configured.
-    /// Use IOptionsMonitor&lt;GoogleAuthOptions&gt; to pick up config changes at runtime.
+    /// Registers ASP.NET Core Identity and optionally Google as an external provider.
+    /// Login path is set to /Account/Login. UseAuthentication() must always be called when using this.
+    /// When environment is Testing, the fallback "require authenticated user" policy is not applied so integration tests can hit endpoints without auth.
     /// </summary>
-    /// <returns>True if Google auth was enabled (so the app should call UseAuthentication()).</returns>
-    public static bool AddGoogleAuthentication(this IServiceCollection services, IConfiguration configuration)
+    /// <returns>True if Google auth was enabled (for optional UI hints).</returns>
+    public static bool AddFamilyAuthentication(this IServiceCollection services, IConfiguration configuration, IHostEnvironment? hostEnvironment = null)
     {
         services.AddOptions<GoogleAuthOptions>()
             .Configure<IConfiguration>((options, config) => new ConfigureGoogleAuthOptions(config).Configure(options));
 
-        var googleAuth = configuration.GetGoogleAuthOptions();
-        if (!googleAuth.Enabled)
-            return false;
-
         services
-            .AddAuthentication(CookieAuthenticationDefaults.AuthenticationScheme)
-            .AddCookie(options =>
+            .AddIdentity<IdentityUser, IdentityRole>(options =>
             {
-                options.LoginPath = "/";
-                options.AccessDeniedPath = "/";
+                options.Password.RequireDigit = true;
+                options.Password.RequireLowercase = true;
+                options.Password.RequireUppercase = true;
+                options.Password.RequireNonAlphanumeric = false;
+                options.Password.RequiredLength = 6;
             })
-            .AddGoogle(GoogleDefaults.AuthenticationScheme, options =>
+            .AddEntityFrameworkStores<AppDbContext>()
+            .AddDefaultTokenProviders();
+
+        services.ConfigureApplicationCookie(options =>
+        {
+            options.LoginPath = "/Account/Login";
+            options.AccessDeniedPath = "/Account/AccessDenied";
+        });
+
+        var googleAuth = configuration.GetGoogleAuthOptions();
+        if (googleAuth.Enabled)
+        {
+            services.AddAuthentication().AddGoogle(GoogleDefaults.AuthenticationScheme, options =>
             {
                 options.ClientId = googleAuth.ClientId!;
                 options.ClientSecret = googleAuth.ClientSecret!;
             });
-        services.AddAuthorizationBuilder()
-            .SetFallbackPolicy(new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build());
+        }
 
-        return true;
+        var authBuilder = services.AddAuthorizationBuilder();
+        if (hostEnvironment?.IsEnvironment("Testing") != true)
+            authBuilder.SetFallbackPolicy(new AuthorizationPolicyBuilder().RequireAuthenticatedUser().Build());
+
+        return googleAuth.Enabled;
     }
 }

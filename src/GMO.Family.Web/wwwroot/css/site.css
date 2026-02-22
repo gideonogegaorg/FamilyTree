@@ -29,3 +29,8 @@ body {
 .form-floating > .form-control-plaintext:focus::placeholder, .form-floating > .form-control:focus::placeholder {
   text-align: start;
 }
+
+/* User menu: show "Add or change your picture" on dropdown profile image hover */
+.dropdown-photo-link:hover .user-menu-change-picture-hint {
+  opacity: 1 !important;
+}

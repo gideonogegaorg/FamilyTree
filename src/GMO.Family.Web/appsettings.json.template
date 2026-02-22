@@ -1,4 +1,7 @@
 {
+  "ConnectionStrings": {
+    "DefaultConnection": "^^POSTGRES_CONNECTION_STRING^^"
+  },
   "Serilog": {
     "Using": [ "Serilog.Sinks.Console", "Serilog.Sinks.File" ],
     "MinimumLevel": "Information",

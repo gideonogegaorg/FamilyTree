@@ -1,0 +1,14 @@
+@{
+    Layout = "_LayoutLogin";
+    ViewData["Title"] = "Access denied";
+}
+
+<div class="card login-card mx-auto bg-white p-4">
+    <div class="card-body p-0">
+        <h1 class="h4 mb-4 fw-bold text-dark">Family Tree</h1>
+        <p class="mb-3 text-danger">You do not have access to this resource.</p>
+        <p class="mb-0 text-center small">
+            <a asp-controller="Home" asp-action="Index" class="text-primary text-decoration-none">Back to home</a>
+        </p>
+    </div>
+</div>
