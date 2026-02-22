@@ -1,6 +1,6 @@
 using System.Collections;
 
-namespace Family.Web.Configuration;
+namespace GMO.Family.Web.Configuration;
 
 /// <summary>
 /// Loads environment variables from Process, User, and Machine (Windows System) so that

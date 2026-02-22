@@ -1,17 +1,17 @@
-# Family
+# GMO.Family
 
 ASP.NET Core MVC app skeleton. Solution and project live under `src/`.
 
 ## Build
 
 ```bash
-dotnet build src/Family.sln
+dotnet build src/GMO.Family.sln
 ```
 
 ## Run
 
 ```bash
-dotnet run --project src/Family.Web
+dotnet run --project src/GMO.Family.Web
 ```
 
 Then open https://localhost:5001 (or the URL shown in the console).
@@ -42,7 +42,7 @@ On the server, the deployed DLL’s **InformationalVersion** is set by the pipel
 - **From the DLL** (SSH into the server):
   ```bash
   DEPLOY_PATH=/var/www/family.gideonogega.com   # or family-dev.gideonogega.com for dev
-  strings "$DEPLOY_PATH/publish/Family.Web.dll" | grep -E '^(DEV-)?[0-9]{12,}$'
+  strings "$DEPLOY_PATH/publish/GMO.Family.Web.dll" | grep -E '^(DEV-)?[0-9]{12,}$'
   ```
 
 - **From the live site**:
