@@ -1,9 +1,11 @@
 using System.Threading.Tasks;
 
 using GMO.Family.Web;
+using GMO.Family.Web.Data;
 
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.DependencyInjection;
 
 using Npgsql;
 
@@ -22,18 +24,25 @@ public sealed class WebAppFixture : WebApplicationFactory<WebAppEntry>, IDisposa
     private bool _initialized;
     private readonly object _initLock = new();
 
-    public new HttpClient CreateClient()
+    public HttpClient CreateClient(bool signIn = true)
     {
         EnsureDatabaseCreated();
-        var client = base.CreateClient(new Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactoryClientOptions
+        var client = base.CreateClient(new WebApplicationFactoryClientOptions
         {
             AllowAutoRedirect = false,
             HandleCookies = true
         });
-        // Sign in as test user so FamilyTree actions (which require OwnerId) succeed
-        client.GetAsync("/TestAuth/SignIn").GetAwaiter().GetResult();
+        if (signIn)
+            client.GetAsync("/TestAuth/SignIn").GetAwaiter().GetResult();
         return client;
     }
+
+    /// <summary>
+    /// Creates a scope and returns the test app's <see cref="AppDbContext"/> for DB assertions (e.g. after Register/Login).
+    /// </summary>
+    public IServiceScope CreateScope() => Services.CreateScope();
+
+    public AppDbContext GetDbContext(IServiceScope scope) => scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
     private void EnsureDatabaseCreated()
     {
