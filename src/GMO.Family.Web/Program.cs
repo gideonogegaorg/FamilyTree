@@ -9,6 +9,7 @@ using GMO.OpenTelemetry;
 using GMO.OpenTelemetry.Serilog;
 
 using Microsoft.EntityFrameworkCore;
+
 using Npgsql;
 using Npgsql.EntityFrameworkCore.PostgreSQL;
 
