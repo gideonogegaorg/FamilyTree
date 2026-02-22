@@ -4,6 +4,7 @@ using GMO.Family.Web;
 using GMO.Family.Web.Data;
 
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Mvc.ApplicationParts;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -74,6 +75,11 @@ public sealed class WebAppFixture : WebApplicationFactory<WebAppEntry>, IDisposa
     {
         builder.UseSetting("ConnectionStrings:DefaultConnection", _testConnectionString);
         builder.UseEnvironment("Testing");
+        builder.ConfigureServices((_, services) =>
+        {
+            var testAssembly = typeof(Controllers.TestAuthController).Assembly;
+            services.AddControllersWithViews().AddApplicationPart(testAssembly);
+        });
     }
 
     protected override void Dispose(bool disposing)

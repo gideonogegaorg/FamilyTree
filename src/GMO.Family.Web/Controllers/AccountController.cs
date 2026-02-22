@@ -26,6 +26,7 @@ public class AccountController : Controller
     private readonly IDefaultFamilyTreeService _defaultFamilyTree;
     private readonly IWebHostEnvironment _env;
     private readonly PathsOptions _paths;
+    private readonly IExternalLoginInfoProvider _externalLoginInfo;
 
     public AccountController(
         SignInManager<IdentityUser> signInManager,
@@ -36,7 +37,8 @@ public class AccountController : Controller
         ICurrentFamilyTreeService currentFamilyTree,
         IDefaultFamilyTreeService defaultFamilyTree,
         IWebHostEnvironment env,
-        IOptions<PathsOptions> paths)
+        IOptions<PathsOptions> paths,
+        IExternalLoginInfoProvider externalLoginInfo)
     {
         _signInManager = signInManager;
         _userManager = userManager;
@@ -47,6 +49,7 @@ public class AccountController : Controller
         _defaultFamilyTree = defaultFamilyTree;
         _env = env;
         _paths = paths.Value;
+        _externalLoginInfo = externalLoginInfo;
     }
 
     [AllowAnonymous]
@@ -106,7 +109,7 @@ public class AccountController : Controller
         if (remoteErrorResult != null)
             return remoteErrorResult;
 
-        var info = await _signInManager.GetExternalLoginInfoAsync();
+        var info = await _externalLoginInfo.GetExternalLoginInfoAsync(cancellationToken);
         if (info == null)
             return RedirectToAction(nameof(Login), new { returnUrl });
 
