@@ -143,8 +143,8 @@ jobs:
           username: ubuntu
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script_stop: true
+          debug: true
           script: |
-            exec 2>&1
             set -e
             DEPLOY_PATH='${{ env.DEPLOY_PATH }}'
             BRANCH='${{ env.BRANCH }}'
