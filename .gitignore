@@ -30,6 +30,10 @@ ScaffoldingReadMe.txt
 # dotenv environment variables file
 .env
 
+# appsettings.json is generated from template; do not commit
+appsettings.json
+appsettings.*.json
+
 # Others
 ~$*
 *~
