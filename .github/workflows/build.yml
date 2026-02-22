@@ -18,8 +18,8 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
-      - name: Install dotnet-format
-        run: dotnet tool install -g dotnet-format
+      - name: Generate appsettings.json
+        run: bash scripts/generate-appsettings.sh
       - name: Verify format
         run: dotnet format src/GMO.Family.sln --verify-no-changes
 
