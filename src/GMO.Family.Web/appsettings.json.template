@@ -9,7 +9,7 @@
       {
         "Name": "File",
         "Args": {
-          "path": "../../logs/log-.txt",
+          "path": "^^SERILOG_LOG_PATH^^/log-.txt",
           "rollingInterval": "Day",
           "fileSizeLimitBytes": 256000000,
           "rollOnFileSizeLimit": true,
@@ -30,14 +30,21 @@
     }
   },
   "Telemetry": {
-    "Enabled": false,
-    "EnableLogging": true
+    "Enabled": ^^OPENTELEMETRY_ENABLED^^,
+    "EnableLogging": true,
+    "EnvironmentName": "^^TELEMETRY_ENVIRONMENT_NAME^^",
+    "Otlp": {
+      "Endpoint": "^^OPENTELEMETRY_OTLPEXPORTENDPOINT^^",
+      "Headers": "^^OPENTELEMETRY_HEADERS^^"
+    },
+    "MetricsEndpoint": "^^OPENTELEMETRY_METRICSENDPOINT^^",
+    "LoggingEndpoint": "^^OPENTELEMETRY_LOGGINGENDPOINT^^"
   },
   "AllowedHosts": "*",
   "Authentication": {
     "Google": {
-      "ClientId": "",
-      "ClientSecret": ""
+      "ClientId": "^^GOOGLE_CLIENT_ID^^",
+      "ClientSecret": "^^GOOGLE_CLIENT_SECRET^^"
     }
   }
 }

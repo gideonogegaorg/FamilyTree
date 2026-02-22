@@ -1,5 +1,4 @@
 using GMO.Family.Web;
-using GMO.Family.Web.Configuration;
 using GMO.Family.Web.Extensions;
 using GMO.Family.Web.Options;
 using GMO.OpenTelemetry;
@@ -7,9 +6,6 @@ using GMO.OpenTelemetry.Serilog;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
-
-// Load env vars from Process, User, and Machine (Windows System) so Configuration["VAR"] picks them up everywhere.
-builder.Configuration.Sources.Add(new AllScopesEnvironmentVariablesConfigurationSource());
 
 var telemetryOptions = new FamilyOpenTelemetryOptions();
 builder.Configuration.GetSection("Telemetry").Bind(telemetryOptions);

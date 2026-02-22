@@ -2,6 +2,27 @@
 
 ASP.NET Core MVC app skeleton. Solution and project live under `src/`. Uses central package management ([Directory.Packages.props](Directory.Packages.props)), Serilog, and GMO OpenTelemetry packages from the org NuGet feed.
 
+## Local setup
+
+`appsettings.json` is **gitignored** and generated from [appsettings.json.template](src/GMO.Family.Web/appsettings.json.template). To set up for local dev:
+
+```bash
+# Option A: use the helper script (sets safe defaults for all placeholders)
+bash scripts/generate-appsettings.sh
+
+# Option B: copy and edit manually
+cp src/GMO.Family.Web/appsettings.json.template src/GMO.Family.Web/appsettings.json
+# Then replace ^^PLACEHOLDER^^ tokens with your values
+```
+
+You can override specific placeholders with env vars before running the script:
+
+```bash
+export SERILOG_LOG_PATH=../../logs
+export OPENTELEMETRY_ENABLED=false
+bash scripts/generate-appsettings.sh
+```
+
 ## Build
 
 ```bash
@@ -20,10 +41,12 @@ Then open https://localhost:7295 (HTTPS) or http://localhost:5229 (HTTP) from [l
 
 ## Deploy
 
-Pushes to `main` and `dev` trigger GitHub Actions to build and deploy to EC2. You can also run the workflow manually (Actions → Build and Deploy → Run workflow) and choose the branch.
+Pushes to `main` and `dev` trigger GitHub Actions to build, publish, and deploy to EC2. You can also run the workflow manually (Actions > Build and Deploy > Run workflow) and choose the branch.
 
 - **main** → `https://family.<DEPLOY_DOMAIN>`
 - **dev** → `https://family-dev.<DEPLOY_DOMAIN>`
+
+The pipeline generates `appsettings.json` from the template with real secrets on the **runner**, then publishes and copies the output to EC2 via SCP. No secrets are passed over SSH.
 
 The deploy job uses GitHub **Environments** (`main` and `dev`). For each environment, configure:
 
@@ -34,12 +57,12 @@ The deploy job uses GitHub **Environments** (`main` and `dev`). For each environ
 **Repository secrets** (required for CI on private repos; org secrets are not available to private repos on some plans):
 
 - **GH_USER**: GitHub username or org name used for NuGet auth (mapped to `GITHUB_USERNAME` in CI).
-- **GH_CLASSIC_PAT**: Classic PAT with `read:packages` so the build can restore GMO.* packages from GitHub Packages. Also used for deploy git clone (or use a separate **GH_PAT** for deploy).
-- **DEPLOY_DOMAIN**, **GOOGLE_CLIENT_ID**, **GOOGLE_CLIENT_SECRET**, and deploy secrets (AWS, SSH, etc.) as needed.
+- **GH_CLASSIC_PAT**: Classic PAT with `read:packages` so the build can restore GMO.* packages from GitHub Packages.
+- **DEPLOY_DOMAIN** and deploy secrets (AWS, SSH, etc.) as needed.
 
-Optional for OpenTelemetry (pipeline writes these to `.env` when set): **OPENTELEMETRY_ENABLED**, **OPENTELEMETRY_OTLPEXPORTENDPOINT**, **OPENTELEMETRY_HEADERS**, **OPENTELEMETRY_METRICSENDPOINT**, **OPENTELEMETRY_LOGGINGENDPOINT**. `Telemetry__EnvironmentName` is set automatically to `main` or `dev`.
+Optional for OpenTelemetry (baked into `appsettings.json` during deploy): **OPENTELEMETRY_ENABLED**, **OPENTELEMETRY_OTLPEXPORTENDPOINT**, **OPENTELEMETRY_HEADERS**, **OPENTELEMETRY_METRICSENDPOINT**, **OPENTELEMETRY_LOGGINGENDPOINT**. `Telemetry.EnvironmentName` is set automatically to `main` or `dev`.
 
-Optional for Google sign-in: **GOOGLE_CLIENT_ID** and **GOOGLE_CLIENT_SECRET**. When both are set, the pipeline writes them to `$DEPLOY_PATH/.env` and the site requires sign-in except on the home and error pages.
+Optional for Google sign-in: **GOOGLE_CLIENT_ID** and **GOOGLE_CLIENT_SECRET**. When both are set, the site requires sign-in except on the home and error pages.
 
 **Settings → Secrets and variables → Actions** (repository) and **Settings → Environments → [main | dev]** (environment variables / secrets).
 
@@ -70,4 +93,4 @@ sudo ./scripts/configure-service.sh <subdomain> <port> <service_name> [cert_doma
 # Then: sudo systemctl restart family-dev
 ```
 
-This creates the web directory, systemd service, and Nginx config. The pipeline runs this script **only when** `scripts/configure-service.sh` has changed or the systemd service file is missing; otherwise it just updates code, writes `.env`, publishes to `./publish`, and restarts the service. You can run the script manually from the deployed directory (e.g. `sudo /var/www/family.example.com/scripts/configure-service.sh ...`). Full prerequisites and manual steps: [docs/configure-service.md](docs/configure-service.md).
+This creates the web directory, systemd service, and Nginx config. The pipeline runs this script **only when** `scripts/configure-service.sh` has changed or the systemd service file is missing; otherwise it just copies the publish output and restarts the service. Full prerequisites and manual steps: [docs/configure-service.md](docs/configure-service.md).
