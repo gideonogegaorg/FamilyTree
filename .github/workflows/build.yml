@@ -68,7 +68,7 @@ jobs:
   # Uses GitHub Environments: main and dev. Set per environment:
   #   - SERVICE_NAME (variable), e.g. main → family, dev → family-dev
   #   - PORT (variable), e.g. 5002, 5003
-  #   - DEPLOY_DOMAIN (secret) for deploy path, e.g. gideonogega.com
+  #   - DEPLOY_DOMAIN (secret) for deploy path and Let's Encrypt cert path, e.g. gideonogega.com
   # In logs, secrets appear as ***; the remote receives the real values.
   deploy:
     runs-on: ubuntu-latest
@@ -83,6 +83,7 @@ jobs:
       SETUP_CHANGED: ${{ needs.build.outputs.setup_changed }}
       PORT: ${{ vars.PORT }}
       SERVICE_NAME: ${{ vars.SERVICE_NAME }}
+      CERT_DOMAIN: ${{ secrets.DEPLOY_DOMAIN }}
       GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
       GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
     steps:
@@ -125,7 +126,7 @@ jobs:
           username: ubuntu
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script_stop: true
-          envs: DEPLOY_PATH,BRANCH,SETUP_CHANGED,FULL_HOSTNAME,PORT,SERVICE_NAME,GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET,ASSEMBLY_VERSION,DLL_VERSION
+          envs: DEPLOY_PATH,BRANCH,SETUP_CHANGED,FULL_HOSTNAME,PORT,SERVICE_NAME,CERT_DOMAIN,GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET,ASSEMBLY_VERSION,DLL_VERSION
           script: |
             sudo mkdir -p $DEPLOY_PATH
             sudo chown -R ubuntu:www-data $DEPLOY_PATH
@@ -138,7 +139,7 @@ jobs:
             git reset --hard origin/$BRANCH
             if [ "$SETUP_CHANGED" = "true" ] || [ ! -f "/etc/systemd/system/${SERVICE_NAME}.service" ]; then
               echo "Running configure-service.sh (script changed or service missing)..."
-              sudo bash "$DEPLOY_PATH/scripts/configure-service.sh" "$FULL_HOSTNAME" "$PORT" "$SERVICE_NAME"
+              sudo bash "$DEPLOY_PATH/scripts/configure-service.sh" "$FULL_HOSTNAME" "$PORT" "$SERVICE_NAME" "$CERT_DOMAIN"
             fi
             echo "Authentication__Google__ClientId=$GOOGLE_CLIENT_ID" > .env
             echo "Authentication__Google__ClientSecret=$GOOGLE_CLIENT_SECRET" >> .env

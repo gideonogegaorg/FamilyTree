@@ -27,7 +27,7 @@ The deploy job uses GitHub **Environments** (`main` and `dev`). For each environ
 
 - **SERVICE_NAME** (variable): systemd service to restart (e.g. `family` for main, `family-dev` for dev).
 - **PORT** (variable): local port for the app (e.g. `5002`, `5003`).
-- **DEPLOY_DOMAIN** (secret): used for deploy paths (e.g. `gideonogega.com`). Set **DEPLOY_DOMAIN** in both the **main** and **dev** environments (or once at the repository level). If the main environment blocks repository secrets, add it to the main environment as well.
+- **DEPLOY_DOMAIN** (secret): used for deploy paths and Let's Encrypt cert path (e.g. `gideonogega.com` → `/var/www/family.gideonogega.com` and `/etc/letsencrypt/live/gideonogega.com/`). Set **DEPLOY_DOMAIN** in both the **main** and **dev** environments (or once at the repository level). If the main environment blocks repository secrets, add it to the main environment as well.
 
 Optional for Google sign-in: **GOOGLE_CLIENT_ID** and **GOOGLE_CLIENT_SECRET** (repository or environment secrets). The pipeline writes them to `$DEPLOY_PATH/.env`; when both are set, the site requires sign-in except on the home and error pages.
 
