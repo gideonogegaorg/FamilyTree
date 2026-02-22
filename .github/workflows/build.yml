@@ -57,6 +57,7 @@ jobs:
           fetch-depth: 0
 
       - uses: dorny/paths-filter@v3
+        if: github.event_name == 'push'
         id: filter
         with:
           filters: |
