@@ -12,10 +12,18 @@ jobs:
     outputs:
       assembly_version: ${{ steps.setversion.outputs.assembly_version }}
       dll_version: ${{ steps.setversion.outputs.dll_version }}
+      setup_changed: ${{ steps.filter.outputs.setup }}
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            setup:
+              - 'scripts/configure-service.sh'
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
@@ -58,7 +66,8 @@ jobs:
           git push origin "$TAG_NAME"
 
   # Uses GitHub Environments: main and dev. Set per environment:
-  #   - SERVICE_NAME (variable), e.g. main → family-web, dev → family-web-dev
+  #   - SERVICE_NAME (variable), e.g. main → family, dev → family-dev
+  #   - PORT (variable), e.g. 5002, 5003
   #   - DEPLOY_DOMAIN (secret) for deploy path, e.g. gideonogega.com
   # In logs, secrets appear as ***; the remote receives the real values.
   deploy:
@@ -67,9 +76,15 @@ jobs:
     environment: ${{ github.ref_name }}
     env:
       DEPLOY_PATH: ${{ github.ref == 'refs/heads/main' && format('/var/www/family.{0}', secrets.DEPLOY_DOMAIN) || github.ref == 'refs/heads/dev' && format('/var/www/family-dev.{0}', secrets.DEPLOY_DOMAIN) || '' }}
+      FULL_HOSTNAME: ${{ github.ref == 'refs/heads/main' && format('family.{0}', secrets.DEPLOY_DOMAIN) || github.ref == 'refs/heads/dev' && format('family-dev.{0}', secrets.DEPLOY_DOMAIN) || '' }}
       BRANCH: ${{ github.ref_name }}
       ASSEMBLY_VERSION: ${{ needs.build.outputs.assembly_version }}
       DLL_VERSION: ${{ needs.build.outputs.dll_version }}
+      SETUP_CHANGED: ${{ needs.build.outputs.setup_changed }}
+      PORT: ${{ vars.PORT }}
+      SERVICE_NAME: ${{ vars.SERVICE_NAME }}
+      GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+      GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
     steps:
       - name: Validate deploy config
         run: |
@@ -110,23 +125,31 @@ jobs:
           username: ubuntu
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script_stop: true
+          envs: DEPLOY_PATH,BRANCH,SETUP_CHANGED,FULL_HOSTNAME,PORT,SERVICE_NAME,GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET,ASSEMBLY_VERSION,DLL_VERSION
           script: |
-            sudo mkdir -p /git/family ${{ env.DEPLOY_PATH }}
-            sudo chown -R ubuntu:ubuntu /git/family ${{ env.DEPLOY_PATH }}
-            CLONE_DIR="/git/family/${{ env.BRANCH }}"
-            rm -rf "$CLONE_DIR"
-            git clone -b ${{ env.BRANCH }} https://${{ secrets.GH_PAT }}@github.com/${{ github.repository }}.git "$CLONE_DIR"
-            dotnet publish "$CLONE_DIR/src/Family.Web/Family.Web.csproj" -c Release -o "${{ env.DEPLOY_PATH }}" \
-              -p:Version=${{ env.ASSEMBLY_VERSION }} \
-              -p:AssemblyVersion=${{ env.ASSEMBLY_VERSION }} \
-              -p:FileVersion=${{ env.ASSEMBLY_VERSION }} \
-              -p:InformationalVersion=${{ env.DLL_VERSION }}
-            mkdir -p "${{ env.DEPLOY_PATH }}/scripts"
-            cp -r "$CLONE_DIR/scripts/"* "${{ env.DEPLOY_PATH }}/scripts/"
-            rm -rf "$CLONE_DIR"
-            sudo chown -R ubuntu:www-data ${{ env.DEPLOY_PATH }}
-            sudo chmod -R 755 ${{ env.DEPLOY_PATH }}
-            sudo systemctl restart ${{ vars.SERVICE_NAME }}
+            sudo mkdir -p $DEPLOY_PATH
+            sudo chown -R ubuntu:www-data $DEPLOY_PATH
+            cd $DEPLOY_PATH
+            if [ ! -d .git ]; then
+              echo "Initial clone into $DEPLOY_PATH..."
+              git clone -b $BRANCH https://${{ secrets.GH_PAT }}@github.com/${{ github.repository }}.git .
+            fi
+            git fetch origin $BRANCH
+            git reset --hard origin/$BRANCH
+            if [ "$SETUP_CHANGED" = "true" ] || [ ! -f "/etc/systemd/system/${SERVICE_NAME}.service" ]; then
+              echo "Running configure-service.sh (script changed or service missing)..."
+              sudo ./scripts/configure-service.sh "$FULL_HOSTNAME" "$PORT" "$SERVICE_NAME"
+            fi
+            echo "Authentication__Google__ClientId=$GOOGLE_CLIENT_ID" > .env
+            echo "Authentication__Google__ClientSecret=$GOOGLE_CLIENT_SECRET" >> .env
+            chmod 600 .env
+            dotnet publish src/Family.Web/Family.Web.csproj -c Release -o ./publish \
+              -p:Version=$ASSEMBLY_VERSION \
+              -p:AssemblyVersion=$ASSEMBLY_VERSION \
+              -p:FileVersion=$ASSEMBLY_VERSION \
+              -p:InformationalVersion=$DLL_VERSION
+            sudo chown -R ubuntu:www-data $DEPLOY_PATH
+            sudo systemctl restart $SERVICE_NAME
 
       - name: Revoke Runner IP (Cleanup)
         if: always()

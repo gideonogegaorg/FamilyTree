@@ -25,8 +25,11 @@ Pushes to `main` and `dev` trigger GitHub Actions to build and deploy to EC2:
 
 The deploy job uses GitHub **Environments** (`main` and `dev`). For each environment, configure:
 
-- **SERVICE_NAME** (variable): systemd service to restart (e.g. `family-web` for main, `family-web-dev` for dev).
+- **SERVICE_NAME** (variable): systemd service to restart (e.g. `family` for main, `family-dev` for dev).
+- **PORT** (variable): local port for the app (e.g. `5002`, `5003`).
 - **DEPLOY_DOMAIN** (secret): used for deploy paths (e.g. `gideonogega.com`). Set **DEPLOY_DOMAIN** in both the **main** and **dev** environments (or once at the repository level). If the main environment blocks repository secrets, add it to the main environment as well.
+
+Optional for Google sign-in: **GOOGLE_CLIENT_ID** and **GOOGLE_CLIENT_SECRET** (repository or environment secrets). The pipeline writes them to `$DEPLOY_PATH/.env`; when both are set, the site requires sign-in except on the home and error pages.
 
 **Settings → Environments → [main | dev] → Environment variables / Secrets.**
 
@@ -39,9 +42,8 @@ On the server, the deployed DLL’s **InformationalVersion** is set by the pipel
 - **From the DLL** (SSH into the server):
   ```bash
   DEPLOY_PATH=/var/www/family.gideonogega.com   # or family-dev.gideonogega.com for dev
-  strings "$DEPLOY_PATH/Family.Web.dll" | grep -E '^(DEV-)?[0-9]{12,}$'
+  strings "$DEPLOY_PATH/publish/Family.Web.dll" | grep -E '^(DEV-)?[0-9]{12,}$'
   ```
-  Or run the helper script (from the deploy directory): `./scripts/check-version.sh` (set `DEPLOY_PATH` if needed).
 
 - **From the live site**:
   ```bash
@@ -50,12 +52,12 @@ On the server, the deployed DLL’s **InformationalVersion** is set by the pipel
 
 ### Adding a new subdomain on the server
 
-Use the provisioning script (run on the EC2 instance):
+Use the provisioning script (run on the EC2 instance, e.g. from the deploy directory):
 
 ```bash
-sudo ./scripts/setup-subdomain.sh <subdomain> <port> <service_name> [cert_domain]
-# Example (dev): sudo ./scripts/setup-subdomain.sh family-dev.example.com 5002 family-web-dev example.com
-# Then: sudo systemctl restart family-web-dev
+sudo ./scripts/configure-service.sh <subdomain> <port> <service_name> [cert_domain]
+# Example (dev): sudo ./scripts/configure-service.sh family-dev.example.com 5002 family-dev example.com
+# Then: sudo systemctl restart family-dev
 ```
 
-This creates the web directory, systemd service, and Nginx config. The GitHub Actions pipeline publishes the app into that directory, copies the repo’s **scripts** into a **scripts** subfolder there, removes the clone, then restarts the service. You can run scripts from the deployed site (e.g. `sudo /var/www/family.example.com/scripts/setup-subdomain.sh ...`). Full prerequisites and manual steps: [docs/subdomain-provisioning.md](docs/subdomain-provisioning.md).
+This creates the web directory, systemd service, and Nginx config. The pipeline runs this script **only when** `scripts/configure-service.sh` has changed or the systemd service file is missing; otherwise it just updates code, writes `.env`, publishes to `./publish`, and restarts the service. You can run the script manually from the deployed directory (e.g. `sudo /var/www/family.example.com/scripts/configure-service.sh ...`). Full prerequisites and manual steps: [docs/configure-service.md](docs/configure-service.md).
