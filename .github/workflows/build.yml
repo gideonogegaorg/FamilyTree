@@ -86,6 +86,11 @@ jobs:
       CERT_DOMAIN: ${{ secrets.DEPLOY_DOMAIN }}
       GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
       GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+      OPENTELEMETRY_ENABLED: ${{ secrets.OPENTELEMETRY_ENABLED }}
+      OPENTELEMETRY_OTLPEXPORTENDPOINT: ${{ secrets.OPENTELEMETRY_OTLPEXPORTENDPOINT }}
+      OPENTELEMETRY_LOGGINGENDPOINT: ${{ secrets.OPENTELEMETRY_LOGGINGENDPOINT }}
+      OPENTELEMETRY_HEADERS: ${{ secrets.OPENTELEMETRY_HEADERS }}
+      OPENTELEMETRY_METRICSENDPOINT: ${{ secrets.OPENTELEMETRY_METRICSENDPOINT }}
     steps:
       - name: Validate deploy config
         run: |
@@ -126,7 +131,7 @@ jobs:
           username: ubuntu
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script_stop: true
-          envs: DEPLOY_PATH,BRANCH,SETUP_CHANGED,FULL_HOSTNAME,PORT,SERVICE_NAME,CERT_DOMAIN,GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET,ASSEMBLY_VERSION,DLL_VERSION
+          envs: DEPLOY_PATH,BRANCH,SETUP_CHANGED,FULL_HOSTNAME,PORT,SERVICE_NAME,CERT_DOMAIN,GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET,ASSEMBLY_VERSION,DLL_VERSION,OPENTELEMETRY_ENABLED,OPENTELEMETRY_OTLPEXPORTENDPOINT,OPENTELEMETRY_LOGGINGENDPOINT,OPENTELEMETRY_HEADERS,OPENTELEMETRY_METRICSENDPOINT
           script: |
             sudo mkdir -p $DEPLOY_PATH
             sudo chown -R ubuntu:www-data $DEPLOY_PATH
@@ -143,7 +148,17 @@ jobs:
             fi
             echo "Authentication__Google__ClientId=$GOOGLE_CLIENT_ID" > .env
             echo "Authentication__Google__ClientSecret=$GOOGLE_CLIENT_SECRET" >> .env
+            echo "FAMILY_LOG_PATH=$DEPLOY_PATH/logs" >> .env
+            echo "Serilog__WriteTo__1__Args__path=$DEPLOY_PATH/logs" >> .env
+            echo "Telemetry__EnvironmentName=$BRANCH" >> .env
+            [ -n "$OPENTELEMETRY_ENABLED" ] && echo "Telemetry__Enabled=$OPENTELEMETRY_ENABLED" >> .env
+            [ -n "$OPENTELEMETRY_OTLPEXPORTENDPOINT" ] && echo "Telemetry__Otlp__Endpoint=$OPENTELEMETRY_OTLPEXPORTENDPOINT" >> .env
+            [ -n "$OPENTELEMETRY_HEADERS" ] && echo "Telemetry__Otlp__Headers=$OPENTELEMETRY_HEADERS" >> .env
+            [ -n "$OPENTELEMETRY_METRICSENDPOINT" ] && echo "Telemetry__MetricsEndpoint=$OPENTELEMETRY_METRICSENDPOINT" >> .env
+            [ -n "$OPENTELEMETRY_LOGGINGENDPOINT" ] && echo "Telemetry__LoggingEndpoint=$OPENTELEMETRY_LOGGINGENDPOINT" >> .env
             chmod 600 .env
+            mkdir -p ./logs
+            sudo chown ubuntu:www-data ./logs
             dotnet publish src/GMO.Family.Web/GMO.Family.Web.csproj -c Release -o ./publish \
               -p:Version=$ASSEMBLY_VERSION \
               -p:AssemblyVersion=$ASSEMBLY_VERSION \
