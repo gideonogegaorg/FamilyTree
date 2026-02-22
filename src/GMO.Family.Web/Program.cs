@@ -1,3 +1,4 @@
+using GMO.Family.Web;
 using GMO.Family.Web.Configuration;
 using GMO.Family.Web.Extensions;
 using GMO.Family.Web.Options;
@@ -16,6 +17,11 @@ builder.Services.AddSingleton<IOpenTelemetryOptions>(telemetryOptions);
 builder.Services.AddSingleton<ICorrelationIdService, CorrelationIdService>();
 builder.Services.AddSingleton<IAttributeEnricher, AttributeEnricher>();
 
+using (var bootstrapLog = new LoggerConfiguration().WriteTo.Console().CreateLogger())
+{
+    TelemetryConfigLogger.LogConfig(telemetryOptions, bootstrapLog, "configuration (before)");
+}
+
 builder.Host.UseSerilog((context, services, loggerConfig) =>
 {
     loggerConfig.ReadFrom.Configuration(context.Configuration);
@@ -32,6 +38,12 @@ builder.Services.AddControllersWithViews();
 var googleAuthEnabled = builder.Services.AddGoogleAuthentication(builder.Configuration);
 
 var app = builder.Build();
+
+app.Lifetime.ApplicationStarted.Register(() =>
+{
+    var options = app.Services.GetRequiredService<IOpenTelemetryOptions>();
+    TelemetryConfigLogger.LogConfig(options, Log.Logger, "configured (after)");
+});
 
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
