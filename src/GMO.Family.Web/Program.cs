@@ -107,6 +107,7 @@ builder.Services.AddControllersWithViews();
 builder.Services.AddScoped<IEmailSender, LoggingEmailSender>();
 builder.Services.AddScoped<ICurrentFamilyTreeService, CurrentFamilyTreeService>();
 builder.Services.AddScoped<IDefaultFamilyTreeService, DefaultFamilyTreeService>();
+builder.Services.AddScoped<IExternalLoginInfoProvider, SignInManagerExternalLoginInfoProvider>();
 builder.Services.AddDistributedMemoryCache();
 builder.Services.AddSession(options => options.IdleTimeout = TimeSpan.FromMinutes(20));
 
@@ -146,6 +147,7 @@ var pathsOptions = app.Services.GetRequiredService<IOptions<PathsOptions>>().Val
 if (!string.IsNullOrWhiteSpace(pathsOptions.Uploads))
 {
     var uploadsFullPath = Path.GetFullPath(Path.Combine(app.Environment.ContentRootPath, pathsOptions.Uploads));
+    Directory.CreateDirectory(uploadsFullPath);
     app.UseStaticFiles(new StaticFileOptions
     {
         FileProvider = new PhysicalFileProvider(uploadsFullPath),

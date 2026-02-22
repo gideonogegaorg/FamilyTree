@@ -1,5 +1,9 @@
+using AutoFixture;
+
 using GMO.Family.Web.Data;
 using GMO.Family.Web.Services;
+
+using GMO.Family.Web.UnitTests.Fixtures;
 
 using Microsoft.EntityFrameworkCore;
 
@@ -50,15 +54,13 @@ public class DefaultFamilyTreeServiceTests
     [Fact]
     public async Task EnsureDefaultFamilyTreeAsync_creates_default_tree_and_returns_id_when_user_has_no_trees()
     {
-        // Arrange
-        await using var db = CreateDbContext(nameof(EnsureDefaultFamilyTreeAsync_creates_default_tree_and_returns_id_when_user_has_no_trees));
+        var f = new DefaultFamilyTreeServiceFixture();
+        await using var db = f.CreateDb(nameof(EnsureDefaultFamilyTreeAsync_creates_default_tree_and_returns_id_when_user_has_no_trees));
         var sut = new DefaultFamilyTreeService(db);
-        var userId = "user-" + Guid.NewGuid().ToString("N")[..8];
+        var userId = f.CreateUserId();
 
-        // Act
         var result = await sut.EnsureDefaultFamilyTreeAsync(userId);
 
-        // Assert
         Assert.NotNull(result);
         var tree = await db.FamilyTrees.SingleOrDefaultAsync(x => x.OwnerId == userId);
         Assert.NotNull(tree);
@@ -70,18 +72,16 @@ public class DefaultFamilyTreeServiceTests
     [Fact]
     public async Task EnsureDefaultFamilyTreeAsync_returns_null_when_user_already_has_trees()
     {
-        // Arrange
-        await using var db = CreateDbContext(nameof(EnsureDefaultFamilyTreeAsync_returns_null_when_user_already_has_trees));
-        var userId = "user-" + Guid.NewGuid().ToString("N")[..8];
-        db.FamilyTrees.Add(new FamilyTree { Uid = Guid.NewGuid(), Name = "Existing", OwnerId = userId });
+        var f = new DefaultFamilyTreeServiceFixture();
+        await using var db = f.CreateDb(nameof(EnsureDefaultFamilyTreeAsync_returns_null_when_user_already_has_trees));
+        var userId = f.CreateUserId();
+        db.FamilyTrees.Add(new FamilyTree { Uid = f.Fixture.Create<Guid>(), Name = "Existing", OwnerId = userId });
         await db.SaveChangesAsync();
         var countBefore = await db.FamilyTrees.CountAsync(x => x.OwnerId == userId);
         var sut = new DefaultFamilyTreeService(db);
 
-        // Act
         var result = await sut.EnsureDefaultFamilyTreeAsync(userId);
 
-        // Assert
         Assert.Null(result);
         var countAfter = await db.FamilyTrees.CountAsync(x => x.OwnerId == userId);
         Assert.Equal(countBefore, countAfter);

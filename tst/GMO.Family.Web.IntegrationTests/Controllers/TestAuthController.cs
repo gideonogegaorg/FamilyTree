@@ -1,10 +1,12 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 
-namespace GMO.Family.Web.Controllers;
+namespace GMO.Family.Web.IntegrationTests.Controllers;
 
 /// <summary>
-/// Only active when Environment is Testing. Used by integration tests to obtain an authenticated client.
+/// Test-only controller to obtain an authenticated HTTP client in integration tests.
+/// Registered only when the test host runs (via AddApplicationPart in WebAppFixture).
+/// Not part of the production application.
 /// </summary>
 [Route("[controller]")]
 [ApiController]
@@ -15,24 +17,18 @@ public class TestAuthController : ControllerBase
 
     private readonly UserManager<IdentityUser> _userManager;
     private readonly SignInManager<IdentityUser> _signInManager;
-    private readonly IWebHostEnvironment _env;
 
     public TestAuthController(
         UserManager<IdentityUser> userManager,
-        SignInManager<IdentityUser> signInManager,
-        IWebHostEnvironment env)
+        SignInManager<IdentityUser> signInManager)
     {
         _userManager = userManager;
         _signInManager = signInManager;
-        _env = env;
     }
 
     [HttpGet("SignIn")]
     public async Task<IActionResult> SignIn(CancellationToken cancellationToken)
     {
-        if (!_env.IsEnvironment("Testing"))
-            return NotFound();
-
         var user = await _userManager.FindByEmailAsync(TestUserEmail);
         if (user == null)
         {
