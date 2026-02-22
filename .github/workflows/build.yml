@@ -138,7 +138,7 @@ jobs:
             git reset --hard origin/$BRANCH
             if [ "$SETUP_CHANGED" = "true" ] || [ ! -f "/etc/systemd/system/${SERVICE_NAME}.service" ]; then
               echo "Running configure-service.sh (script changed or service missing)..."
-              sudo ./scripts/configure-service.sh "$FULL_HOSTNAME" "$PORT" "$SERVICE_NAME"
+              sudo "$DEPLOY_PATH/scripts/configure-service.sh" "$FULL_HOSTNAME" "$PORT" "$SERVICE_NAME"
             fi
             echo "Authentication__Google__ClientId=$GOOGLE_CLIENT_ID" > .env
             echo "Authentication__Google__ClientSecret=$GOOGLE_CLIENT_SECRET" >> .env
