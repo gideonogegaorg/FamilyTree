@@ -1,5 +1,5 @@
-using Family.Web.Configuration;
-using Family.Web.Extensions;
+using GMO.Family.Web.Configuration;
+using GMO.Family.Web.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
 

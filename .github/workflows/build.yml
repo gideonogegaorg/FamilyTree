@@ -51,7 +51,7 @@ jobs:
 
       - name: Build
         run: |
-          dotnet build src/Family.sln \
+          dotnet build src/GMO.Family.sln \
             -p:Version=${{ env.ASSEMBLY_VERSION }} \
             -p:AssemblyVersion=${{ env.ASSEMBLY_VERSION }} \
             -p:FileVersion=${{ env.ASSEMBLY_VERSION }} \
@@ -144,7 +144,7 @@ jobs:
             echo "Authentication__Google__ClientId=$GOOGLE_CLIENT_ID" > .env
             echo "Authentication__Google__ClientSecret=$GOOGLE_CLIENT_SECRET" >> .env
             chmod 600 .env
-            dotnet publish src/Family.Web/Family.Web.csproj -c Release -o ./publish \
+            dotnet publish src/GMO.Family.Web/GMO.Family.Web.csproj -c Release -o ./publish \
               -p:Version=$ASSEMBLY_VERSION \
               -p:AssemblyVersion=$ASSEMBLY_VERSION \
               -p:FileVersion=$ASSEMBLY_VERSION \

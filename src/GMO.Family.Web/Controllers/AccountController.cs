@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.Authentication.Google;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
-namespace Family.Web.Controllers;
+namespace GMO.Family.Web.Controllers;
 
 public class AccountController : Controller
 {
