@@ -7,6 +7,6 @@ namespace GMO.Family.Web.Options;
 /// </summary>
 public sealed class FamilyOpenTelemetryOptions : OpenTelemetryOptionsBase
 {
-    public override string ServiceName => "GMO.Family.Web";
+    public override string ApplicationName => "GMO.Family.Web";
     public override string Version => "1.0.0";
 }
