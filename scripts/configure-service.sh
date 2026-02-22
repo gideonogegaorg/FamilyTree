@@ -2,31 +2,31 @@
 
 # ==============================================================================
 # AUTOMATED SUBDOMAIN PROVISIONER
-# Usage: sudo ./setup-subdomain.sh <subdomain> <port> <service_name> [cert_domain]
-#   subdomain   Full hostname (e.g. family-dev.example.com)
-#   port        Local port for the .NET app (e.g. 5002)
-#   service_name  Systemd service name; match pipeline SERVICE_NAME (main=family-web, dev=family-web-dev)
-#   cert_domain  Optional. Base domain for Let's Encrypt cert path
-#                (e.g. example.com → /etc/letsencrypt/live/example.com/).
-#                Default: example.com (replace with your cert domain).
-# Example: sudo ./setup-subdomain.sh family-dev.example.com 5002 family-web-dev example.com
-# See docs/subdomain-provisioning.md for Let's Encrypt setup.
+# Usage: sudo ./configure-service.sh <DEPLOY_DOMAIN> <port> <service_name> [cert_domain]
+#   DEPLOY_DOMAIN  Full hostname (e.g. family-dev.example.com); matches pipeline.
+#   port           Local port for the .NET app (e.g. 5002)
+#   service_name   Systemd service name; match pipeline SERVICE_NAME (main=family, dev=family-dev)
+#   cert_domain    Optional. Base domain for Let's Encrypt cert path
+#                  (e.g. example.com → /etc/letsencrypt/live/example.com/).
+#                  Default: example.com (replace with your cert domain).
+# Example: sudo ./configure-service.sh family-dev.example.com 5002 family-dev example.com
+# See docs/configure-service.md for Let's Encrypt setup.
 # ==============================================================================
 
 set -e
 
 # 1. VALIDATION
 if [ "$#" -lt 3 ] || [ "$#" -gt 4 ]; then
-    echo "Usage: sudo $0 <subdomain> <port> <service_name> [cert_domain]"
-    echo "Example: sudo $0 family-dev.example.com 5002 family-web-dev example.com"
+    echo "Usage: sudo $0 <DEPLOY_DOMAIN> <port> <service_name> [cert_domain]"
+    echo "Example: sudo $0 family-dev.example.com 5002 family-dev example.com"
     exit 1
 fi
 
-DOMAIN=$1
+DEPLOY_DOMAIN=$1
 PORT=$2
 SERVICE_NAME=$3
 CERT_DOMAIN=${4:-example.com}
-WEB_ROOT="/var/www/$DOMAIN"
+WEB_ROOT="/var/www/$DEPLOY_DOMAIN"
 DLL_NAME="Family.Web.dll" # Change this if your DLL name varies per project
 
 # Ensure running as root
@@ -35,7 +35,7 @@ if [ "$EUID" -ne 0 ]; then
   exit 1
 fi
 
-echo "Starting provisioning for $DOMAIN on port $PORT (cert domain: $CERT_DOMAIN)..."
+echo "Starting provisioning for $DEPLOY_DOMAIN on port $PORT (cert domain: $CERT_DOMAIN)..."
 
 # ==============================================================================
 # 2. DIRECTORY & PERMISSIONS
@@ -56,12 +56,13 @@ SERVICE_FILE="/etc/systemd/system/$SERVICE_NAME.service"
 
 cat <<EOF > "$SERVICE_FILE"
 [Unit]
-Description=$DOMAIN
+Description=$DEPLOY_DOMAIN
 After=network.target
 
 [Service]
-WorkingDirectory=$WEB_ROOT
-ExecStart=/usr/bin/dotnet $WEB_ROOT/$DLL_NAME --urls "http://localhost:$PORT"
+WorkingDirectory=$WEB_ROOT/publish
+ExecStart=/usr/bin/dotnet $WEB_ROOT/publish/$DLL_NAME --urls "http://localhost:$PORT"
+EnvironmentFile=$WEB_ROOT/.env
 Restart=always
 RestartSec=10
 KillSignal=SIGINT
@@ -80,20 +81,20 @@ echo "Service file asserted at $SERVICE_FILE"
 # 4. NGINX CONFIGURATION
 # ==============================================================================
 echo "Generating Nginx config..."
-NGINX_FILE="/etc/nginx/sites-available/$DOMAIN"
+NGINX_FILE="/etc/nginx/sites-available/$DEPLOY_DOMAIN"
 
 cat <<EOF > "$NGINX_FILE"
 # HTTP -> HTTPS Redirect
 server {
     listen 80;
-    server_name $DOMAIN;
+    server_name $DEPLOY_DOMAIN;
     return 301 https://\$host\$request_uri;
 }
 
 # HTTPS Server Block
 server {
     listen 443 ssl;
-    server_name $DOMAIN;
+    server_name $DEPLOY_DOMAIN;
 
     # Let's Encrypt (cert_domain = $CERT_DOMAIN)
     ssl_certificate /etc/letsencrypt/live/$CERT_DOMAIN/fullchain.pem;
@@ -148,6 +149,7 @@ fi
 
 echo "========================================================"
 echo "Provisioning Complete!"
-echo "1. Deploy your code to: $WEB_ROOT"
-echo "2. Start the app: sudo systemctl restart $SERVICE_NAME"
+echo "1. Deploy your code to: $WEB_ROOT (app in $WEB_ROOT/publish)"
+echo "2. Put .env in $WEB_ROOT for secrets (e.g. Google auth)"
+echo "3. Start the app: sudo systemctl restart $SERVICE_NAME"
 echo "========================================================"
