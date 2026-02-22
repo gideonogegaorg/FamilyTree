@@ -145,6 +145,8 @@ jobs:
           script_stop: true
           debug: true
           script: |
+            exec 2>&1
+            trap 'echo "TRAP: command failed with exit $? (line $LINENO)"' ERR
             set -e
             DEPLOY_PATH='${{ env.DEPLOY_PATH }}'
             BRANCH='${{ env.BRANCH }}'
