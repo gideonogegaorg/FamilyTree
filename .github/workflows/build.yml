@@ -22,12 +22,10 @@ jobs:
         run: bash scripts/generate-appsettings.sh
       - name: Configure NuGet auth for GMO feed
         run: dotnet nuget update source GMO --username "$GITHUB_USERNAME" --password "$GITHUB_PAT" --store-password-in-clear-text
-        working-directory: src
       - name: Restore
-        run: dotnet restore GMO.Family.sln
-        working-directory: src
+        run: dotnet restore src/GMO.Family.sln --verbosity normal
       - name: Verify format
-        run: dotnet format src/GMO.Family.sln --verify-no-changes --no-restore
+        run: dotnet format src/GMO.Family.sln --verbosity diagnostic --verify-no-changes --no-restore
 
   build:
     runs-on: ubuntu-latest
@@ -77,6 +75,9 @@ jobs:
             exit 1
           fi
 
+      - name: Configure NuGet auth for GMO feed
+        run: dotnet nuget update source GMO --username "$GITHUB_USERNAME" --password "$GITHUB_PAT" --store-password-in-clear-text
+
       - name: Generate appsettings.json for build
         run: bash scripts/generate-appsettings.sh
 
@@ -100,7 +101,7 @@ jobs:
 
       - name: Build
         run: |
-          dotnet build src/GMO.Family.sln \
+          dotnet build src/GMO.Family.sln --verbosity normal \
             -p:Version=${{ env.ASSEMBLY_VERSION }} \
             -p:AssemblyVersion=${{ env.ASSEMBLY_VERSION }} \
             -p:FileVersion=${{ env.ASSEMBLY_VERSION }} \
