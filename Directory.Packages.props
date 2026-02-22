@@ -1,0 +1,18 @@
+<Project>
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageVersion Include="GMO.OpenTelemetry" Version="2026.2.52165.12282" />
+    <PackageVersion Include="GMO.OpenTelemetry.Serilog" Version="2026.2.52165.12282" />
+    <PackageVersion Include="Microsoft.AspNetCore.Authentication.Google" Version="10.0.1" />
+    <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.15.0" />
+    <PackageVersion Include="Serilog.Enrichers.Environment" Version="3.0.1" />
+    <PackageVersion Include="Serilog.Enrichers.Process" Version="3.0.0" />
+    <PackageVersion Include="Serilog.Enrichers.Thread" Version="4.0.0" />
+    <PackageVersion Include="Serilog.Extensions.Hosting" Version="8.0.0" />
+    <PackageVersion Include="Serilog.Settings.Configuration" Version="9.0.0" />
+    <PackageVersion Include="Serilog.Sinks.Console" Version="5.0.1" />
+    <PackageVersion Include="Serilog.Sinks.File" Version="6.0.0" />
+  </ItemGroup>
+</Project>
