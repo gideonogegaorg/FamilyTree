@@ -34,6 +34,13 @@ jobs:
         with:
           dotnet-version: '10.0.x'
 
+      - name: Check NuGet auth for GMO feed
+        run: |
+          if [ -z "$NUGET_AUTH_TOKEN" ]; then
+            echo "::error::NUGET_AUTH_TOKEN is empty. Add repository secret GH_CLASSIC_PAT (with read:packages) in this repo, or ensure the org secret is available to this repository."
+            exit 1
+          fi
+
       - name: Set DLL version
         id: setversion
         run: |
