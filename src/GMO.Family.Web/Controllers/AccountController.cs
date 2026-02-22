@@ -25,6 +25,7 @@ public class AccountController : Controller
     private readonly ICurrentFamilyTreeService _currentFamilyTree;
     private readonly IDefaultFamilyTreeService _defaultFamilyTree;
     private readonly IWebHostEnvironment _env;
+    private readonly PathsOptions _paths;
 
     public AccountController(
         SignInManager<IdentityUser> signInManager,
@@ -34,7 +35,8 @@ public class AccountController : Controller
         AppDbContext db,
         ICurrentFamilyTreeService currentFamilyTree,
         IDefaultFamilyTreeService defaultFamilyTree,
-        IWebHostEnvironment env)
+        IWebHostEnvironment env,
+        IOptions<PathsOptions> paths)
     {
         _signInManager = signInManager;
         _userManager = userManager;
@@ -44,6 +46,7 @@ public class AccountController : Controller
         _currentFamilyTree = currentFamilyTree;
         _defaultFamilyTree = defaultFamilyTree;
         _env = env;
+        _paths = paths.Value;
     }
 
     [AllowAnonymous]
@@ -99,11 +102,9 @@ public class AccountController : Controller
     public async Task<IActionResult> ExternalLoginCallback(string? returnUrl = null, string? remoteError = null, CancellationToken cancellationToken = default)
     {
         returnUrl ??= Url.Content("~/");
-        if (remoteError != null)
-        {
-            ModelState.AddModelError(string.Empty, $"Error from external provider: {remoteError}");
-            return RedirectToAction(nameof(Login), new { returnUrl });
-        }
+        var remoteErrorResult = HandleExternalLoginRemoteError(returnUrl, remoteError);
+        if (remoteErrorResult != null)
+            return remoteErrorResult;
 
         var info = await _signInManager.GetExternalLoginInfoAsync();
         if (info == null)
@@ -111,29 +112,53 @@ public class AccountController : Controller
 
         var email = info.Principal.FindFirstValue(ClaimTypes.Email);
         if (string.IsNullOrEmpty(email))
-        {
-            ModelState.AddModelError(string.Empty, "Email claim not received from the external provider.");
-            return RedirectToAction(nameof(Login), new { returnUrl });
-        }
+            return RedirectToLoginWithError(returnUrl, "Email claim not received from the external provider.");
 
+        var (user, createError) = await GetOrCreateUserForExternalLoginAsync(email, returnUrl);
+        if (createError != null)
+            return createError;
+
+        await SignInAndSetDefaultFamilyTreeAsync(user!, cancellationToken);
+        return LocalRedirect(returnUrl);
+    }
+
+    private IActionResult? HandleExternalLoginRemoteError(string returnUrl, string? remoteError)
+    {
+        if (string.IsNullOrEmpty(remoteError))
+            return null;
+        ModelState.AddModelError(string.Empty, $"Error from external provider: {remoteError}");
+        return RedirectToAction(nameof(Login), new { returnUrl });
+    }
+
+    private IActionResult RedirectToLoginWithError(string returnUrl, string message)
+    {
+        ModelState.AddModelError(string.Empty, message);
+        return RedirectToAction(nameof(Login), new { returnUrl });
+    }
+
+    private async Task<(IdentityUser? user, IActionResult? errorResult)> GetOrCreateUserForExternalLoginAsync(string email, string returnUrl)
+    {
         var user = await _userManager.FindByEmailAsync(email);
-        if (user == null)
-        {
-            user = new IdentityUser { UserName = email, Email = email, EmailConfirmed = true };
-            var createResult = await _userManager.CreateAsync(user);
-            if (!createResult.Succeeded)
-            {
-                foreach (var error in createResult.Errors)
-                    ModelState.AddModelError(string.Empty, error.Description);
-                return RedirectToAction(nameof(Login), new { returnUrl });
-            }
-        }
+        if (user != null)
+            return (user, null);
 
+        user = new IdentityUser { UserName = email, Email = email, EmailConfirmed = true };
+        var createResult = await _userManager.CreateAsync(user);
+        if (!createResult.Succeeded)
+        {
+            foreach (var error in createResult.Errors)
+                ModelState.AddModelError(string.Empty, error.Description);
+            return (null, RedirectToAction(nameof(Login), new { returnUrl }));
+        }
+        return (user, null);
+    }
+
+    private async Task SignInAndSetDefaultFamilyTreeAsync(IdentityUser user, CancellationToken cancellationToken)
+    {
         await _signInManager.SignInAsync(user, isPersistent: false);
         var defaultTreeId = await _defaultFamilyTree.EnsureDefaultFamilyTreeAsync(user.Id!, cancellationToken);
         if (defaultTreeId.HasValue)
             await _currentFamilyTree.SetCurrentFamilyTreeIdAsync(defaultTreeId.Value, cancellationToken);
-        return LocalRedirect(returnUrl);
     }
 
     [HttpPost]
@@ -166,10 +191,7 @@ public class AccountController : Controller
             var result = await _userManager.CreateAsync(user, model.Password);
             if (result.Succeeded)
             {
-                await _signInManager.SignInAsync(user, isPersistent: false);
-                var defaultTreeId = await _defaultFamilyTree.EnsureDefaultFamilyTreeAsync(user.Id!, cancellationToken);
-                if (defaultTreeId.HasValue)
-                    await _currentFamilyTree.SetCurrentFamilyTreeIdAsync(defaultTreeId.Value, cancellationToken);
+                await SignInAndSetDefaultFamilyTreeAsync(user, cancellationToken);
                 return LocalRedirect(returnUrl);
             }
             foreach (var error in result.Errors)
@@ -285,7 +307,10 @@ public class AccountController : Controller
             return RedirectToAction(nameof(UploadPhoto));
         }
 
-        var uploadsDir = Path.Combine(_env.WebRootPath, "uploads", "profiles");
+        var uploadsBase = string.IsNullOrWhiteSpace(_paths.Uploads)
+            ? Path.Combine(_env.WebRootPath, "uploads")
+            : Path.GetFullPath(Path.Combine(_env.ContentRootPath, _paths.Uploads));
+        var uploadsDir = Path.Combine(uploadsBase, "profiles");
         Directory.CreateDirectory(uploadsDir);
         var fileName = $"{userId}{ext}";
         var path = Path.Combine(uploadsDir, fileName);

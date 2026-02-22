@@ -9,6 +9,8 @@ using GMO.OpenTelemetry;
 using GMO.OpenTelemetry.Serilog;
 
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.FileProviders;
+using Microsoft.Extensions.Options;
 
 using Npgsql;
 using Npgsql.EntityFrameworkCore.PostgreSQL;
@@ -20,6 +22,8 @@ using OpenTelemetry.Trace;
 using Serilog;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.Configure<PathsOptions>(builder.Configuration.GetSection("Paths"));
 
 var telemetryOptions = new FamilyOpenTelemetryOptions();
 builder.Configuration.GetSection("Telemetry").Bind(telemetryOptions);
@@ -137,6 +141,17 @@ app.UseRouting();
 app.UseSession();
 app.UseAuthentication();
 app.UseAuthorization();
+
+var pathsOptions = app.Services.GetRequiredService<IOptions<PathsOptions>>().Value;
+if (!string.IsNullOrWhiteSpace(pathsOptions.Uploads))
+{
+    var uploadsFullPath = Path.GetFullPath(Path.Combine(app.Environment.ContentRootPath, pathsOptions.Uploads));
+    app.UseStaticFiles(new StaticFileOptions
+    {
+        FileProvider = new PhysicalFileProvider(uploadsFullPath),
+        RequestPath = "/uploads"
+    });
+}
 
 app.MapStaticAssets().AllowAnonymous();
 

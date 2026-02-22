@@ -43,6 +43,9 @@
     "MetricsEndpoint": "^^OPENTELEMETRY_METRICSENDPOINT^^",
     "LoggingEndpoint": "^^OPENTELEMETRY_LOGGINGENDPOINT^^"
   },
+  "Paths": {
+    "Uploads": "^^UPLOADS_PATH^^"
+  },
   "AllowedHosts": "*",
   "Authentication": {
     "Google": {

@@ -18,7 +18,8 @@ cp src/GMO.Family.Web/appsettings.json.template src/GMO.Family.Web/appsettings.j
 You can override specific placeholders with env vars before running the script:
 
 ```bash
-export SERILOG_LOG_PATH=../../logs
+export SERILOG_LOG_PATH=../logs
+export UPLOADS_PATH=../uploads
 export OPENTELEMETRY_ENABLED=false
 bash scripts/generate-appsettings.sh
 ```
@@ -46,7 +47,7 @@ Pushes to `main` and `dev` trigger GitHub Actions to build, publish, and deploy 
 - **main** → `https://family.<DEPLOY_DOMAIN>`
 - **dev** → `https://family-dev.<DEPLOY_DOMAIN>`
 
-The pipeline generates `appsettings.json` from the template with real secrets on the **runner**, then publishes and copies the output to EC2 via SCP. No secrets are passed over SSH.
+The pipeline generates `appsettings.json` from the template with real secrets on the **runner**, then publishes and copies the output to EC2 via SCP. No secrets are passed over SSH. Logs and user uploads (e.g. profile photos) live outside the app folder: the pipeline ensures `$DEPLOY_PATH/logs` and `$DEPLOY_PATH/uploads` exist and configures the app to use them.
 
 The deploy job uses GitHub **Environments** (`main` and `dev`). For each environment, configure:
 
