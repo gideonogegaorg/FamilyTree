@@ -1,9 +1,28 @@
+@model GMO.Family.Web.Models.FamilyTreeGraphViewModel
+@using GMO.Family.Web.Data
 @{
-    ViewData["Title"] = "Home Page";
+    ViewData["Title"] = "Family Tree";
+    ViewData["PageTitle"] = "Family Tree " + Model.TreeName;
+    ViewData["TreeName"] = Model.TreeName;
+}
+@if (Model.Members.Count == 0)
+{
+    <p class="lead">Your family tree is empty.</p>
+    <a asp-action="AddFirstMember" class="btn btn-primary">Add first person</a>
+}
+else
+{
+    <div id="family-tree-graph" class="family-tree-graph @(Model.TreeViewOrientation == TreeViewOrientation.Horizontal ? "ft-orientation-horizontal" : "")"
+         data-nodes="@Model.NodesJson"
+         data-edges="@Model.EdgesJson"
+         data-focus-member-id="@Model.FocusMemberId"
+         data-orientation="@Model.TreeViewOrientation"></div>
+
+    <div id="member-action-popup" class="cascading-menu-container" style="display:none;">
+        <div class="text-muted small p-2">Loading…</div>
+    </div>
 }
 
-<div class="text-center">
-    <h1 class="display-4">Welcome</h1>
-    <p>You are signed in as <strong>@User.Identity?.Name</strong>.</p>
-    <p>Learn about <a href="https://learn.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>
-</div>
+@section Scripts {
+    <script src="~/js/family-tree.js" asp-append-version="true"></script>
+}

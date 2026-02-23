@@ -6,4 +6,7 @@ public class UserProfile
     public string? PhotoUrl { get; set; }
     /// <summary>Persisted current family tree selection (cross-browser, cross-device).</summary>
     public long? CurrentFamilyTreeId { get; set; }
+
+    /// <summary>Tree layout orientation (default Vertical).</summary>
+    public TreeViewOrientation? TreeViewOrientation { get; set; }
 }
