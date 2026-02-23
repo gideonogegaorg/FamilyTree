@@ -23,9 +23,9 @@ jobs:
       - name: Configure NuGet auth for GMO feed
         run: dotnet nuget update source GMO --username "$GITHUB_USERNAME" --password "$GITHUB_PAT" --store-password-in-clear-text
       - name: Restore
-        run: dotnet restore src/GMO.Family.sln --verbosity normal
+        run: dotnet restore GMO.Family.sln --verbosity normal
       - name: Verify format
-        run: dotnet format src/GMO.Family.sln --verbosity diagnostic --verify-no-changes --no-restore
+        run: dotnet format GMO.Family.sln --verbosity diagnostic --verify-no-changes --no-restore
 
   build:
     runs-on: ubuntu-latest
@@ -102,7 +102,7 @@ jobs:
 
       - name: Build
         run: |
-          dotnet build src/GMO.Family.sln --verbosity normal \
+          dotnet build GMO.Family.sln --verbosity normal \
             -p:Version=${{ env.ASSEMBLY_VERSION }} \
             -p:AssemblyVersion=${{ env.ASSEMBLY_VERSION }} \
             -p:FileVersion=${{ env.ASSEMBLY_VERSION }} \
@@ -111,7 +111,7 @@ jobs:
       - name: Test
         run: |
           set +e
-          dotnet test src/GMO.Family.sln --no-build --verbosity normal \
+          dotnet test GMO.Family.sln --no-build --verbosity normal \
             --collect:"XPlat Code Coverage" \
             --results-directory ./coverage 2>&1 | tee test.log
           EXIT=$?

@@ -5,13 +5,13 @@
 $ErrorActionPreference = "Stop"
 # Run from repo root so coverage and src paths are correct
 $root = (Get-Location).Path
-if (-not (Test-Path (Join-Path $root "src\GMO.Family.sln"))) {
-    Write-Error "Run this script from the repository root (where src/GMO.Family.sln exists)."
+if (-not (Test-Path (Join-Path $root "GMO.Family.sln"))) {
+    Write-Error "Run this script from the repository root (where GMO.Family.sln exists)."
     exit 1
 }
 
 Write-Host "Building and running tests with coverage..."
-dotnet test src/GMO.Family.sln --collect:"XPlat Code Coverage" --results-directory ./coverage --verbosity minimal
+dotnet test GMO.Family.sln --collect:"XPlat Code Coverage" --results-directory ./coverage --verbosity minimal
 
 $coberturaFiles = Get-ChildItem -Path ./coverage -Recurse -Filter "coverage.cobertura.xml" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName
 if ($coberturaFiles.Count -eq 0) {
