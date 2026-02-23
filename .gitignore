@@ -30,6 +30,10 @@ ScaffoldingReadMe.txt
 # dotenv environment variables file
 .env
 
+# appsettings.json is generated from template; do not commit
+appsettings.json
+appsettings.*.json
+
 # Others
 ~$*
 *~
@@ -50,3 +54,6 @@ nunit-*.xml
 .vs/
 .vscode/
 *.user
+coverage/
+logs/
+uploads/

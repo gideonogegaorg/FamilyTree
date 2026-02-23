@@ -1,0 +1,56 @@
+{
+  "ConnectionStrings": {
+    "DefaultConnection": "^^POSTGRES_CONNECTION_STRING^^"
+  },
+  "Serilog": {
+    "Using": [ "Serilog.Sinks.Console", "Serilog.Sinks.File" ],
+    "MinimumLevel": "Information",
+    "WriteTo": [
+      {
+        "Name": "Console"
+      },
+      {
+        "Name": "File",
+        "Args": {
+          "path": "^^SERILOG_LOG_PATH^^/log-.txt",
+          "rollingInterval": "Day",
+          "fileSizeLimitBytes": 256000000,
+          "rollOnFileSizeLimit": true,
+          "retainedFileCountLimit": 28,
+          "outputTemplate": "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {Message:lj}{NewLine}{Exception}"
+        }
+      }
+    ],
+    "Enrich": [ "FromLogContext", "WithMachineName", "WithProcessId", "WithThreadId" ],
+    "Destructure": [
+      {
+        "Name": "ToMaximumDepth",
+        "Args": { "maximumDestructuringDepth": 3 }
+      }
+    ],
+    "Properties": {
+      "ApplicationName": "GMO Family"
+    }
+  },
+  "Telemetry": {
+    "Enabled": ^^OPENTELEMETRY_ENABLED^^,
+    "EnableLogging": true,
+    "EnvironmentName": "^^TELEMETRY_ENVIRONMENT_NAME^^",
+    "Otlp": {
+      "Endpoint": "^^OPENTELEMETRY_OTLPEXPORTENDPOINT^^",
+      "Headers": "^^OPENTELEMETRY_HEADERS^^"
+    },
+    "MetricsEndpoint": "^^OPENTELEMETRY_METRICSENDPOINT^^",
+    "LoggingEndpoint": "^^OPENTELEMETRY_LOGGINGENDPOINT^^"
+  },
+  "Paths": {
+    "Uploads": "^^UPLOADS_PATH^^"
+  },
+  "AllowedHosts": "*",
+  "Authentication": {
+    "Google": {
+      "ClientId": "^^GOOGLE_CLIENT_ID^^",
+      "ClientSecret": "^^GOOGLE_CLIENT_SECRET^^"
+    }
+  }
+}

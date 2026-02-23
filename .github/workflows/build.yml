@@ -3,38 +3,97 @@ name: Build and Deploy
 on:
   push:
     branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
 
 jobs:
+  lint:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_USERNAME: ${{ secrets.GH_USER }}
+      GITHUB_PAT: ${{ secrets.GH_CLASSIC_PAT }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Generate appsettings.json
+        run: bash scripts/generate-appsettings.sh
+      - name: Configure NuGet auth for GMO feed
+        run: dotnet nuget update source GMO --username "$GITHUB_USERNAME" --password "$GITHUB_PAT" --store-password-in-clear-text
+      - name: Restore
+        run: dotnet restore GMO.Family.sln --verbosity normal
+      - name: Verify format
+        run: dotnet format GMO.Family.sln --verbosity diagnostic --verify-no-changes --no-restore
+
   build:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
+    needs: [lint]
+    env:
+      GITHUB_USERNAME: ${{ secrets.GH_USER }}
+      GITHUB_PAT: ${{ secrets.GH_CLASSIC_PAT }}
     outputs:
       assembly_version: ${{ steps.setversion.outputs.assembly_version }}
       dll_version: ${{ steps.setversion.outputs.dll_version }}
+      setup_changed: ${{ steps.filter.outputs.setup }}
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: family
+          POSTGRES_PASSWORD: family
+          POSTGRES_DB: family
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U family -d family"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - uses: dorny/paths-filter@v3
+        if: github.event_name == 'push'
+        id: filter
+        with:
+          filters: |
+            setup:
+              - 'scripts/configure-service.sh'
 
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
 
-      - name: Set DLL version
+      - name: Check NuGet auth for GMO feed
+        run: |
+          if [ -z "$GITHUB_PAT" ]; then
+            echo "::error::GITHUB_PAT is empty. Add repository secret GH_CLASSIC_PAT (with read:packages) in this repo."
+            exit 1
+          fi
+
+      - name: Configure NuGet auth for GMO feed
+        run: dotnet nuget update source GMO --username "$GITHUB_USERNAME" --password "$GITHUB_PAT" --store-password-in-clear-text
+
+      - name: Generate appsettings.json for build
+        run: bash scripts/generate-appsettings.sh
+
+      - name: Set version
         id: setversion
         run: |
           YEAR=$(date +%Y)
           MONTH=$(date +%m)
-          RUN_ID=${{ github.run_id }}
-          BUILD=$(( RUN_ID % 65535 ))
-          REVISION=$(( (RUN_ID / 65535) % 65535 ))
-          ASSEMBLY_VERSION="$YEAR.$MONTH.$BUILD.$REVISION"
+          DAY=$(date +%d)
+          HHMM=$(date +%H%M)
+          ASSEMBLY_VERSION="$YEAR.$MONTH.$DAY.$HHMM"
           if [ "${{ github.ref_name }}" = "dev" ]; then
-            DLL_VERSION="DEV-$(date +%Y%m)$RUN_ID"
+            DLL_VERSION="DEV-$YEAR$MONTH$DAY-$HHMM"
           else
-            DLL_VERSION="$(date +%Y%m)$RUN_ID"
+            DLL_VERSION="$YEAR$MONTH$DAY-$HHMM"
           fi
           echo "ASSEMBLY_VERSION=$ASSEMBLY_VERSION" >> $GITHUB_ENV
           echo "DLL_VERSION=$DLL_VERSION" >> $GITHUB_ENV
@@ -43,12 +102,59 @@ jobs:
 
       - name: Build
         run: |
-          dotnet build src/Family.sln \
+          dotnet build GMO.Family.sln --verbosity normal \
             -p:Version=${{ env.ASSEMBLY_VERSION }} \
             -p:AssemblyVersion=${{ env.ASSEMBLY_VERSION }} \
             -p:FileVersion=${{ env.ASSEMBLY_VERSION }} \
             -p:InformationalVersion=${{ env.DLL_VERSION }}
 
+      - name: Test
+        run: |
+          set +e
+          dotnet test GMO.Family.sln --no-build --verbosity normal \
+            --collect:"XPlat Code Coverage" \
+            --results-directory ./coverage 2>&1 | tee test.log
+          EXIT=$?
+          if [ $EXIT -ne 0 ] && grep -qi "no test is available\|no test matched" test.log; then
+            echo "No test projects yet; step passes until tests are added."
+            exit 0
+          fi
+          exit $EXIT
+
+      - name: Generate HTML coverage report
+        if: always()
+        run: |
+          COBERTURA_FILES=$(find coverage -type f -name 'coverage.cobertura.xml' 2>/dev/null || true)
+          if [ -z "$COBERTURA_FILES" ]; then
+            echo "No coverage files found; skipping HTML report."
+            exit 0
+          fi
+          dotnet tool install -g dotnet-reportgenerator-globaltool
+          export PATH="$PATH:$HOME/.dotnet/tools"
+          REPORTS=$(echo "$COBERTURA_FILES" | tr '\n' ';' | sed 's/;$//')
+          mkdir -p coverage/combined
+          reportgenerator -reports:"$REPORTS" -targetdir:coverage/combined/html -reporttypes:Html || true
+          echo "HTML report in coverage/combined/html/index.html"
+
+      - name: Upload coverage results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-results
+          path: |
+            coverage/**/coverage.cobertura.xml
+            coverage/combined/
+          retention-days: 30
+          if-no-files-found: ignore
+
+  tag:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    needs: [build]
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
       - name: Create and push tag
         run: |
           TAG_NAME="${{ github.ref_name }}-$(date +%Y)-$(date +%m)-${{ github.run_id }}"
@@ -57,20 +163,39 @@ jobs:
           git tag "$TAG_NAME"
           git push origin "$TAG_NAME"
 
-  # Uses GitHub Environments: main and dev. Set per environment:
-  #   - SERVICE_NAME (variable), e.g. main → family-web, dev → family-web-dev
-  #   - DEPLOY_DOMAIN (secret) for deploy path, e.g. gideonogega.com
-  # In logs, secrets appear as ***; the remote receives the real values.
   deploy:
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
-    needs: build
+    needs: [build, tag]
     environment: ${{ github.ref_name }}
     env:
       DEPLOY_PATH: ${{ github.ref == 'refs/heads/main' && format('/var/www/family.{0}', secrets.DEPLOY_DOMAIN) || github.ref == 'refs/heads/dev' && format('/var/www/family-dev.{0}', secrets.DEPLOY_DOMAIN) || '' }}
+      FULL_HOSTNAME: ${{ github.ref == 'refs/heads/main' && format('family.{0}', secrets.DEPLOY_DOMAIN) || github.ref == 'refs/heads/dev' && format('family-dev.{0}', secrets.DEPLOY_DOMAIN) || '' }}
       BRANCH: ${{ github.ref_name }}
       ASSEMBLY_VERSION: ${{ needs.build.outputs.assembly_version }}
       DLL_VERSION: ${{ needs.build.outputs.dll_version }}
+      SETUP_CHANGED: ${{ needs.build.outputs.setup_changed }}
+      PORT: ${{ vars.PORT }}
+      SERVICE_NAME: ${{ vars.SERVICE_NAME }}
+      CERT_DOMAIN: ${{ secrets.DEPLOY_DOMAIN }}
+      POSTGRES_CONNECTION_STRING: ${{ secrets.POSTGRES_CONNECTION_STRING }}
+      GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+      GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+      OPENTELEMETRY_ENABLED: ${{ secrets.OPENTELEMETRY_ENABLED }}
+      OPENTELEMETRY_OTLPEXPORTENDPOINT: ${{ secrets.OPENTELEMETRY_OTLPEXPORTENDPOINT }}
+      OPENTELEMETRY_LOGGINGENDPOINT: ${{ secrets.OPENTELEMETRY_LOGGINGENDPOINT }}
+      OPENTELEMETRY_HEADERS: ${{ secrets.OPENTELEMETRY_HEADERS }}
+      OPENTELEMETRY_METRICSENDPOINT: ${{ secrets.OPENTELEMETRY_METRICSENDPOINT }}
+      GITHUB_USERNAME: ${{ secrets.GH_USER }}
+      GITHUB_PAT: ${{ secrets.GH_CLASSIC_PAT }}
     steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
       - name: Validate deploy config
         run: |
           if [ -z "$DEPLOY_PATH" ]; then
@@ -85,6 +210,21 @@ jobs:
             echo "::error::DEPLOY_PATH looks invalid (missing domain?). Set DEPLOY_DOMAIN secret for this environment."
             exit 1
           fi
+
+      - name: Generate appsettings.json for deploy
+        env:
+          SERILOG_LOG_PATH: ${{ env.DEPLOY_PATH }}/logs
+          UPLOADS_PATH: ${{ env.DEPLOY_PATH }}/uploads
+          TELEMETRY_ENVIRONMENT_NAME: ${{ github.ref_name }}
+        run: bash scripts/generate-appsettings.sh
+
+      - name: Publish
+        run: |
+          dotnet publish src/GMO.Family.Web/GMO.Family.Web.csproj -c Release -o ./site \
+            -p:Version=${{ env.ASSEMBLY_VERSION }} \
+            -p:AssemblyVersion=${{ env.ASSEMBLY_VERSION }} \
+            -p:FileVersion=${{ env.ASSEMBLY_VERSION }} \
+            -p:InformationalVersion=${{ env.DLL_VERSION }}
 
       - name: Get GitHub Runner IP
         id: ip
@@ -103,6 +243,15 @@ jobs:
             --group-id ${{ secrets.SEC_GROUP_ID }} \
             --protocol tcp --port 22 --cidr ${{ steps.ip.outputs.ipv4 }}/32
 
+      - name: Copy site output to EC2
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.REMOTE_HOST }}
+          username: ubuntu
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: "site/*,scripts/configure-service.sh"
+          target: "/tmp/family-deploy-${{ github.run_id }}"
+
       - name: Deploy to EC2 via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -110,23 +259,31 @@ jobs:
           username: ubuntu
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script_stop: true
+          debug: true
           script: |
-            sudo mkdir -p /git/family ${{ env.DEPLOY_PATH }}
-            sudo chown -R ubuntu:ubuntu /git/family ${{ env.DEPLOY_PATH }}
-            CLONE_DIR="/git/family/${{ env.BRANCH }}"
-            rm -rf "$CLONE_DIR"
-            git clone -b ${{ env.BRANCH }} https://${{ secrets.GH_PAT }}@github.com/${{ github.repository }}.git "$CLONE_DIR"
-            dotnet publish "$CLONE_DIR/src/Family.Web/Family.Web.csproj" -c Release -o "${{ env.DEPLOY_PATH }}" \
-              -p:Version=${{ env.ASSEMBLY_VERSION }} \
-              -p:AssemblyVersion=${{ env.ASSEMBLY_VERSION }} \
-              -p:FileVersion=${{ env.ASSEMBLY_VERSION }} \
-              -p:InformationalVersion=${{ env.DLL_VERSION }}
-            mkdir -p "${{ env.DEPLOY_PATH }}/scripts"
-            cp -r "$CLONE_DIR/scripts/"* "${{ env.DEPLOY_PATH }}/scripts/"
-            rm -rf "$CLONE_DIR"
-            sudo chown -R ubuntu:www-data ${{ env.DEPLOY_PATH }}
-            sudo chmod -R 755 ${{ env.DEPLOY_PATH }}
-            sudo systemctl restart ${{ vars.SERVICE_NAME }}
+            set -e
+            DEPLOY_PATH='${{ env.DEPLOY_PATH }}'
+            BRANCH='${{ env.BRANCH }}'
+            SETUP_CHANGED='${{ env.SETUP_CHANGED }}'
+            FULL_HOSTNAME='${{ env.FULL_HOSTNAME }}'
+            PORT='${{ env.PORT }}'
+            SERVICE_NAME='${{ env.SERVICE_NAME }}'
+            CERT_DOMAIN='${{ env.CERT_DOMAIN }}'
+            STAGING="/tmp/family-deploy-${{ github.run_id }}"
+            trap 'rm -rf "$STAGING"' EXIT
+            echo "[Deploy] Ensuring directory..."
+            sudo mkdir -p "$DEPLOY_PATH/site" "$DEPLOY_PATH/logs" "$DEPLOY_PATH/uploads"
+            sudo chown -R ubuntu:www-data "$DEPLOY_PATH"
+            if [ "$SETUP_CHANGED" = "true" ] || [ ! -f "/etc/systemd/system/${SERVICE_NAME}.service" ]; then
+              echo "[Deploy] Running configure-service.sh..."
+              sudo bash "$STAGING/scripts/configure-service.sh" "$FULL_HOSTNAME" "$PORT" "$SERVICE_NAME" "$CERT_DOMAIN"
+            fi
+            echo "[Deploy] Copying site output..."
+            cp -r "$STAGING/site/"* "$DEPLOY_PATH/site/"
+            sudo chown -R ubuntu:www-data "$DEPLOY_PATH"
+            echo "[Deploy] Restarting service..."
+            sudo systemctl restart "$SERVICE_NAME"
+            echo "[Deploy] Done."
 
       - name: Revoke Runner IP (Cleanup)
         if: always()
