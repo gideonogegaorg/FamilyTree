@@ -3,6 +3,7 @@ using System;
 using GMO.Family.Web.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace GMO.Family.Web.Data.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260223100319_UniqueUserIdPerFamilyTree")]
+    partial class UniqueUserIdPerFamilyTree
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -38,9 +41,6 @@ namespace GMO.Family.Web.Data.Migrations
 
                     b.Property<long>("FamilyTreeId")
                         .HasColumnType("bigint");
-
-                    b.Property<bool>("IsMale")
-                        .HasColumnType("boolean");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -144,9 +144,6 @@ namespace GMO.Family.Web.Data.Migrations
                     b.Property<string>("PhotoUrl")
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
-
-                    b.Property<int?>("TreeViewOrientation")
-                        .HasColumnType("integer");
 
                     b.HasKey("UserId");
 
@@ -354,7 +351,7 @@ namespace GMO.Family.Web.Data.Migrations
                     b.HasOne("GMO.Family.Web.Data.FamilyTree", "FamilyTree")
                         .WithMany("Members")
                         .HasForeignKey("FamilyTreeId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser", "User")
@@ -372,19 +369,19 @@ namespace GMO.Family.Web.Data.Migrations
                     b.HasOne("GMO.Family.Web.Data.FamilyTree", "FamilyTree")
                         .WithMany()
                         .HasForeignKey("FamilyTreeId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.HasOne("GMO.Family.Web.Data.FamilyMember", "FromMember")
                         .WithMany("OutgoingRelationships")
                         .HasForeignKey("FromMemberId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.HasOne("GMO.Family.Web.Data.FamilyMember", "ToMember")
                         .WithMany("IncomingRelationships")
                         .HasForeignKey("ToMemberId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("FamilyTree");
