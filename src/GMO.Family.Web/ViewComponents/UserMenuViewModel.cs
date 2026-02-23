@@ -8,4 +8,5 @@ public class UserMenuViewModel
     public string? PhotoUrl { get; set; }
     public FamilyTree? CurrentFamilyTree { get; set; }
     public List<FamilyTree> FamilyTrees { get; set; } = new();
+    public TreeViewOrientation TreeViewOrientation { get; set; }
 }
