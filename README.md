@@ -61,6 +61,8 @@ The deploy job uses GitHub **Environments** (`main` and `dev`). For each environ
 - **GH_CLASSIC_PAT**: Classic PAT with `read:packages` so the build can restore GMO.* packages from GitHub Packages.
 - **DEPLOY_DOMAIN** and deploy secrets (AWS, SSH, etc.) as needed.
 
+**PostgreSQL** (per environment or repository): **PG_USER** and **PG_PASS**. The deploy job builds the connection string as `Host=localhost;Port=5432;Database=<SERVICE_NAME>;Username=<PG_USER>;Password=<PG_PASS>` (Postgres runs on the same EC2; database name matches the systemd service name).
+
 Optional for OpenTelemetry (baked into `appsettings.json` during deploy): **OPENTELEMETRY_ENABLED**, **OPENTELEMETRY_OTLPEXPORTENDPOINT**, **OPENTELEMETRY_HEADERS**, **OPENTELEMETRY_METRICSENDPOINT**, **OPENTELEMETRY_LOGGINGENDPOINT**. `Telemetry.EnvironmentName` is set automatically to `main` or `dev`.
 
 Optional for Google sign-in: **GOOGLE_CLIENT_ID** and **GOOGLE_CLIENT_SECRET**. When both are set, the site requires sign-in except on the home and error pages.
