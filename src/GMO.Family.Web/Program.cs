@@ -122,10 +122,10 @@ builder.Services.AddFamilyAuthentication(builder.Configuration, builder.Environm
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
 {
     options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
-    options.KnownNetworks.Clear();
     options.KnownProxies.Clear();
-    options.KnownNetworks.Add(new IPNetwork(IPAddress.Parse("127.0.0.0"), 8));
-    options.KnownNetworks.Add(new IPNetwork(IPAddress.Parse("::1"), 128));
+    options.KnownIPNetworks.Clear();
+    options.KnownIPNetworks.Add(new System.Net.IPNetwork(IPAddress.Parse("127.0.0.0"), 8));
+    options.KnownIPNetworks.Add(new System.Net.IPNetwork(IPAddress.Parse("::1"), 128));
 });
 
 var app = builder.Build();
