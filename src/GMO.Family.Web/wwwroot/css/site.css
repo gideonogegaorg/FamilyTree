@@ -117,14 +117,26 @@ body {
 }
 
 /* Nested partner units (male with multiple partners): each partner in own block */
+/* Partner-units container: same connector pattern as ft-children / ft-branch */
 .ft-partner-units {
   display: flex;
   flex-direction: row;
   flex-wrap: nowrap;
   align-items: flex-start;
-  gap: 1.5rem;
-  margin-top: 0.75rem;
-  margin-left: 0.5rem;
+  justify-content: center;
+  position: relative;
+  padding-top: 1.5rem;
+  margin-top: 1.5rem;
+}
+/* Vertical drop line from male card to horizontal bar */
+.ft-partner-units::before {
+  content: '';
+  position: absolute;
+  top: -1.5rem;
+  left: 50%;
+  width: 0;
+  height: 1.5rem;
+  border-left: 1.5px solid #6c757d;
 }
 .ft-partner-unit {
   display: flex;
@@ -132,6 +144,36 @@ body {
   align-items: center;
   position: relative;
   flex: 0 0 auto;
+  padding: 1.5rem 1rem 0 1rem;
+}
+/* Vertical drop line from horizontal bar to each partner unit */
+.ft-partner-unit::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 0;
+  height: 1.5rem;
+  border-left: 1.5px solid #6c757d;
+}
+/* Horizontal bar segment across partner units */
+.ft-partner-unit::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 0;
+  border-top: 1.5px solid #6c757d;
+}
+.ft-partner-unit:first-child::after {
+  left: 50%;
+}
+.ft-partner-unit:last-child::after {
+  right: 50%;
+}
+.ft-partner-unit:only-child::after {
+  display: none;
 }
 .ft-partner-unit > .ft-couple-link {
   margin-bottom: 0.25rem;
@@ -140,11 +182,7 @@ body {
   margin-top: 0.75rem;
 }
 
-/* Single-parent children: own column, no connector from a partner card */
-.ft-partner-unit-single {
-  padding-left: 0.75rem;
-  border-left: 1.5px dashed #6c757d;
-}
+/* Single-parent children column */
 .ft-partner-unit-single > .ft-children {
   margin-top: 0;
   padding-top: 0;
@@ -153,15 +191,39 @@ body {
   display: none;
 }
 
+/* Spacer inserted when a half-rank slot is missing in a branch */
+.ft-rank-spacer {
+  flex-shrink: 0;
+  align-self: stretch;
+  position: relative;
+}
+.ft-rank-spacer::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 0;
+  height: 100%;
+  border-left: 1.5px solid #6c757d;
+}
+
 /* Horizontal: partner units to the right of male; each unit = partner + children column */
 .ft-orientation-horizontal .ft-partner-units {
   flex-direction: row;
   margin-left: 1rem;
   margin-top: 0;
+  padding-top: 0;
+}
+.ft-orientation-horizontal .ft-partner-units::before {
+  display: none;
 }
 .ft-orientation-horizontal .ft-partner-unit {
   flex-direction: column;
   align-items: center;
+  padding: 0;
+}
+.ft-orientation-horizontal .ft-partner-unit::before,
+.ft-orientation-horizontal .ft-partner-unit::after {
+  display: none;
 }
 
 /* Children container: horizontal flex of branches */

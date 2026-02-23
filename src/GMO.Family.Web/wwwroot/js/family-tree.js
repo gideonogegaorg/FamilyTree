@@ -22,6 +22,7 @@
             isMale: !!n.isMale,
             dob: n.dob,
             birthOrder: n.birthOrder != null ? toId(n.birthOrder) : null,
+            visualRank: n.visualRank != null ? parseFloat(n.visualRank) : 0,
             parentIds: (n.parentIds || []).map(toId),
             childIds: (n.childIds || []).map(toId),
             partnerIds: (n.partnerIds || []).map(toId)
@@ -153,6 +154,7 @@
         card.className = 'family-tree-card' + (node.isMe ? ' family-tree-card-me' : '');
         card.id = idSuffix ? 'member-' + node.id + '-' + idSuffix : 'member-' + node.id;
         card.setAttribute('data-member-id', node.id);
+        card.setAttribute('data-visual-rank', node.visualRank);
         var label = node.label;
         if (node.dob) label += '\nDOB: ' + node.dob;
         var lines = label.split('\n');
@@ -484,6 +486,77 @@
     treeInner.className = 'family-tree-inner';
     treeInner.appendChild(rootContainer);
     container.appendChild(treeInner);
+
+    // Insert spacers for missing half-rank slots so same-rank members align vertically.
+    (function insertHalfRankSpacers() {
+        var halfRankLevels = {};
+        Object.keys(nodeById).forEach(function (id) {
+            var r = nodeById[id].visualRank;
+            if (r % 1 !== 0) halfRankLevels[Math.floor(r)] = true;
+        });
+        if (Object.keys(halfRankLevels).length === 0) return;
+
+        // Phase 1: insert zero-height spacers in branches that skip a half-rank.
+        container.querySelectorAll('.ft-children').forEach(function (childrenEl) {
+            var parent = childrenEl.parentElement;
+            if (!parent) return;
+            if (parent.classList.contains('ft-partner-unit') &&
+                !parent.classList.contains('ft-partner-unit-single')) return;
+
+            var parentCard = null;
+            if (parent.classList.contains('ft-partner-unit-single')) {
+                var unitEl = parent.closest('.ft-unit');
+                if (unitEl) parentCard = unitEl.querySelector('.ft-parents > .family-tree-card');
+            } else if (parent.classList.contains('ft-unit')) {
+                parentCard = parent.querySelector('.ft-parents > .family-tree-card');
+            }
+            if (!parentCard) return;
+
+            var parentRank = parseFloat(parentCard.getAttribute('data-visual-rank') || '0');
+            if (parentRank % 1 !== 0) return;
+            if (!halfRankLevels[parentRank]) return;
+
+            var spacer = document.createElement('div');
+            spacer.className = 'ft-rank-spacer';
+            spacer.style.height = '0px';
+            parent.insertBefore(spacer, childrenEl);
+        });
+
+        // Phase 2: after layout settles, measure card positions and adjust spacers.
+        setTimeout(function () {
+            Object.keys(halfRankLevels).forEach(function (baseStr) {
+                var childRank = parseInt(baseStr, 10) + 1;
+
+                // Batch-read all positions first (no writes between reads).
+                var entries = [];
+                container.querySelectorAll('.family-tree-card[data-visual-rank]').forEach(function (c) {
+                    if (parseFloat(c.getAttribute('data-visual-rank')) !== childRank) return;
+                    var branch = c.closest('.ft-branch');
+                    if (!branch) return;
+                    var childrenEl = branch.parentElement;
+                    if (!childrenEl || !childrenEl.classList.contains('ft-children')) return;
+                    var spacer = childrenEl.previousElementSibling;
+                    entries.push({ top: c.getBoundingClientRect().top, spacer: spacer });
+                });
+                if (entries.length < 2) return;
+
+                var maxTop = -Infinity;
+                entries.forEach(function (e) { if (e.top > maxTop) maxTop = e.top; });
+
+                // Batch-write: deduplicate spacers so each is adjusted only once.
+                var seen = new Map();
+                entries.forEach(function (e) {
+                    if (!e.spacer || !e.spacer.classList.contains('ft-rank-spacer')) return;
+                    var diff = maxTop - e.top;
+                    if (diff < 1) return;
+                    if (!seen.has(e.spacer) || seen.get(e.spacer) < diff) seen.set(e.spacer, diff);
+                });
+                seen.forEach(function (diff, spacer) {
+                    spacer.style.height = (parseFloat(spacer.style.height) + diff) + 'px';
+                });
+            });
+        }, 50);
+    })();
 
     if (focusMemberId) {
         var focusEl = document.getElementById('member-' + focusMemberId);

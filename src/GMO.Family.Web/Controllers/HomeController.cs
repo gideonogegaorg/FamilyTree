@@ -67,6 +67,7 @@ public class HomeController : Controller
 
         var cards = members.Select(m => BuildCard(m, rels, memberDict, currentUserId)).ToList();
         var rowById = ComputeRowByMember(cards);
+        var rankById = ComputeVisualRank(cards, rowById);
 
         var jsonOpts = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
         var nodesJson = JsonSerializer.Serialize(cards.Select(c => new
@@ -76,6 +77,7 @@ public class HomeController : Controller
             c.IsMe,
             Dob = c.DOB?.ToString("yyyy-MM-dd"),
             Row = rowById.TryGetValue(c.Id, out var row) ? row : 0,
+            VisualRank = rankById.TryGetValue(c.Id, out var rank) ? rank : 0.0,
             ParentIds = c.ParentIds,
             ChildIds = c.ChildIds,
             PartnerIds = c.PartnerIds,
@@ -197,6 +199,34 @@ public class HomeController : Controller
                 rowById[c.Id] = 0;
 
         return rowById;
+    }
+
+    /// <summary>
+    /// Visual rank: same as row for most members. Partners of a multi-partner male who have
+    /// no parents of their own get rank = male's rank + 0.5 (a half-level between the male
+    /// and his children).
+    /// </summary>
+    private static Dictionary<long, double> ComputeVisualRank(
+        IReadOnlyList<FamilyMemberCardViewModel> cards,
+        Dictionary<long, int> rowById)
+    {
+        var cardById = cards.ToDictionary(c => c.Id);
+        var rankById = rowById.ToDictionary(kv => kv.Key, kv => (double)kv.Value);
+
+        var multiPartnerMales = cards.Where(c => c.IsMale && c.PartnerIds.Count > 1).ToList();
+
+        foreach (var male in multiPartnerMales)
+        {
+            var maleRank = rankById.GetValueOrDefault(male.Id, 0);
+            foreach (var pid in male.PartnerIds)
+            {
+                if (!cardById.TryGetValue(pid, out var partner)) continue;
+                if (partner.ParentIds.Count > 0) continue;
+                rankById[pid] = maleRank + 0.5;
+            }
+        }
+
+        return rankById;
     }
 
     private static FamilyMemberCardViewModel BuildCard(
