@@ -27,7 +27,7 @@ bash scripts/generate-appsettings.sh
 ## Build
 
 ```bash
-dotnet build src/GMO.Family.sln
+dotnet build GMO.Family.sln
 ```
 
 Restore requires authentication to the GMO GitHub Packages feed when using `GMO.*` packages. Set `GITHUB_USERNAME` and `GITHUB_PAT` (or use [nuget.config](src/nuget.config) with `packageSourceCredentials`) so NuGet can read from `https://nuget.pkg.github.com/gideonogegaorg/index.json`.

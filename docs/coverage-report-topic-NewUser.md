@@ -3,7 +3,7 @@
 This report is generated from **combined** unit and integration test coverage (merged Cobertura XML). To regenerate:
 
 1. From repo root, run: `.\scripts\run-coverage.ps1`  
-   - Runs `dotnet test src/GMO.Family.sln --collect:"XPlat Code Coverage" --results-directory ./coverage`
+   - Runs `dotnet test GMO.Family.sln --collect:"XPlat Code Coverage" --results-directory ./coverage`
    - Merges all `coverage/**/coverage.cobertura.xml` into `coverage/combined/` using ReportGenerator
    - Produces `coverage/combined/index.html` (view in browser) and `coverage/combined/Cobertura.xml`
 
