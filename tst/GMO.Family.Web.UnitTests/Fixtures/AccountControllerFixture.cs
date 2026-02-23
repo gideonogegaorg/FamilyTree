@@ -105,6 +105,7 @@ public sealed class AccountControllerFixture
         IDefaultFamilyTreeService? defaultFamilyTreeService = null)
     {
         var currentTree = new CurrentFamilyTreeServiceMock().Object;
+        var treeViewOrientation = new Mock<ITreeViewOrientationService>().Object;
         var defaultTree = defaultFamilyTreeService ?? new DefaultFamilyTreeServiceMock().Object;
         var env = new WebHostEnvironmentMock().Object;
         var paths = _fixture.Create<PathsOptions>();
@@ -120,6 +121,7 @@ public sealed class AccountControllerFixture
             googleAuth,
             db,
             currentTree,
+            treeViewOrientation,
             defaultTree,
             env,
             Microsoft.Extensions.Options.Options.Create(paths),

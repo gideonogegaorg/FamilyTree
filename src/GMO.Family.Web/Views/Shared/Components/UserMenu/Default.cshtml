@@ -67,6 +67,20 @@ else
                 <a class="dropdown-item" asp-controller="FamilyTree" asp-action="Create">Create new Family Tree</a>
             </li>
             <li><hr class="dropdown-divider" /></li>
+            <li class="dropdown-header small text-muted">Tree layout</li>
+            <li class="px-3 py-2">
+                <div class="btn-group btn-group-sm w-100" role="group">
+                    <form asp-controller="Account" asp-action="SetTreeViewOrientation" method="post" class="d-inline flex-grow-1">
+                        <input type="hidden" name="orientation" value="0" />
+                        <button type="submit" class="btn @(Model.TreeViewOrientation == GMO.Family.Web.Data.TreeViewOrientation.Vertical ? "btn-primary" : "btn-outline-secondary") w-100">Vertical</button>
+                    </form>
+                    <form asp-controller="Account" asp-action="SetTreeViewOrientation" method="post" class="d-inline flex-grow-1">
+                        <input type="hidden" name="orientation" value="1" />
+                        <button type="submit" class="btn @(Model.TreeViewOrientation == GMO.Family.Web.Data.TreeViewOrientation.Horizontal ? "btn-primary" : "btn-outline-secondary") w-100">Horizontal</button>
+                    </form>
+                </div>
+            </li>
+            <li><hr class="dropdown-divider" /></li>
             <li>
                 <form asp-controller="Account" asp-action="SignOut" method="post">
                     <button type="submit" class="dropdown-item text-danger">Sign out</button>
