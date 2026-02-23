@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 
 using Microsoft.AspNetCore.Http;
 
@@ -25,10 +26,10 @@ internal sealed class TestSession : ISession
 
     public void Set(string key, byte[] value) => _store[key] = value;
 
-    public bool TryGetValue(string key, out byte[]? value)
+    public bool TryGetValue(string key, [MaybeNullWhen(false)] out byte[] value)
     {
         var result = _store.TryGetValue(key, out var v);
-        value = v;
+        value = v!;
         return result;
     }
 }
