@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Net;
 
 using GMO.Family.Web;
 using GMO.Family.Web.Data;
@@ -8,6 +9,7 @@ using GMO.Family.Web.Services;
 using GMO.OpenTelemetry;
 using GMO.OpenTelemetry.Serilog;
 
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Options;
@@ -116,6 +118,16 @@ builder.Services.AddSession(options => options.IdleTimeout = TimeSpan.FromMinute
 
 builder.Services.AddFamilyAuthentication(builder.Configuration, builder.Environment);
 
+// Trust X-Forwarded-Proto/Host from Nginx (or other reverse proxy) so redirect URIs use the client's scheme (https).
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.KnownProxies.Clear();
+    options.KnownIPNetworks.Clear();
+    options.KnownIPNetworks.Add(new System.Net.IPNetwork(IPAddress.Parse("127.0.0.0"), 8));
+    options.KnownIPNetworks.Add(new System.Net.IPNetwork(IPAddress.Parse("::1"), 128));
+});
+
 var app = builder.Build();
 
 // Apply EF Core migrations on startup (uses built-in database lock for multi-instance safety).
@@ -139,6 +151,7 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
+app.UseForwardedHeaders();
 app.UseHttpsRedirection();
 app.UseRouting();
 
