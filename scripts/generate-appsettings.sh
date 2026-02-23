@@ -25,9 +25,13 @@ cp "$TEMPLATE" "$OUTPUT"
 
 replace() {
   local token="$1" value="$2"
+  # Escape for sed replacement: \ and & are special
+  value="${value//\\/\\\\}"
+  value="${value//&/\\&}"
   sed -i "s|\^\^${token}\^\^|${value}|g" "$OUTPUT"
 }
 
+replace "POSTGRES_CONNECTION_STRING"      "${POSTGRES_CONNECTION_STRING:-}"
 replace "SERILOG_LOG_PATH"                "${SERILOG_LOG_PATH:-../../logs}"
 replace "UPLOADS_PATH"                    "${UPLOADS_PATH:-../uploads}"
 replace "OPENTELEMETRY_ENABLED"           "${OPENTELEMETRY_ENABLED:-false}"
