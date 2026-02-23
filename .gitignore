@@ -54,3 +54,6 @@ nunit-*.xml
 .vs/
 .vscode/
 *.user
+coverage/
+logs/
+uploads/

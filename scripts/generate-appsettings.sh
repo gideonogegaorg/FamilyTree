@@ -29,6 +29,7 @@ replace() {
 }
 
 replace "SERILOG_LOG_PATH"                "${SERILOG_LOG_PATH:-../../logs}"
+replace "UPLOADS_PATH"                    "${UPLOADS_PATH:-../uploads}"
 replace "OPENTELEMETRY_ENABLED"           "${OPENTELEMETRY_ENABLED:-false}"
 replace "TELEMETRY_ENVIRONMENT_NAME"      "${TELEMETRY_ENVIRONMENT_NAME:-}"
 replace "OPENTELEMETRY_OTLPEXPORTENDPOINT" "${OPENTELEMETRY_OTLPEXPORTENDPOINT:-}"

@@ -1,4 +1,7 @@
 {
+  "ConnectionStrings": {
+    "DefaultConnection": "^^POSTGRES_CONNECTION_STRING^^"
+  },
   "Serilog": {
     "Using": [ "Serilog.Sinks.Console", "Serilog.Sinks.File" ],
     "MinimumLevel": "Information",
@@ -39,6 +42,9 @@
     },
     "MetricsEndpoint": "^^OPENTELEMETRY_METRICSENDPOINT^^",
     "LoggingEndpoint": "^^OPENTELEMETRY_LOGGINGENDPOINT^^"
+  },
+  "Paths": {
+    "Uploads": "^^UPLOADS_PATH^^"
   },
   "AllowedHosts": "*",
   "Authentication": {

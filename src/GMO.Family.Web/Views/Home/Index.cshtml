@@ -4,19 +4,6 @@
 
 <div class="text-center">
     <h1 class="display-4">Welcome</h1>
-    @if (ViewBag.GoogleAuthEnabled == true)
-    {
-        if (User.Identity?.IsAuthenticated == true)
-        {
-            <p>You are signed in as <strong>@User.Identity.Name</strong>.</p>
-            <form asp-controller="Account" asp-action="SignOut" method="post" class="d-inline">
-                <button type="submit" class="btn btn-link">Sign out</button>
-            </form>
-        }
-        else
-        {
-            <p><a asp-controller="Account" asp-action="SignIn" class="btn btn-primary">Sign in with Google</a></p>
-        }
-    }
+    <p>You are signed in as <strong>@User.Identity?.Name</strong>.</p>
     <p>Learn about <a href="https://learn.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>
 </div>

@@ -18,7 +18,6 @@ public class HomeController : Controller
         _googleAuth = googleAuth;
     }
 
-    [AllowAnonymous]
     public IActionResult Index()
     {
         ViewBag.GoogleAuthEnabled = _googleAuth.CurrentValue.Enabled;
