@@ -178,7 +178,7 @@ jobs:
       PORT: ${{ vars.PORT }}
       SERVICE_NAME: ${{ vars.SERVICE_NAME }}
       CERT_DOMAIN: ${{ secrets.DEPLOY_DOMAIN }}
-      POSTGRES_CONNECTION_STRING: ${{ secrets.POSTGRES_CONNECTION_STRING }}
+      POSTGRES_CONNECTION_STRING: "Host=localhost;Port=5432;Database=${{ vars.SERVICE_NAME }};Username=${{ secrets.PG_USER }};Password=${{ secrets.PG_PASS }}"
       GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
       GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
       OPENTELEMETRY_ENABLED: ${{ secrets.OPENTELEMETRY_ENABLED }}
