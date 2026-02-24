@@ -4,12 +4,16 @@
     var container = document.getElementById('family-tree-graph');
     if (!container) return;
 
-    var orientation = (container.getAttribute('data-orientation') || 'Vertical').toString();
-    if (orientation === 'Horizontal' || orientation === '1') container.classList.add('ft-orientation-horizontal');
+    var orientation = (container.getAttribute('data-orientation') || 'Horizontal').toString();
+    if (orientation === 'Horizontal' || orientation === '0') container.classList.add('ft-orientation-horizontal');
 
     var rawNodes = JSON.parse(container.getAttribute('data-nodes') || '[]');
     var rawEdges = JSON.parse(container.getAttribute('data-edges') || '[]');
     var focusMemberId = container.getAttribute('data-focus-member-id');
+
+    var treePathMode = (container.getAttribute('data-tree-path') || 'Paternal').toString();
+    var isPaternal = treePathMode !== '1' && treePathMode !== 'Maternal';
+    function isPrimary(node) { return isPaternal ? node.isMale : !node.isMale; }
 
     function toId(x) { return typeof x === 'number' ? x : parseInt(x, 10); }
     var nodeById = {};
@@ -77,7 +81,7 @@
         if (node && families.length > 1) {
             families = families.map(function (fam) {
                 var partner = fam.partnerId ? nodeById[fam.partnerId] : null;
-                if (!node.isMale && partner && partner.isMale) {
+                if (!isPrimary(node) && partner && isPrimary(partner)) {
                     return { partnerId: fam.partnerId, childIds: [] };
                 }
                 return fam;
@@ -140,11 +144,11 @@
         return out;
     }
 
-    function clusterHasMaleDescendant(cluster) {
+    function clusterHasPrimaryDescendant(cluster) {
         return cluster.some(function (rid) {
             return getDescendantIds(rid).some(function (did) {
                 var n = nodeById[did];
-                return n && n.isMale;
+                return n && isPrimary(n);
             });
         });
     }
@@ -236,13 +240,13 @@
         var node = nodeById[memberId];
         if (!node) return null;
         if (rendered[memberId]) {
-            var malePartnerId = null;
-            if (!node.isMale && node.partnerIds.length) {
+            var primaryPartnerId = null;
+            if (!isPrimary(node) && node.partnerIds.length) {
                 node.partnerIds.forEach(function (pid) {
-                    if (nodeById[pid] && nodeById[pid].isMale) malePartnerId = pid;
+                    if (nodeById[pid] && isPrimary(nodeById[pid])) primaryPartnerId = pid;
                 });
             }
-            if (malePartnerId) return createLeafJumpBranch(node, malePartnerId);
+            if (primaryPartnerId) return createLeafJumpBranch(node, primaryPartnerId);
             return null;
         }
         rendered[memberId] = true;
@@ -329,20 +333,20 @@
         if (db !== da) return db - da;
         var nodeA = nodeById[a], nodeB = nodeById[b];
         if (da === 0) {
-            var paternalA = clusterHasMaleDescendant([a]);
-            var paternalB = clusterHasMaleDescendant([b]);
-            if (paternalA && !paternalB) return -1;
-            if (!paternalA && paternalB) return 1;
+            var primaryA = clusterHasPrimaryDescendant([a]);
+            var primaryB = clusterHasPrimaryDescendant([b]);
+            if (primaryA && !primaryB) return -1;
+            if (!primaryA && primaryB) return 1;
         } else {
-            if (nodeA && nodeA.isMale && !(nodeB && nodeB.isMale)) return -1;
-            if (!(nodeA && nodeA.isMale) && nodeB && nodeB.isMale) return 1;
+            if (nodeA && isPrimary(nodeA) && !(nodeB && isPrimary(nodeB))) return -1;
+            if (!(nodeA && isPrimary(nodeA)) && nodeB && isPrimary(nodeB)) return 1;
         }
         return a - b;
     });
 
     var branchCache = {};
     function buildBranchBottomUp(memberId) {
-        if (branchCache[memberId]) return branchCache[memberId];
+        if (memberId in branchCache) return branchCache[memberId];
         var node = nodeById[memberId];
         if (!node) return null;
         var families = getPartnerFamilies(memberId);
@@ -353,19 +357,96 @@
             branchCache[memberId] = b;
             return b;
         }
-        var malePartnerId = null;
-        if (!node.isMale && families.length) {
-            families[0].partnerId && nodeById[families[0].partnerId] && nodeById[families[0].partnerId].isMale && (malePartnerId = families[0].partnerId);
+        var primaryPartnerId = null;
+        if (!isPrimary(node) && families.length) {
+            families.forEach(function (f) {
+                if (!primaryPartnerId && f.partnerId && nodeById[f.partnerId] && isPrimary(nodeById[f.partnerId]))
+                    primaryPartnerId = f.partnerId;
+            });
         }
-        if (malePartnerId && families.length === 1) {
-            var depth = depthById[memberId] || 0;
-            if (depth === 0) {
-                branchCache[memberId] = null;
-                return null;
+        if (primaryPartnerId) {
+            var ownFamilies = families.filter(function (f) {
+                return f.partnerId !== primaryPartnerId;
+            });
+            var hasOwnChildren = ownFamilies.some(function (f) {
+                return (f.childIds || []).length > 0;
+            });
+
+            if (!hasOwnChildren) {
+                var depth = depthById[memberId] || 0;
+                if (depth === 0) {
+                    branchCache[memberId] = null;
+                    return null;
+                }
+                var leafBranch = createLeafJumpBranch(node, primaryPartnerId);
+                branchCache[memberId] = leafBranch;
+                return leafBranch;
             }
-            var leafBranch = createLeafJumpBranch(node, malePartnerId);
-            branchCache[memberId] = leafBranch;
-            return leafBranch;
+
+            var branch = document.createElement('div');
+            branch.className = 'ft-branch';
+            var card = createCard(node);
+            var expandBtn = document.createElement('button');
+            expandBtn.type = 'button';
+            expandBtn.className = 'ft-expand-down btn btn-sm btn-outline-secondary mt-1';
+            expandBtn.setAttribute('aria-label', 'See children');
+            expandBtn.innerHTML = '\u25BC See children';
+            expandBtn.addEventListener('click', function (e) {
+                e.stopPropagation();
+                var el = document.getElementById('member-' + primaryPartnerId);
+                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            });
+            card.appendChild(expandBtn);
+
+            var unit = document.createElement('div');
+            unit.className = 'ft-unit';
+            var parents = document.createElement('div');
+            parents.className = 'ft-parents';
+            parents.appendChild(card);
+
+            if (ownFamilies.length === 1) {
+                var fam = ownFamilies[0];
+                if (fam.partnerId && nodeById[fam.partnerId]) {
+                    var cl = document.createElement('div');
+                    cl.className = 'ft-couple-link';
+                    parents.appendChild(cl);
+                    parents.appendChild(createCard(nodeById[fam.partnerId]));
+                }
+                unit.appendChild(parents);
+                if ((fam.childIds || []).length > 0) {
+                    var children = document.createElement('div');
+                    children.className = 'ft-children';
+                    (fam.childIds || []).forEach(function (cid) {
+                        var cb = buildBranchBottomUp(cid);
+                        if (cb) children.appendChild(cb);
+                    });
+                    if (children.childNodes.length > 0) unit.appendChild(children);
+                }
+            } else {
+                unit.appendChild(parents);
+                var ownAllChildIds = [];
+                ownFamilies.forEach(function (fam) {
+                    if (fam.partnerId && nodeById[fam.partnerId]) {
+                        var cl = document.createElement('div');
+                        cl.className = 'ft-couple-link';
+                        parents.appendChild(cl);
+                        parents.appendChild(createCard(nodeById[fam.partnerId]));
+                    }
+                    (fam.childIds || []).forEach(function (cid) { ownAllChildIds.push(cid); });
+                });
+                if (ownAllChildIds.length > 0) {
+                    var children = document.createElement('div');
+                    children.className = 'ft-children';
+                    ownAllChildIds.forEach(function (cid) {
+                        var cb = buildBranchBottomUp(cid);
+                        if (cb) children.appendChild(cb);
+                    });
+                    if (children.childNodes.length > 0) unit.appendChild(children);
+                }
+            }
+            branch.appendChild(unit);
+            branchCache[memberId] = branch;
+            return branch;
         }
         var branch = document.createElement('div');
         branch.className = 'ft-branch';
@@ -375,7 +456,7 @@
         parents.className = 'ft-parents';
         parents.appendChild(createCard(node));
 
-        var multiPartnerMale = node.isMale && families.length > 1;
+        var multiPartnerMale = isPrimary(node) && families.length > 1;
         if (multiPartnerMale) {
             var singleParentChildIds = [];
             function hasBothParents(cid, partnerId) {
@@ -418,12 +499,14 @@
                     var coupleLink = document.createElement('div');
                     coupleLink.className = 'ft-couple-link';
                     partnerUnit.appendChild(coupleLink);
-                    partnerUnit.appendChild(createCard(nodeById[fam.partnerId]));
+                    var partnerHasOwnBranch = (fam.partnerId in branchCache) && branchCache[fam.partnerId] !== null;
+                    partnerUnit.appendChild(createCard(nodeById[fam.partnerId], partnerHasOwnBranch ? 'ref' : undefined));
                 }
                 if ((fam.childIds || []).length > 0) {
+                    var allChildIds = fam.childIds;
                     var children = document.createElement('div');
                     children.className = 'ft-children';
-                    (fam.childIds || []).forEach(function (cid) {
+                    allChildIds.forEach(function (cid) {
                         var childBranch = buildBranchBottomUp(cid);
                         if (childBranch) children.appendChild(childBranch);
                     });
@@ -467,14 +550,14 @@
     rootContainer.className = 'ft-roots';
     var rootIds = allIds.filter(function (id) { return (depthById[id] || 0) === 0; });
     rootIds.sort(function (a, b) {
-        var paternalA = clusterHasMaleDescendant([a]);
-        var paternalB = clusterHasMaleDescendant([b]);
-        if (paternalA && !paternalB) return -1;
-        if (!paternalA && paternalB) return 1;
-        var maleA = nodeById[a] && nodeById[a].isMale;
-        var maleB = nodeById[b] && nodeById[b].isMale;
-        if (maleA && !maleB) return -1;
-        if (!maleA && maleB) return 1;
+        var primaryA = clusterHasPrimaryDescendant([a]);
+        var primaryB = clusterHasPrimaryDescendant([b]);
+        if (primaryA && !primaryB) return -1;
+        if (!primaryA && primaryB) return 1;
+        var priA = nodeById[a] && isPrimary(nodeById[a]);
+        var priB = nodeById[b] && isPrimary(nodeById[b]);
+        if (priA && !priB) return -1;
+        if (!priA && priB) return 1;
         return a - b;
     });
     rootIds.forEach(function (rid) {
@@ -522,12 +605,45 @@
             parent.insertBefore(spacer, childrenEl);
         });
 
-        // Phase 2: after layout settles, measure card positions and adjust spacers.
+        // Phase 2: after layout settles, align root branches first, then adjust spacers.
         setTimeout(function () {
+            // Phase 2a: align satellite root branches to the main (anchor) branch.
+            // The anchor is the branch with the most cards — it stays fixed.
+            var rootBranches = container.querySelectorAll('.ft-roots > .ft-branch');
+            var anchorBranch = null;
+            var maxCardCount = 0;
+            rootBranches.forEach(function (branch) {
+                var count = branch.querySelectorAll('.family-tree-card').length;
+                if (count > maxCardCount) { maxCardCount = count; anchorBranch = branch; }
+            });
+            rootBranches.forEach(function (branch) {
+                if (branch === anchorBranch) return;
+                var branchCards = branch.querySelectorAll('.family-tree-card[data-visual-rank]');
+                var deepestCard = null;
+                var deepestRank = -1;
+                branchCards.forEach(function (c) {
+                    var r = parseFloat(c.getAttribute('data-visual-rank'));
+                    if (r > deepestRank) { deepestRank = r; deepestCard = c; }
+                });
+                if (!deepestCard || deepestRank === 0) return;
+
+                var targetCard = null;
+                anchorBranch.querySelectorAll('.family-tree-card[data-visual-rank]').forEach(function (c) {
+                    if (parseFloat(c.getAttribute('data-visual-rank')) === deepestRank) targetCard = c;
+                });
+                if (!targetCard) return;
+
+                var diff = targetCard.getBoundingClientRect().top - deepestCard.getBoundingClientRect().top;
+                if (Math.abs(diff) > 1) branch.style.marginTop = diff + 'px';
+            });
+
+            // Force reflow so Phase 2b measurements account for root branch margins.
+            void container.offsetHeight;
+
+            // Phase 2b: measure card positions and adjust spacers for same-rank alignment.
             Object.keys(halfRankLevels).forEach(function (baseStr) {
                 var childRank = parseInt(baseStr, 10) + 1;
 
-                // Batch-read all positions first (no writes between reads).
                 var entries = [];
                 container.querySelectorAll('.family-tree-card[data-visual-rank]').forEach(function (c) {
                     if (parseFloat(c.getAttribute('data-visual-rank')) !== childRank) return;
@@ -543,7 +659,6 @@
                 var maxTop = -Infinity;
                 entries.forEach(function (e) { if (e.top > maxTop) maxTop = e.top; });
 
-                // Batch-write: deduplicate spacers so each is adjusted only once.
                 var seen = new Map();
                 entries.forEach(function (e) {
                     if (!e.spacer || !e.spacer.classList.contains('ft-rank-spacer')) return;

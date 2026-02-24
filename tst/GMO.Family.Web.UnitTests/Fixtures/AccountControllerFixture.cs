@@ -106,6 +106,7 @@ public sealed class AccountControllerFixture
     {
         var currentTree = new CurrentFamilyTreeServiceMock().Object;
         var treeViewOrientation = new Mock<ITreeViewOrientationService>().Object;
+        var treePathMode = new Mock<ITreePathModeService>().Object;
         var defaultTree = defaultFamilyTreeService ?? new DefaultFamilyTreeServiceMock().Object;
         var env = new WebHostEnvironmentMock().Object;
         var paths = _fixture.Create<PathsOptions>();
@@ -122,6 +123,7 @@ public sealed class AccountControllerFixture
             db,
             currentTree,
             treeViewOrientation,
+            treePathMode,
             defaultTree,
             env,
             Microsoft.Extensions.Options.Options.Create(paths),
