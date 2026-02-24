@@ -120,7 +120,7 @@ jobs:
           dotnet test GMO.Family.sln --no-build --verbosity normal \
             --collect:"XPlat Code Coverage" \
             --results-directory ./coverage 2>&1 | tee test.log
-          EXIT=$?
+          EXIT=${PIPESTATUS[0]}
           if [ $EXIT -ne 0 ] && grep -qi "no test is available\|no test matched" test.log; then
             echo "No test projects yet; step passes until tests are added."
             exit 0
