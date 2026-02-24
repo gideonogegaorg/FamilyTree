@@ -4,12 +4,33 @@
     var container = document.getElementById('family-tree-graph');
     if (!container) return;
 
-    var orientation = (container.getAttribute('data-orientation') || 'Vertical').toString();
-    if (orientation === 'Horizontal' || orientation === '1') container.classList.add('ft-orientation-horizontal');
+    var orientation = (container.getAttribute('data-orientation') || 'Horizontal').toString();
+    if (orientation === 'Horizontal' || orientation === '0') container.classList.add('ft-orientation-horizontal');
 
     var rawNodes = JSON.parse(container.getAttribute('data-nodes') || '[]');
     var rawEdges = JSON.parse(container.getAttribute('data-edges') || '[]');
     var focusMemberId = container.getAttribute('data-focus-member-id');
+
+
+    var lineageMode = (container.getAttribute('data-lineage-mode') || 'Paternal').toString();
+    var isPaternal = lineageMode !== '1' && lineageMode !== 'Maternal';
+    function isPrimary(node) { return isPaternal ? node.isMale : !node.isMale; }
+
+    var depthById = null; // Will be set later
+    function dominates(nodeA, nodeB) {
+        if (!nodeA) return false;
+        if (!nodeB) return true;
+
+        // 1. Depth: nodes connected to the root bloodline dominate those inserted via marriage
+        var depthA = depthById ? (depthById[nodeA.id] || 0) : 0;
+        var depthB = depthById ? (depthById[nodeB.id] || 0) : 0;
+        if (depthA > 0 && depthB === 0) return true;
+        if (depthA === 0 && depthB > 0) return false;
+
+        // 2. Fallback: Paternal vs Maternal mode logic
+        return isPrimary(nodeA) && !isPrimary(nodeB);
+    }
+
 
     function toId(x) { return typeof x === 'number' ? x : parseInt(x, 10); }
     var nodeById = {};
@@ -77,7 +98,11 @@
         if (node && families.length > 1) {
             families = families.map(function (fam) {
                 var partner = fam.partnerId ? nodeById[fam.partnerId] : null;
+<<<<<<< HEAD
                 if (!node.isMale && partner && partner.isMale) {
+=======
+                if (partner && dominates(partner, node)) {
+>>>>>>> main
                     return { partnerId: fam.partnerId, childIds: [] };
                 }
                 return fam;
@@ -140,11 +165,19 @@
         return out;
     }
 
+<<<<<<< HEAD
     function clusterHasMaleDescendant(cluster) {
         return cluster.some(function (rid) {
             return getDescendantIds(rid).some(function (did) {
                 var n = nodeById[did];
                 return n && n.isMale;
+=======
+    function clusterHasPrimaryDescendant(cluster) {
+        return cluster.some(function (rid) {
+            return getDescendantIds(rid).some(function (did) {
+                var n = nodeById[did];
+                return n && isPrimary(n);
+>>>>>>> main
             });
         });
     }
@@ -236,6 +269,7 @@
         var node = nodeById[memberId];
         if (!node) return null;
         if (rendered[memberId]) {
+<<<<<<< HEAD
             var malePartnerId = null;
             if (!node.isMale && node.partnerIds.length) {
                 node.partnerIds.forEach(function (pid) {
@@ -243,6 +277,15 @@
                 });
             }
             if (malePartnerId) return createLeafJumpBranch(node, malePartnerId);
+=======
+            var primaryPartnerId = null;
+            if (!isPrimary(node) && node.partnerIds.length) {
+                node.partnerIds.forEach(function (pid) {
+                    if (nodeById[pid] && isPrimary(nodeById[pid])) primaryPartnerId = pid;
+                });
+            }
+            if (primaryPartnerId) return createLeafJumpBranch(node, primaryPartnerId);
+>>>>>>> main
             return null;
         }
         rendered[memberId] = true;
@@ -321,7 +364,11 @@
         return branch;
     }
 
+<<<<<<< HEAD
     var depthById = computeDepthById();
+=======
+    depthById = computeDepthById();
+>>>>>>> main
     var allIds = rawNodes.map(function (n) { return toId(n.id); });
     allIds.sort(function (a, b) {
         var da = depthById[a] || 0;
@@ -329,6 +376,7 @@
         if (db !== da) return db - da;
         var nodeA = nodeById[a], nodeB = nodeById[b];
         if (da === 0) {
+<<<<<<< HEAD
             var paternalA = clusterHasMaleDescendant([a]);
             var paternalB = clusterHasMaleDescendant([b]);
             if (paternalA && !paternalB) return -1;
@@ -336,13 +384,26 @@
         } else {
             if (nodeA && nodeA.isMale && !(nodeB && nodeB.isMale)) return -1;
             if (!(nodeA && nodeA.isMale) && nodeB && nodeB.isMale) return 1;
+=======
+            var primaryA = clusterHasPrimaryDescendant([a]);
+            var primaryB = clusterHasPrimaryDescendant([b]);
+            if (primaryA && !primaryB) return -1;
+            if (!primaryA && primaryB) return 1;
+        } else {
+            if (nodeA && isPrimary(nodeA) && !(nodeB && isPrimary(nodeB))) return -1;
+            if (!(nodeA && isPrimary(nodeA)) && nodeB && isPrimary(nodeB)) return 1;
+>>>>>>> main
         }
         return a - b;
     });
 
     var branchCache = {};
     function buildBranchBottomUp(memberId) {
+<<<<<<< HEAD
         if (branchCache[memberId]) return branchCache[memberId];
+=======
+        if (memberId in branchCache) return branchCache[memberId];
+>>>>>>> main
         var node = nodeById[memberId];
         if (!node) return null;
         var families = getPartnerFamilies(memberId);
@@ -353,6 +414,7 @@
             branchCache[memberId] = b;
             return b;
         }
+<<<<<<< HEAD
         var malePartnerId = null;
         if (!node.isMale && families.length) {
             families[0].partnerId && nodeById[families[0].partnerId] && nodeById[families[0].partnerId].isMale && (malePartnerId = families[0].partnerId);
@@ -366,6 +428,100 @@
             var leafBranch = createLeafJumpBranch(node, malePartnerId);
             branchCache[memberId] = leafBranch;
             return leafBranch;
+=======
+        var primaryPartnerId = null;
+        if (families.length) {
+            families.forEach(function (f) {
+                if (!primaryPartnerId && f.partnerId && nodeById[f.partnerId] && dominates(nodeById[f.partnerId], node))
+                    primaryPartnerId = f.partnerId;
+            });
+        }
+        if (primaryPartnerId) {
+            var ownFamilies = families.filter(function (f) {
+                return f.partnerId !== primaryPartnerId;
+            });
+            var hasOwnChildren = ownFamilies.some(function (f) {
+                return (f.childIds || []).length > 0;
+            });
+
+            if (!hasOwnChildren) {
+                var depth = depthById[memberId] || 0;
+                if (depth === 0) {
+                    branchCache[memberId] = null;
+                    return null;
+                }
+                var leafBranch = createLeafJumpBranch(node, primaryPartnerId);
+                branchCache[memberId] = leafBranch;
+                return leafBranch;
+            }
+
+            var branch = document.createElement('div');
+            branch.className = 'ft-branch';
+            var card = createCard(node);
+            var expandBtn = document.createElement('button');
+            expandBtn.type = 'button';
+            expandBtn.className = 'ft-expand-down btn btn-sm btn-outline-secondary mt-1';
+            expandBtn.setAttribute('aria-label', 'See children');
+            expandBtn.innerHTML = '\u25BC See children';
+            expandBtn.addEventListener('click', function (e) {
+                e.stopPropagation();
+                var el = document.getElementById('member-' + primaryPartnerId);
+                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            });
+            card.appendChild(expandBtn);
+
+            var unit = document.createElement('div');
+            unit.className = 'ft-unit';
+            var parents = document.createElement('div');
+            parents.className = 'ft-parents';
+            parents.appendChild(card);
+
+            if (ownFamilies.length === 1) {
+                var fam = ownFamilies[0];
+                if (fam.partnerId && nodeById[fam.partnerId]) {
+                    var cl = document.createElement('div');
+                    cl.className = 'ft-couple-link';
+                    parents.appendChild(cl);
+                    var partnerHasOwnBranch = (fam.partnerId in branchCache) && branchCache[fam.partnerId] !== null;
+                    parents.appendChild(createCard(nodeById[fam.partnerId], partnerHasOwnBranch ? 'ref' : undefined));
+                }
+                unit.appendChild(parents);
+                if ((fam.childIds || []).length > 0) {
+                    var children = document.createElement('div');
+                    children.className = 'ft-children';
+                    (fam.childIds || []).forEach(function (cid) {
+                        var cb = buildBranchBottomUp(cid);
+                        if (cb) children.appendChild(cb);
+                    });
+                    if (children.childNodes.length > 0) unit.appendChild(children);
+                }
+            } else {
+                unit.appendChild(parents);
+                var ownAllChildIds = [];
+                ownFamilies.forEach(function (fam) {
+                    if (fam.partnerId && nodeById[fam.partnerId]) {
+                        var cl = document.createElement('div');
+                        cl.className = 'ft-couple-link';
+                        parents.appendChild(cl);
+                        var partnerHasOwnBranch = (fam.partnerId in branchCache) && branchCache[fam.partnerId] !== null;
+                        parents.appendChild(createCard(nodeById[fam.partnerId], partnerHasOwnBranch ? 'ref' : undefined));
+                    }
+                    (fam.childIds || []).forEach(function (cid) { ownAllChildIds.push(cid); });
+                });
+                if (ownAllChildIds.length > 0) {
+                    var children = document.createElement('div');
+                    children.className = 'ft-children';
+                    ownAllChildIds.forEach(function (cid) {
+                        var cb = buildBranchBottomUp(cid);
+                        if (cb) children.appendChild(cb);
+                    });
+                    if (children.childNodes.length > 0) unit.appendChild(children);
+                }
+            }
+            branch.appendChild(unit);
+            branchCache[memberId] = branch;
+            return branch;
+>>>>>>> main
         }
         var branch = document.createElement('div');
         branch.className = 'ft-branch';
@@ -375,8 +531,13 @@
         parents.className = 'ft-parents';
         parents.appendChild(createCard(node));
 
+<<<<<<< HEAD
         var multiPartnerMale = node.isMale && families.length > 1;
         if (multiPartnerMale) {
+=======
+        var multiPartnerNode = families.length > 1;
+        if (multiPartnerNode) {
+>>>>>>> main
             var singleParentChildIds = [];
             function hasBothParents(cid, partnerId) {
                 var c = nodeById[cid];
@@ -418,12 +579,23 @@
                     var coupleLink = document.createElement('div');
                     coupleLink.className = 'ft-couple-link';
                     partnerUnit.appendChild(coupleLink);
+<<<<<<< HEAD
                     partnerUnit.appendChild(createCard(nodeById[fam.partnerId]));
                 }
                 if ((fam.childIds || []).length > 0) {
                     var children = document.createElement('div');
                     children.className = 'ft-children';
                     (fam.childIds || []).forEach(function (cid) {
+=======
+                    var partnerHasOwnBranch = (fam.partnerId in branchCache) && branchCache[fam.partnerId] !== null;
+                    partnerUnit.appendChild(createCard(nodeById[fam.partnerId], partnerHasOwnBranch ? 'ref' : undefined));
+                }
+                if ((fam.childIds || []).length > 0) {
+                    var allChildIds = fam.childIds;
+                    var children = document.createElement('div');
+                    children.className = 'ft-children';
+                    allChildIds.forEach(function (cid) {
+>>>>>>> main
                         var childBranch = buildBranchBottomUp(cid);
                         if (childBranch) children.appendChild(childBranch);
                     });
@@ -467,6 +639,7 @@
     rootContainer.className = 'ft-roots';
     var rootIds = allIds.filter(function (id) { return (depthById[id] || 0) === 0; });
     rootIds.sort(function (a, b) {
+<<<<<<< HEAD
         var paternalA = clusterHasMaleDescendant([a]);
         var paternalB = clusterHasMaleDescendant([b]);
         if (paternalA && !paternalB) return -1;
@@ -475,6 +648,16 @@
         var maleB = nodeById[b] && nodeById[b].isMale;
         if (maleA && !maleB) return -1;
         if (!maleA && maleB) return 1;
+=======
+        var primaryA = clusterHasPrimaryDescendant([a]);
+        var primaryB = clusterHasPrimaryDescendant([b]);
+        if (primaryA && !primaryB) return -1;
+        if (!primaryA && primaryB) return 1;
+        var priA = nodeById[a] && isPrimary(nodeById[a]);
+        var priB = nodeById[b] && isPrimary(nodeById[b]);
+        if (priA && !priB) return -1;
+        if (!priA && priB) return 1;
+>>>>>>> main
         return a - b;
     });
     rootIds.forEach(function (rid) {
@@ -487,7 +670,17 @@
     treeInner.appendChild(rootContainer);
     container.appendChild(treeInner);
 
+<<<<<<< HEAD
     // Insert spacers for missing half-rank slots so same-rank members align vertically.
+=======
+    // Insert spacers for missing half-rank slots so same-rank members align.
+    // Vertical: ranks = rows → spacers add height. Horizontal: ranks = columns → spacers add width.
+    var isHorizontal = container.classList.contains('ft-orientation-horizontal');
+    var rankDim = isHorizontal ? 'width' : 'height';
+    var rankPos = isHorizontal ? 'left' : 'top';
+    var rankMargin = isHorizontal ? 'marginLeft' : 'marginTop';
+
+>>>>>>> main
     (function insertHalfRankSpacers() {
         var halfRankLevels = {};
         Object.keys(nodeById).forEach(function (id) {
@@ -496,6 +689,7 @@
         });
         if (Object.keys(halfRankLevels).length === 0) return;
 
+<<<<<<< HEAD
         // Phase 1: insert zero-height spacers in branches that skip a half-rank.
         container.querySelectorAll('.ft-children').forEach(function (childrenEl) {
             var parent = childrenEl.parentElement;
@@ -505,6 +699,19 @@
 
             var parentCard = null;
             if (parent.classList.contains('ft-partner-unit-single')) {
+=======
+        // Phase 1: insert zero-size spacers in branches that skip a half-rank.
+        container.querySelectorAll('.ft-children').forEach(function (childrenEl) {
+            var parent = childrenEl.parentElement;
+            if (!parent) return;
+
+            var parentCard = null;
+            if (parent.classList.contains('ft-partner-unit') &&
+                !parent.classList.contains('ft-partner-unit-single')) {
+                var unitEl = parent.closest('.ft-unit');
+                if (unitEl) parentCard = unitEl.querySelector('.ft-parents > .family-tree-card');
+            } else if (parent.classList.contains('ft-partner-unit-single')) {
+>>>>>>> main
                 var unitEl = parent.closest('.ft-unit');
                 if (unitEl) parentCard = unitEl.querySelector('.ft-parents > .family-tree-card');
             } else if (parent.classList.contains('ft-unit')) {
@@ -518,6 +725,7 @@
 
             var spacer = document.createElement('div');
             spacer.className = 'ft-rank-spacer';
+<<<<<<< HEAD
             spacer.style.height = '0px';
             parent.insertBefore(spacer, childrenEl);
         });
@@ -528,6 +736,52 @@
                 var childRank = parseInt(baseStr, 10) + 1;
 
                 // Batch-read all positions first (no writes between reads).
+=======
+            spacer.style[rankDim] = '0px';
+            parent.insertBefore(spacer, childrenEl);
+        });
+
+        // Phase 2: after layout settles, align root branches first, then adjust spacers.
+        setTimeout(function () {
+            // Phase 2a: align satellite root branches to the main (anchor) branch.
+            function alignRoots() {
+                var rootBranches = container.querySelectorAll('.ft-roots > .ft-branch');
+                var anchorBranch = null;
+                var maxCardCount = 0;
+                rootBranches.forEach(function (branch) {
+                    var count = branch.querySelectorAll('.family-tree-card').length;
+                    if (count > maxCardCount) { maxCardCount = count; anchorBranch = branch; }
+                });
+                rootBranches.forEach(function (branch) {
+                    if (branch === anchorBranch) return;
+                    var firstCard = branch.querySelector('.family-tree-card[data-visual-rank]');
+                    if (!firstCard) return;
+                    var firstRank = parseFloat(firstCard.getAttribute('data-visual-rank'));
+                    if (firstRank === 0) return;
+
+                    var targetCard = null;
+                    anchorBranch.querySelectorAll('.family-tree-card[data-visual-rank]').forEach(function (c) {
+                        if (parseFloat(c.getAttribute('data-visual-rank')) === firstRank) targetCard = c;
+                    });
+                    if (!targetCard) return;
+
+                    var diff = targetCard.getBoundingClientRect()[rankPos] - firstCard.getBoundingClientRect()[rankPos];
+                    if (Math.abs(diff) > 1) {
+                        var currentMargin = parseFloat(branch.style[rankMargin] || '0');
+                        branch.style[rankMargin] = (currentMargin + diff) + 'px';
+                    }
+                });
+                // Force reflow so measurements account for root branch margins.
+                void container.offsetHeight;
+            }
+
+            alignRoots();
+
+            // Phase 2b: measure card positions and adjust spacers for same-rank alignment.
+            Object.keys(halfRankLevels).forEach(function (baseStr) {
+                var childRank = parseInt(baseStr, 10) + 1;
+
+>>>>>>> main
                 var entries = [];
                 container.querySelectorAll('.family-tree-card[data-visual-rank]').forEach(function (c) {
                     if (parseFloat(c.getAttribute('data-visual-rank')) !== childRank) return;
@@ -536,6 +790,7 @@
                     var childrenEl = branch.parentElement;
                     if (!childrenEl || !childrenEl.classList.contains('ft-children')) return;
                     var spacer = childrenEl.previousElementSibling;
+<<<<<<< HEAD
                     entries.push({ top: c.getBoundingClientRect().top, spacer: spacer });
                 });
                 if (entries.length < 2) return;
@@ -548,13 +803,35 @@
                 entries.forEach(function (e) {
                     if (!e.spacer || !e.spacer.classList.contains('ft-rank-spacer')) return;
                     var diff = maxTop - e.top;
+=======
+                    entries.push({ pos: c.getBoundingClientRect()[rankPos], spacer: spacer });
+                });
+                if (entries.length < 2) return;
+
+                var maxPos = -Infinity;
+                entries.forEach(function (e) { if (e.pos > maxPos) maxPos = e.pos; });
+
+                var seen = new Map();
+                entries.forEach(function (e) {
+                    if (!e.spacer || !e.spacer.classList.contains('ft-rank-spacer')) return;
+                    var diff = maxPos - e.pos;
+>>>>>>> main
                     if (diff < 1) return;
                     if (!seen.has(e.spacer) || seen.get(e.spacer) < diff) seen.set(e.spacer, diff);
                 });
                 seen.forEach(function (diff, spacer) {
+<<<<<<< HEAD
                     spacer.style.height = (parseFloat(spacer.style.height) + diff) + 'px';
                 });
             });
+=======
+                    spacer.style[rankDim] = (parseFloat(spacer.style[rankDim]) + diff) + 'px';
+                });
+            });
+
+            // Phase 2c: Re-align satellite root branches since Phase 2b spacers may have shifted target anchors
+            alignRoots();
+>>>>>>> main
         }, 50);
     })();
 
@@ -623,6 +900,7 @@
         fetch('/FamilyMember/ActionMenuContent?memberId=' + encodeURIComponent(memberId), {
             headers: { 'X-Requested-With': 'XMLHttpRequest' }
         })
+<<<<<<< HEAD
         .then(function (r) { return r.text(); })
         .then(function (html) {
             popup.innerHTML = html;
@@ -634,6 +912,19 @@
             popup.innerHTML = '<div class="text-danger small p-2">Failed to load.</div>';
             positionPopupInView(rect);
         });
+=======
+            .then(function (r) { return r.text(); })
+            .then(function (html) {
+                popup.innerHTML = html;
+                var menuEl = popup.querySelector('.cascading-menu');
+                if (menuEl) initCascadingMenu(menuEl);
+                positionPopupInView(rect);
+            })
+            .catch(function () {
+                popup.innerHTML = '<div class="text-danger small p-2">Failed to load.</div>';
+                positionPopupInView(rect);
+            });
+>>>>>>> main
     }
 
     container.addEventListener('click', function (e) {
