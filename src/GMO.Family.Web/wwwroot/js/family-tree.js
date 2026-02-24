@@ -11,8 +11,8 @@
     var rawEdges = JSON.parse(container.getAttribute('data-edges') || '[]');
     var focusMemberId = container.getAttribute('data-focus-member-id');
 
-    var treePathMode = (container.getAttribute('data-tree-path') || 'Paternal').toString();
-    var isPaternal = treePathMode !== '1' && treePathMode !== 'Maternal';
+    var lineageMode = (container.getAttribute('data-lineage-mode') || 'Paternal').toString();
+    var isPaternal = lineageMode !== '1' && lineageMode !== 'Maternal';
     function isPrimary(node) { return isPaternal ? node.isMale : !node.isMale; }
 
     var depthById = null; // Will be set later

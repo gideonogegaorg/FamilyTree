@@ -1,6 +1,8 @@
 using System.Threading.Tasks;
 using Microsoft.Playwright;
 using Xunit;
+using GMO.Family.Web.Data;
+using System.Linq;
 
 namespace GMO.Family.Web.UiTests;
 
@@ -146,7 +148,36 @@ public class LayoutOrientationTests : IAsyncLifetime
         await TestLayoutOrientation("Horizontal", "X", "Y", 10, 50, true);
     }
 
+    [Fact]
+    public async Task VerticalLayout_Paternal_PositionsEveryNodeAndRank()
+    {
+        await TestLayoutOrientation("Vertical", "Y", "X", 20, 50, false, LineageMode.Paternal);
+    }
+
+    [Fact]
+    public async Task HorizontalLayout_Paternal_PositionsEveryNodeAndRank()
+    {
+        await TestLayoutOrientation("Horizontal", "X", "Y", 20, 50, true, LineageMode.Paternal);
+    }
+
+    [Fact]
+    public async Task VerticalLayout_Maternal_PositionsEveryNodeAndRank()
+    {
+        await TestLayoutOrientation("Vertical", "Y", "X", 20, 50, false, LineageMode.Maternal);
+    }
+
+    [Fact]
+    public async Task HorizontalLayout_Maternal_PositionsEveryNodeAndRank()
+    {
+        await TestLayoutOrientation("Horizontal", "X", "Y", 20, 50, true, LineageMode.Maternal);
+    }
+
     private async Task TestLayoutOrientation(string orientation, string alignmentAxis, string spreadAxis, float tolerance, float minSpread, bool testHalfRank)
+    {
+        await TestLayoutOrientation(orientation, alignmentAxis, spreadAxis, tolerance, minSpread, testHalfRank, null);
+    }
+
+    private async Task TestLayoutOrientation(string orientation, string alignmentAxis, string spreadAxis, float tolerance, float minSpread, bool testHalfRank, LineageMode? lineageMode)
     {
         await AuthenticateAsync();
 
@@ -169,15 +200,128 @@ public class LayoutOrientationTests : IAsyncLifetime
             await _page.Locator("#family-tree-graph .family-tree-card").First.WaitForAsync();
         }
 
+        // Ensure we're in the correct lineage mode if specified
+        if (lineageMode.HasValue)
+        {
+            var currentLineageMode = await graph.GetAttributeAsync("data-lineage-mode") ?? "Paternal";
+            var expectedLineageStr = lineageMode == LineageMode.Maternal ? "Maternal" : "Paternal";
+
+            if (currentLineageMode != expectedLineageStr && (currentLineageMode != "1" || expectedLineageStr != "Maternal")) {
+                await _page.ClickAsync("#userMenuDropdown");
+                var lineageBtn = _page.Locator($"button:has-text('{expectedLineageStr}')");
+                await lineageBtn.WaitForAsync();
+                await lineageBtn.ClickAsync();
+                await _page.WaitForURLAsync(_fixture.ServerAddress + "/");
+                await _page.Locator("#family-tree-graph .family-tree-card").First.WaitForAsync();
+            }
+        }
+
         var gen1Boxes = await GetBoxesAsync(Gen1Names);
         var gen2Boxes = await GetBoxesAsync(Gen2Names);
         var gen3Boxes = await GetBoxesAsync(Gen3Names);
 
-        // Verify alignment (same coordinate for the same generation)
-        // According to docs: {orientation} mode uses {alignmentAxis} alignment per rank
-        AssertAlignment(gen1Boxes, "Gen1", alignmentAxis, tolerance);
-        AssertAlignment(gen2Boxes, "Gen2", alignmentAxis, tolerance);
-        AssertAlignment(gen3Boxes, "Gen3", alignmentAxis, tolerance);
+        // Verify alignment (same coordinate for the same visual rank)
+        // Group nodes by their actual visual-rank data attribute and test alignment within each group
+        if (lineageMode.HasValue)
+        {
+            // Get all nodes and group them by visual rank
+            var allNodeBoxes = new List<(object box, string name, double rank)>();
+            
+            // Collect all nodes with their visual ranks
+            foreach (var name in Gen1Names.Concat(Gen2Names).Concat(Gen3Names))
+            {
+                var locator = _page.Locator($".family-tree-card:has-text('{name}')").First;
+                await locator.ScrollIntoViewIfNeededAsync();
+                var box = await locator.BoundingBoxAsync();
+                if (box != null)
+                {
+                    var rankAttr = await locator.GetAttributeAsync("data-visual-rank");
+                    if (double.TryParse(rankAttr, out var rank))
+                    {
+                        allNodeBoxes.Add((box, name, rank));
+                    }
+                }
+            }
+            
+            // Group by visual rank and test alignment within each group
+            var rankGroups = allNodeBoxes.GroupBy(x => x.rank).ToList();
+            foreach (var group in rankGroups)
+            {
+                var groupBoxes = group.Select(x => x.box).ToList();
+                var rank = group.Key;
+                var generation = $"Rank{rank}";
+                AssertAlignment(groupBoxes, generation, alignmentAxis, tolerance);
+            }
+            
+            // Verify visual rank ordering (ranks should be in ascending order)
+            var sortedRanks = rankGroups.Select(g => g.Key).OrderBy(x => x).ToList();
+            for (int i = 0; i < sortedRanks.Count - 1; i++)
+            {
+                var currentRank = sortedRanks[i];
+                var nextRank = sortedRanks[i + 1];
+                var currentRankBoxes = rankGroups.First(g => g.Key == currentRank).Select(x => x.box).First();
+                var nextRankBoxes = rankGroups.First(g => g.Key == nextRank).Select(x => x.box).First();
+                
+                dynamic currentBox = currentRankBoxes;
+                dynamic nextBox = nextRankBoxes;
+                
+                if (isHorizontal) {
+                    Assert.True(currentBox.X < nextBox.X, $"Rank{currentRank} ({currentBox.X}) should be left of Rank{nextRank} ({nextBox.X})");
+                } else {
+                    Assert.True(currentBox.Y < nextBox.Y, $"Rank{currentRank} ({currentBox.Y}) should be above Rank{nextRank} ({nextBox.Y})");
+                }
+            }
+            
+            // Verify spread within each visual rank
+            foreach (var group in rankGroups)
+            {
+                var groupBoxes = group.Select(x => x.box).ToList();
+                var rank = group.Key;
+                AssertSpread(groupBoxes, $"Rank{rank}", spreadAxis, minSpread);
+            }
+            
+            // Verify half-rank spouses are positioned between ranks (horizontal only)
+            if (testHalfRank) {
+                var gen25Boxes = await GetBoxesAsync(Gen25Names);
+                if (gen25Boxes.Count > 0) {
+                    // Find the rank of Gen2 and Gen3 to verify half-rank positioning
+                    var gen2Ranks = allNodeBoxes.Where(x => Gen2Names.Contains(x.name)).Select(x => x.rank).Distinct().ToList();
+                    var gen3Ranks = allNodeBoxes.Where(x => Gen3Names.Contains(x.name)).Select(x => x.rank).Distinct().ToList();
+                    
+                    if (gen2Ranks.Any() && gen3Ranks.Any()) {
+                        var maxGen2Rank = gen2Ranks.Max();
+                        var minGen3Rank = gen3Ranks.Min();
+                        
+                        foreach (var halfRankBox in gen25Boxes)
+                        {
+                            dynamic box = halfRankBox;
+                            
+                            if (isHorizontal) {
+                                Assert.True(maxGen2Rank < minGen3Rank, "Gen2 ranks should be less than Gen3 ranks");
+                                // Half-rank should be positioned between the max Gen2 rank and min Gen3 rank
+                                // This is already verified by the rank ordering test above
+                            } else {
+                                // For vertical, verify Y positioning between ranks
+                                var gen2Box = allNodeBoxes.Where(x => x.rank == maxGen2Rank).Select(x => x.box).First();
+                                var gen3Box = allNodeBoxes.Where(x => x.rank == minGen3Rank).Select(x => x.box).First();
+                                dynamic gen2BoxDyn = gen2Box;
+                                dynamic gen3BoxDyn = gen3Box;
+                                
+                                Assert.True(gen2BoxDyn.Y < box.Y, $"Gen2 ({gen2BoxDyn.Y}) should be above half-rank ({box.Y})");
+                                Assert.True(box.Y < gen3BoxDyn.Y, $"Half-rank ({box.Y}) should be above Gen3 ({gen3BoxDyn.Y})");
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        else
+        {
+            // Auto mode - use original logic for backward compatibility
+            AssertAlignment(gen1Boxes, "Gen1", alignmentAxis, tolerance);
+            AssertAlignment(gen2Boxes, "Gen2", alignmentAxis, tolerance);
+            AssertAlignment(gen3Boxes, "Gen3", alignmentAxis, tolerance);
+        }
         
         // Verify generation ordering
         dynamic firstGen1Box = gen1Boxes[0];

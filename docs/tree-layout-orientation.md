@@ -165,6 +165,97 @@ When a half-rank exists (e.g., rank 1.5 for partners), the JS inserts `.ft-rank-
 
 ---
 
+## Tree Layout Ranking System
+
+The family tree uses a two-level ranking system to determine node positioning:
+
+### Row vs Visual Rank
+
+| Concept | Type | Purpose | Examples |
+|---|---|---|---|
+| **Row** | Integer (0, 1, 2, ...) | Generation depth based on parent-child relationships | Row 0 = grandparents, Row 1 = parents, Row 2 = children |
+| **Visual Rank** | Double (0, 0.5, 1, 1.5, 2, ...) | Extended row system with half-ranks for secondary partners | Rank 0.5 = secondary partners, Rank 1.5 = half-rank spouses |
+
+### How the Ranking System Works
+
+#### 1. Row Calculation (`TreeLayoutRanking.ComputeRowByMember`)
+
+- **Root members** (no parents) get Row 0
+- **Children** get Row = 1 + max(parent rows)
+- **Partners without parents** inherit their partner's row
+- **Propagation**: Changes cascade through the family tree to maintain consistency
+
+#### 2. Visual Rank Calculation (`TreeLayoutRanking.ComputeVisualRank`)
+
+- **Base**: Starts with row values (converts to double)
+- **Primary determination**: 
+  - Paternal mode: Males are primary
+  - Maternal mode: Females are primary
+- **Half-rank assignment**: Partners of multi-partner primary members who have no parents get `primaryRank + 0.5`
+- **Bloodline domination**: Members with parents in the tree dominate those inserted via marriage
+
+### Practical Examples
+
+**Paternal Mode Example:**
+```
+Paternal Grandpa (Row 0, Visual Rank 0.0) ← Primary male
+├── Paternal Grandma (Row 0, Visual Rank 0.5) ← Secondary partner, half-rank
+├── Father (Row 1, Visual Rank 1.0) ← Primary male child
+└── Fathers Brother (Row 1, Visual Rank 1.0) ← Primary male child
+    ├── FB Wife 1 (Row 1, Visual Rank 1.5) ← Secondary partner, half-rank
+    └── FB Wife 2 (Row 1, Visual Rank 1.5) ← Secondary partner, half-rank
+```
+
+**Maternal Mode Example:**
+```
+Maternal Grandma (Row 0, Visual Rank 0.0) ← Primary female
+├── Maternal Grandpa 1 (Row 0, Visual Rank 0.5) ← Secondary partner, half-rank
+├── Maternal Grandpa 2 (Row 0, Visual Rank 0.5) ← Secondary partner, half-rank
+└── Mother (Row 1, Visual Rank 1.0) ← Primary female child
+    ├── Father (Row 1, Visual Rank 1.5) ← Secondary partner, half-rank
+    └── Mothers HalfSib (Row 1, Visual Rank 1.0) ← Primary female child
+```
+
+### Implementation Details
+
+The ranking system is implemented in `TreeLayoutRanking.cs` with two main methods:
+
+1. **`ComputeRowByMember`**: Calculates generation depth using parent relationships
+2. **`ComputeVisualRank`**: Extends rows with half-ranks based on lineage mode and partnership patterns
+
+Both methods are used by `HomeController` to generate the `data-visual-rank` attributes that the JavaScript layout engine uses for positioning.
+
+---
+
+The layout algorithm uses **visual ranks** rather than generations for precise node positioning. Visual ranks provide granular control over node placement and alignment:
+
+| Rank | Description | Typical Members |
+|---|---|---|
+| 0 | Primary root nodes | Paternal Grandpa (Paternal mode), Maternal Grandma (Maternal mode) |
+| 0.5 | Secondary partners | Paternal Grandma, Maternal Grandpa 1/2 |
+| 1 | Primary children | Father, Fathers Brother, Mothers HalfSib |
+| 1.5 | Secondary children & half-rank spouses | Mother, FB Wife 1/2, Wife2 Only Child |
+| 2 | Grandchildren generation | Me, Cousins, Siblings |
+
+### Key Principle
+
+**Nodes with the same visual rank align on the same axis:**
+- **Vertical Layout**: Same Y coordinate for each rank (row alignment)
+- **Horizontal Layout**: Same X coordinate for each rank (column alignment)
+
+This means nodes within the same "generation" but different visual ranks (e.g., Father vs Mother in Paternal mode) will not be aligned, which is the correct behavior according to the layout algorithm.
+
+### Data Attributes
+
+Each node receives a `data-visual-rank` attribute that the UI tests read to verify correct positioning:
+
+```html
+<div class="family-tree-card" data-visual-rank="1.0">Father</div>
+<div class="family-tree-card" data-visual-rank="1.5">Mother</div>
+```
+
+---
+
 ## User Menu Toggle
 
 The toggle is rendered in the user dropdown menu ([`UserMenu/Default.cshtml`](../src/GMO.Family.Web/Views/Shared/Components/UserMenu/Default.cshtml)):
@@ -190,12 +281,27 @@ Each button submits a `POST` to `AccountController.SetTreeViewOrientation` with 
 
 The UI tests in [`LayoutOrientationTests.cs`](../tst/GMO.Family.Web.UiTests/LayoutOrientationTests.cs) validate the documented behavior:
 
-- **Vertical Layout**: Tests same Y alignment for generations (rows)
-- **Horizontal Layout**: Tests same X alignment for generations (columns)
-- **Half-rank positioning**: Validates spouses are positioned between parent and child generations
+### Visual Rank-Based Testing
+
+The tests use a **visual rank-based approach** rather than generation-based assumptions:
+
+- **Data Attribute Reading**: Tests read `data-visual-rank` attributes from DOM elements
+- **Rank Grouping**: Nodes are grouped by their actual visual rank values (0, 0.5, 1, 1.5, 2)
+- **Alignment Validation**: Asserts that nodes with the same visual rank align on the correct axis
+- **Rank Ordering**: Validates that ranks are positioned in ascending order (0 < 0.5 < 1 < 1.5 < 2)
+
+### Test Coverage
+
+- **Vertical Layout**: Tests same Y alignment for visual ranks (rows)
+- **Horizontal Layout**: Tests same X alignment for visual ranks (columns)
+- **Visual rank ordering**: Validates ranks are positioned in ascending order
+- **Half-rank positioning**: Validates spouses are positioned between appropriate ranks
+- **Lineage mode testing**: Specific tests for Paternal vs Maternal rank assignments
 - **Orientation toggle**: Confirms CSS classes are correctly applied/removed
 
-Tests ensure the implementation matches the documented 90° rotation principle where rows become columns in horizontal mode.
+### Implementation Details
+
+The tests ensure the implementation matches the documented 90° rotation principle where rows become columns in horizontal mode, while accurately reflecting the visual rank system used by the actual layout algorithm.
 
 ---
 
@@ -216,7 +322,7 @@ When dealing with multi-partner relationships, determining which partner is the 
 
 ```csharp
 bool isPrimary(FamilyMemberCardViewModel c) => 
-    pathMode == TreeLineageMode.Paternal ? c.IsMale : !c.IsMale;
+    pathMode == LineageMode.Paternal ? c.IsMale : !c.IsMale;
 
 bool dominates(FamilyMemberCardViewModel nodeA, FamilyMemberCardViewModel nodeB)
 {
@@ -253,4 +359,4 @@ Tree lineage
 [Paternal] [Maternal]
 ```
 
-Each button submits a `POST` to `AccountController.SetTreeLineageMode` with `mode=0` (Paternal) or `mode=1` (Maternal).
+Each button submits a `POST` to `AccountController.SetLineageMode` with `mode=0` (Paternal) or `mode=1` (Maternal).

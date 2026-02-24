@@ -20,15 +20,15 @@ public class HomeController : Controller
     private readonly AppDbContext _db;
     private readonly ICurrentFamilyTreeService _currentTree;
     private readonly ITreeViewOrientationService _treeViewOrientation;
-    private readonly ITreePathModeService _treePathMode;
+    private readonly ILineageModeService _lineageMode;
     private readonly IOptionsMonitor<GoogleAuthOptions> _googleAuth;
 
-    public HomeController(AppDbContext db, ICurrentFamilyTreeService currentTree, ITreeViewOrientationService treeViewOrientation, ITreePathModeService treePathMode, IOptionsMonitor<GoogleAuthOptions> googleAuth)
+    public HomeController(AppDbContext db, ICurrentFamilyTreeService currentTree, ITreeViewOrientationService treeViewOrientation, ILineageModeService lineageMode, IOptionsMonitor<GoogleAuthOptions> googleAuth)
     {
         _db = db;
         _currentTree = currentTree;
         _treeViewOrientation = treeViewOrientation;
-        _treePathMode = treePathMode;
+        _lineageMode = lineageMode;
         _googleAuth = googleAuth;
     }
 
@@ -69,8 +69,8 @@ public class HomeController : Controller
 
         var cards = members.Select(m => BuildCard(m, rels, memberDict, currentUserId)).ToList();
         var rowById = TreeLayoutRanking.ComputeRowByMember(cards);
-        var pathMode = await _treePathMode.GetAsync(cancellationToken);
-        var rankById = TreeLayoutRanking.ComputeVisualRank(cards, rowById, pathMode);
+        var lineageMode = await _lineageMode.GetAsync(cancellationToken);
+        var rankById = TreeLayoutRanking.ComputeVisualRank(cards, rowById, lineageMode);
 
         var jsonOpts = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
         var nodesJson = JsonSerializer.Serialize(cards.Select(c => new
@@ -110,7 +110,7 @@ public class HomeController : Controller
             CurrentUserId = currentUserId,
             FocusMemberId = focusMemberId,
             TreeViewOrientation = orientation,
-            TreePathMode = pathMode,
+            LineageMode = lineageMode,
             Members = cards,
             NodesJson = nodesJson,
             EdgesJson = edgesJson

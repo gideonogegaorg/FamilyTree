@@ -7,7 +7,7 @@ using Xunit;
 namespace GMO.Family.Web.IntegrationTests;
 
 /// <summary>
-/// Integration tests for Home/Index (family tree graph) and orientation/path settings.
+/// Integration tests for Home/Index (family tree graph) and orientation/lineage settings.
 /// </summary>
 public class HomeControllerTests : IClassFixture<WebAppFixture>
 {
@@ -21,7 +21,7 @@ public class HomeControllerTests : IClassFixture<WebAppFixture>
     }
 
     [Fact]
-    public async Task Index_with_tree_and_member_returns_graph_with_data_orientation_and_data_tree_path()
+    public async Task Index_with_tree_and_member_returns_graph_with_data_orientation_and_data_lineage()
     {
         // Arrange: ensure we have a tree with at least one member so the graph is rendered
         await EnsureTreeWithOneMemberAsync();
@@ -35,11 +35,11 @@ public class HomeControllerTests : IClassFixture<WebAppFixture>
         Assert.Contains("id=\"family-tree-graph\"", html);
         // Defaults: Horizontal and Paternal (from UserProfile or session)
         Assert.True(
-            html.Contains("data-orientation=\"Horizontal\"") || html.Contains("data-orientation=\"0\""),
-            "Page should contain data-orientation (Horizontal or 0)");
+            html.Contains("data-orientation=\"Horizontal\"") || html.Contains("data-orientation=\"Vertical\""),
+            "Page should contain data-orientation (Horizontal or Vertical)");
         Assert.True(
-            html.Contains("data-tree-path=\"Paternal\"") || html.Contains("data-tree-path=\"0\""),
-            "Page should contain data-tree-path (Paternal or 0)");
+            html.Contains("data-lineage-mode=\"Paternal\"") || html.Contains("data-lineage-mode=\"Maternal\""),
+            "Page should contain data-lineage-mode (Paternal or Maternal)");
     }
 
     [Fact]
@@ -63,12 +63,12 @@ public class HomeControllerTests : IClassFixture<WebAppFixture>
         indexResponse.EnsureSuccessStatusCode();
         var html = await indexResponse.Content.ReadAsStringAsync();
         Assert.True(
-            html.Contains("data-orientation=\"Vertical\"") || html.Contains("data-orientation=\"1\""),
-            "After setting Vertical, page should contain data-orientation Vertical or 1");
+            html.Contains("data-orientation=\"Vertical\""),
+            "After setting Vertical, page should contain data-orientation Vertical");
     }
 
     [Fact]
-    public async Task SetTreePathMode_redirects_to_Home_and_next_Index_shows_maternal_path()
+    public async Task SetLineageMode_redirects_to_Home_and_next_Index_shows_maternal_lineage()
     {
         await EnsureTreeWithOneMemberAsync();
 
@@ -79,15 +79,15 @@ public class HomeControllerTests : IClassFixture<WebAppFixture>
             ["__RequestVerificationToken"] = token
         };
 
-        var postResponse = await _client.PostAsync("/Account/SetTreePathMode", new FormUrlEncodedContent(form));
+        var postResponse = await _client.PostAsync("/Account/SetLineageMode", new FormUrlEncodedContent(form));
         Assert.Equal(HttpStatusCode.Redirect, postResponse.StatusCode);
 
         var indexResponse = await _client.GetAsync("/");
         indexResponse.EnsureSuccessStatusCode();
         var html = await indexResponse.Content.ReadAsStringAsync();
         Assert.True(
-            html.Contains("data-tree-path=\"Maternal\"") || html.Contains("data-tree-path=\"1\""),
-            "After setting Maternal, page should contain data-tree-path Maternal or 1");
+            html.Contains("data-lineage-mode=\"Maternal\""),
+            "After setting Maternal, page should contain data-lineage-mode Maternal");
     }
 
     private async Task EnsureTreeWithOneMemberAsync()

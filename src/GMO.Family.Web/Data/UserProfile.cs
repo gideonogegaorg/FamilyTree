@@ -10,6 +10,6 @@ public class UserProfile
     /// <summary>Tree layout orientation (default Horizontal).</summary>
     public TreeViewOrientation? TreeViewOrientation { get; set; }
 
-    /// <summary>Tree lineage path (default Paternal).</summary>
-    public TreePathMode? TreePathMode { get; set; }
+    /// <summary>Tree lineage mode (default Paternal).</summary>
+    public LineageMode? LineageMode { get; set; }
 }

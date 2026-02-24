@@ -1,17 +1,17 @@
-﻿using Microsoft.EntityFrameworkCore.Migrations;
+using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
 namespace GMO.Family.Web.Data.Migrations
 {
     /// <inheritdoc />
-    public partial class AddTreePathModeToUserProfile : Migration
+    public partial class AddLineageModeToUserProfile : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.AddColumn<int>(
-                name: "TreePathMode",
+                name: "LineageMode",
                 table: "UserProfiles",
                 type: "integer",
                 nullable: true);
@@ -21,7 +21,7 @@ namespace GMO.Family.Web.Data.Migrations
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropColumn(
-                name: "TreePathMode",
+                name: "LineageMode",
                 table: "UserProfiles");
         }
     }

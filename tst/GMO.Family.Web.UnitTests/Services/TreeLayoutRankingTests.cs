@@ -57,7 +57,7 @@ public class TreeLayoutRankingTests
             Card(4, true, new List<long> { 1, 2 }, new List<long>())
         };
         var rowById = TreeLayoutRanking.ComputeRowByMember(cards);
-        var rankById = TreeLayoutRanking.ComputeVisualRank(cards, rowById, TreePathMode.Paternal);
+        var rankById = TreeLayoutRanking.ComputeVisualRank(cards, rowById, LineageMode.Paternal);
 
         Assert.Equal(0.0, rankById[1]);
         Assert.Equal(0.5, rankById[2]);
@@ -76,7 +76,7 @@ public class TreeLayoutRankingTests
             Card(3, true, new List<long>(), new List<long> { 1 })
         };
         var rowById = TreeLayoutRanking.ComputeRowByMember(cards);
-        var rankById = TreeLayoutRanking.ComputeVisualRank(cards, rowById, TreePathMode.Paternal);
+        var rankById = TreeLayoutRanking.ComputeVisualRank(cards, rowById, LineageMode.Paternal);
 
         Assert.Equal(0.0, rankById[1]);
         Assert.Equal(0.0, rankById[2]);
@@ -94,7 +94,7 @@ public class TreeLayoutRankingTests
             Card(3, true, new List<long>(), new List<long> { 1 })
         };
         var rowById = TreeLayoutRanking.ComputeRowByMember(cards);
-        var rankById = TreeLayoutRanking.ComputeVisualRank(cards, rowById, TreePathMode.Maternal);
+        var rankById = TreeLayoutRanking.ComputeVisualRank(cards, rowById, LineageMode.Maternal);
 
         Assert.Equal(0.0, rankById[1]);
         Assert.Equal(0.5, rankById[2]);
@@ -112,7 +112,7 @@ public class TreeLayoutRankingTests
             Card(3, false, new List<long>(), new List<long> { 1 })
         };
         var rowById = TreeLayoutRanking.ComputeRowByMember(cards);
-        var rankById = TreeLayoutRanking.ComputeVisualRank(cards, rowById, TreePathMode.Maternal);
+        var rankById = TreeLayoutRanking.ComputeVisualRank(cards, rowById, LineageMode.Maternal);
 
         Assert.Equal(0.0, rankById[1]);
         Assert.Equal(0.0, rankById[2]);
@@ -132,7 +132,7 @@ public class TreeLayoutRankingTests
             Card(3, false, new List<long>(), new List<long> { 1 })
         };
         var rowById = TreeLayoutRanking.ComputeRowByMember(cards);
-        var rankById = TreeLayoutRanking.ComputeVisualRank(cards, rowById, TreePathMode.Paternal);
+        var rankById = TreeLayoutRanking.ComputeVisualRank(cards, rowById, LineageMode.Paternal);
 
         Assert.Equal(1.0, rankById[1]);
         Assert.Equal(1.0, rankById[2]); // has parents -> no half-rank, keeps row
@@ -150,7 +150,7 @@ public class TreeLayoutRankingTests
             Card(2, false, new List<long>(), new List<long> { 1 })
         };
         var rowById = TreeLayoutRanking.ComputeRowByMember(cards);
-        var rankById = TreeLayoutRanking.ComputeVisualRank(cards, rowById, TreePathMode.Paternal);
+        var rankById = TreeLayoutRanking.ComputeVisualRank(cards, rowById, LineageMode.Paternal);
 
         Assert.Equal(0.0, rankById[1]);
         Assert.Equal(0.0, rankById[2]);
