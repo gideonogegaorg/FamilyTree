@@ -110,7 +110,7 @@ public sealed class AppFixture : WebApplicationFactory<WebAppEntry>, IDisposable
     {
         builder.UseSetting("ConnectionStrings:DefaultConnection", _testConnectionString);
         builder.UseSetting("Telemetry:Otlp:Endpoint", "http://localhost:4317");
-        
+
         // Suppress verbose EF Core and ASP.NET Core Information logs during tests
         builder.UseSetting("Serilog:MinimumLevel:Default", "Error");
         builder.UseSetting("Serilog:MinimumLevel:Override:Microsoft", "Error");
