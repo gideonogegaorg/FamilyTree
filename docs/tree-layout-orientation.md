@@ -196,3 +196,45 @@ The UI tests in [`LayoutOrientationTests.cs`](../tst/GMO.Family.Web.UiTests/Layo
 - **Orientation toggle**: Confirms CSS classes are correctly applied/removed
 
 Tests ensure the implementation matches the documented 90° rotation principle where rows become columns in horizontal mode.
+
+---
+
+## Tree Lineage Mode: Paternal vs Maternal
+
+The family tree also supports two lineage modes that determine which lineage is emphasized:
+
+| Aspect | Paternal (default) | Maternal |
+|---|---|---|
+| Primary gender | **Male** (fathers, grandfathers) | **Female** (mothers, grandmothers) |
+| Focus lineage | Paternal side (father's family) | Maternal side (mother's family) |
+| Layout emphasis | Father's branch is primary/featured | Mother's branch is primary/featured |
+| Half-rank logic | Multi-partner **males** get half-rank for partners | Multi-partner **females** get half-rank for partners |
+
+### Primary Selection Logic
+
+```csharp
+bool isPrimary(FamilyMemberCardViewModel c) => 
+    pathMode == TreeLineageMode.Paternal ? c.IsMale : !c.IsMale;
+```
+
+### Visual Layout Differences
+
+**Paternal Mode:**
+- Father's lineage (Paternal Grandparents → Father → Me) gets primary positioning
+- Mother's lineage is secondary
+- Half-rank spouses: Father's Brother's wives (FB Wife 1/2) get rank 1.5
+
+**Maternal Mode:**
+- Mother's lineage (Maternal Grandparents → Mother → Me) gets primary positioning  
+- Father's lineage is secondary
+- Half-rank spouses: Maternal Grandpa 2's wife (Wife2 Only Child) gets rank 1.5
+
+### Toggle Controls
+
+Lineage mode is toggled from the **user menu** under **Tree lineage**:
+```
+Tree lineage
+[Paternal] [Maternal]
+```
+
+Each button submits a `POST` to `AccountController.SetTreeLineageMode` with `mode=0` (Paternal) or `mode=1` (Maternal).
