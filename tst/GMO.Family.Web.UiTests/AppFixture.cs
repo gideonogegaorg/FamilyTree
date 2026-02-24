@@ -1,10 +1,12 @@
+using System.Net;
+using System.Net.Sockets;
+
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+
 using Npgsql;
-using System.Net.Sockets;
-using System.Net;
 
 namespace GMO.Family.Web.UiTests;
 
@@ -78,11 +80,11 @@ public sealed class AppFixture : WebApplicationFactory<WebAppEntry>, IDisposable
         using (var scope = dummyHost.Services.CreateScope())
         {
             var userManager = scope.ServiceProvider.GetRequiredService<Microsoft.AspNetCore.Identity.UserManager<Microsoft.AspNetCore.Identity.IdentityUser>>();
-            var user = new Microsoft.AspNetCore.Identity.IdentityUser 
-            { 
-                UserName = "test@example.com", 
-                Email = "test@example.com", 
-                EmailConfirmed = true 
+            var user = new Microsoft.AspNetCore.Identity.IdentityUser
+            {
+                UserName = "test@example.com",
+                Email = "test@example.com",
+                EmailConfirmed = true
             };
             userManager.CreateAsync(user, "TestPassword1!").GetAwaiter().GetResult();
         }
@@ -100,7 +102,7 @@ public sealed class AppFixture : WebApplicationFactory<WebAppEntry>, IDisposable
             // fallback if running from CLI directly
             seedPath = Path.Combine("..", "..", "..", "working", "seed_3gen.sql");
         }
-        
+
         var sql = await File.ReadAllTextAsync(seedPath);
 
         await using var conn = new NpgsqlConnection(_testConnectionString);
