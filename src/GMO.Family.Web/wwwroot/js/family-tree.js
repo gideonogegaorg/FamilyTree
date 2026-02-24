@@ -583,11 +583,13 @@
         container.querySelectorAll('.ft-children').forEach(function (childrenEl) {
             var parent = childrenEl.parentElement;
             if (!parent) return;
-            if (parent.classList.contains('ft-partner-unit') &&
-                !parent.classList.contains('ft-partner-unit-single')) return;
 
             var parentCard = null;
-            if (parent.classList.contains('ft-partner-unit-single')) {
+            if (parent.classList.contains('ft-partner-unit') &&
+                !parent.classList.contains('ft-partner-unit-single')) {
+                var unitEl = parent.closest('.ft-unit');
+                if (unitEl) parentCard = unitEl.querySelector('.ft-parents > .family-tree-card');
+            } else if (parent.classList.contains('ft-partner-unit-single')) {
                 var unitEl = parent.closest('.ft-unit');
                 if (unitEl) parentCard = unitEl.querySelector('.ft-parents > .family-tree-card');
             } else if (parent.classList.contains('ft-unit')) {
@@ -618,22 +620,18 @@
             });
             rootBranches.forEach(function (branch) {
                 if (branch === anchorBranch) return;
-                var branchCards = branch.querySelectorAll('.family-tree-card[data-visual-rank]');
-                var deepestCard = null;
-                var deepestRank = -1;
-                branchCards.forEach(function (c) {
-                    var r = parseFloat(c.getAttribute('data-visual-rank'));
-                    if (r > deepestRank) { deepestRank = r; deepestCard = c; }
-                });
-                if (!deepestCard || deepestRank === 0) return;
+                var firstCard = branch.querySelector('.family-tree-card[data-visual-rank]');
+                if (!firstCard) return;
+                var firstRank = parseFloat(firstCard.getAttribute('data-visual-rank'));
+                if (firstRank === 0) return;
 
                 var targetCard = null;
                 anchorBranch.querySelectorAll('.family-tree-card[data-visual-rank]').forEach(function (c) {
-                    if (parseFloat(c.getAttribute('data-visual-rank')) === deepestRank) targetCard = c;
+                    if (parseFloat(c.getAttribute('data-visual-rank')) === firstRank) targetCard = c;
                 });
                 if (!targetCard) return;
 
-                var diff = targetCard.getBoundingClientRect().top - deepestCard.getBoundingClientRect().top;
+                var diff = targetCard.getBoundingClientRect().top - firstCard.getBoundingClientRect().top;
                 if (Math.abs(diff) > 1) branch.style.marginTop = diff + 'px';
             });
 
