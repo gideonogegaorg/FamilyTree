@@ -7,6 +7,9 @@ public class UserProfile
     /// <summary>Persisted current family tree selection (cross-browser, cross-device).</summary>
     public long? CurrentFamilyTreeId { get; set; }
 
-    /// <summary>Tree layout orientation (default Vertical).</summary>
+    /// <summary>Tree layout orientation (default Horizontal).</summary>
     public TreeViewOrientation? TreeViewOrientation { get; set; }
+
+    /// <summary>Tree lineage path (default Paternal).</summary>
+    public TreePathMode? TreePathMode { get; set; }
 }

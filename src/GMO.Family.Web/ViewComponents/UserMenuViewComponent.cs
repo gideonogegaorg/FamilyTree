@@ -11,12 +11,14 @@ public sealed class UserMenuViewComponent : ViewComponent
     private readonly AppDbContext _db;
     private readonly ICurrentFamilyTreeService _currentFamilyTree;
     private readonly ITreeViewOrientationService _treeViewOrientation;
+    private readonly ITreePathModeService _treePathMode;
 
-    public UserMenuViewComponent(AppDbContext db, ICurrentFamilyTreeService currentFamilyTree, ITreeViewOrientationService treeViewOrientation)
+    public UserMenuViewComponent(AppDbContext db, ICurrentFamilyTreeService currentFamilyTree, ITreeViewOrientationService treeViewOrientation, ITreePathModeService treePathMode)
     {
         _db = db;
         _currentFamilyTree = currentFamilyTree;
         _treeViewOrientation = treeViewOrientation;
+        _treePathMode = treePathMode;
     }
 
     public async Task<IViewComponentResult> InvokeAsync()
@@ -37,6 +39,7 @@ public sealed class UserMenuViewComponent : ViewComponent
         var photoUrl = profile?.PhotoUrl;
 
         var orientation = await _treeViewOrientation.GetOrientationAsync();
+        var pathMode = await _treePathMode.GetAsync();
 
         var model = new UserMenuViewModel
         {
@@ -44,7 +47,8 @@ public sealed class UserMenuViewComponent : ViewComponent
             PhotoUrl = photoUrl,
             CurrentFamilyTree = currentTree,
             FamilyTrees = familyTrees,
-            TreeViewOrientation = orientation
+            TreeViewOrientation = orientation,
+            TreePathMode = pathMode
         };
         return View("Default", model);
     }

@@ -20,13 +20,15 @@ public class HomeController : Controller
     private readonly AppDbContext _db;
     private readonly ICurrentFamilyTreeService _currentTree;
     private readonly ITreeViewOrientationService _treeViewOrientation;
+    private readonly ITreePathModeService _treePathMode;
     private readonly IOptionsMonitor<GoogleAuthOptions> _googleAuth;
 
-    public HomeController(AppDbContext db, ICurrentFamilyTreeService currentTree, ITreeViewOrientationService treeViewOrientation, IOptionsMonitor<GoogleAuthOptions> googleAuth)
+    public HomeController(AppDbContext db, ICurrentFamilyTreeService currentTree, ITreeViewOrientationService treeViewOrientation, ITreePathModeService treePathMode, IOptionsMonitor<GoogleAuthOptions> googleAuth)
     {
         _db = db;
         _currentTree = currentTree;
         _treeViewOrientation = treeViewOrientation;
+        _treePathMode = treePathMode;
         _googleAuth = googleAuth;
     }
 
@@ -67,7 +69,8 @@ public class HomeController : Controller
 
         var cards = members.Select(m => BuildCard(m, rels, memberDict, currentUserId)).ToList();
         var rowById = ComputeRowByMember(cards);
-        var rankById = ComputeVisualRank(cards, rowById);
+        var pathMode = await _treePathMode.GetAsync(cancellationToken);
+        var rankById = ComputeVisualRank(cards, rowById, pathMode);
 
         var jsonOpts = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
         var nodesJson = JsonSerializer.Serialize(cards.Select(c => new
@@ -107,6 +110,7 @@ public class HomeController : Controller
             CurrentUserId = currentUserId,
             FocusMemberId = focusMemberId,
             TreeViewOrientation = orientation,
+            TreePathMode = pathMode,
             Members = cards,
             NodesJson = nodesJson,
             EdgesJson = edgesJson
@@ -194,6 +198,26 @@ public class HomeController : Controller
                 }
         }
 
+        // Re-propagate: partner alignment may have bumped parentless members,
+        // so their children need updated rows.
+        changed = true;
+        while (changed)
+        {
+            changed = false;
+            foreach (var c in cards)
+            {
+                if (c.ParentIds.Count == 0) continue;
+                var parentRows = c.ParentIds.Where(pid => rowById.ContainsKey(pid)).Select(pid => rowById[pid]).ToList();
+                if (parentRows.Count != c.ParentIds.Count) continue;
+                var newRow = 1 + parentRows.Max();
+                if (newRow > rowById.GetValueOrDefault(c.Id, 0))
+                {
+                    rowById[c.Id] = newRow;
+                    changed = true;
+                }
+            }
+        }
+
         foreach (var c in cards)
             if (!rowById.ContainsKey(c.Id))
                 rowById[c.Id] = 0;
@@ -208,21 +232,24 @@ public class HomeController : Controller
     /// </summary>
     private static Dictionary<long, double> ComputeVisualRank(
         IReadOnlyList<FamilyMemberCardViewModel> cards,
-        Dictionary<long, int> rowById)
+        Dictionary<long, int> rowById,
+        TreePathMode pathMode)
     {
         var cardById = cards.ToDictionary(c => c.Id);
         var rankById = rowById.ToDictionary(kv => kv.Key, kv => (double)kv.Value);
 
-        var multiPartnerMales = cards.Where(c => c.IsMale && c.PartnerIds.Count > 1).ToList();
+        bool isPrimary(FamilyMemberCardViewModel c) => pathMode == TreePathMode.Paternal ? c.IsMale : !c.IsMale;
 
-        foreach (var male in multiPartnerMales)
+        var multiPartnerPrimaries = cards.Where(c => isPrimary(c) && c.PartnerIds.Count > 1).ToList();
+
+        foreach (var primary in multiPartnerPrimaries)
         {
-            var maleRank = rankById.GetValueOrDefault(male.Id, 0);
-            foreach (var pid in male.PartnerIds)
+            var primaryRank = rankById.GetValueOrDefault(primary.Id, 0);
+            foreach (var pid in primary.PartnerIds)
             {
                 if (!cardById.TryGetValue(pid, out var partner)) continue;
                 if (partner.ParentIds.Count > 0) continue;
-                rankById[pid] = maleRank + 0.5;
+                rankById[pid] = primaryRank + 0.5;
             }
         }
 

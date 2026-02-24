@@ -73,6 +73,7 @@ public class AppDbContext : IdentityDbContext<IdentityUser>
             e.HasKey(x => x.UserId);
             e.Property(x => x.PhotoUrl).HasMaxLength(500);
             e.Property(x => x.TreeViewOrientation).HasConversion<int>();
+            e.Property(x => x.TreePathMode).HasConversion<int>();
         });
     }
 }

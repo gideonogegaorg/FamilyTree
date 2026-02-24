@@ -112,6 +112,7 @@ builder.Services.AddControllersWithViews();
 builder.Services.AddScoped<IEmailSender, LoggingEmailSender>();
 builder.Services.AddScoped<ICurrentFamilyTreeService, CurrentFamilyTreeService>();
 builder.Services.AddScoped<ITreeViewOrientationService, TreeViewOrientationService>();
+builder.Services.AddScoped<ITreePathModeService, TreePathModeService>();
 builder.Services.AddScoped<IDefaultFamilyTreeService, DefaultFamilyTreeService>();
 builder.Services.AddScoped<IExternalLoginInfoProvider, SignInManagerExternalLoginInfoProvider>();
 builder.Services.AddDistributedMemoryCache();
