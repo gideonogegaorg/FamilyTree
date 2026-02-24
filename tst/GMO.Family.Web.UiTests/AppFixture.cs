@@ -1,22 +1,16 @@
-using System.Threading.Tasks;
-
-using GMO.Family.Web;
-using GMO.Family.Web.Data;
+using System.Net;
+using System.Net.Sockets;
 
 using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Mvc.ApplicationParts;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 
 using Npgsql;
 
-namespace GMO.Family.Web.IntegrationTests;
+namespace GMO.Family.Web.UiTests;
 
-/// <summary>
-/// Creates a unique PostgreSQL database per test run. Injects the test connection string
-/// so the app runs migrations on startup against the test DB. Drops the DB when disposed.
-/// </summary>
-public sealed class WebAppFixture : WebApplicationFactory<WebAppEntry>, IDisposable
+public sealed class AppFixture : WebApplicationFactory<WebAppEntry>, IDisposable
 {
     private const string BaseConnectionString = "Host=localhost;Port=5432;Username=family;Password=family";
     private string _testDatabaseName = null!;
@@ -25,40 +19,29 @@ public sealed class WebAppFixture : WebApplicationFactory<WebAppEntry>, IDisposa
     private bool _initialized;
     private readonly object _initLock = new();
 
-    public HttpClient CreateClient(bool signIn = true)
+    private IHost? _host;
+    public string ServerAddress { get; private set; }
+
+    public AppFixture()
     {
         EnsureDatabaseCreated();
 
-        // We set HandleCookies = true so the client maintains its own CookieContainer.
-        // However, we MUST use a distinct sign-in state.
-        var client = base.CreateClient(new WebApplicationFactoryClientOptions
-        {
-            AllowAutoRedirect = false,
-            HandleCookies = true
-        });
-        if (signIn)
-        {
-            client.GetAsync("/TestAuth/SignIn").GetAwaiter().GetResult();
-        }
+        var listener = new System.Net.Sockets.TcpListener(System.Net.IPAddress.Loopback, 0);
+        listener.Start();
+        var port = ((System.Net.IPEndPoint)listener.LocalEndpoint).Port;
+        listener.Stop();
+        ServerAddress = $"http://127.0.0.1:{port}";
 
-        return client;
+        // Force WebApplicationFactory to initialize the host immediately
+        _ = this.Services;
     }
-
-    /// <summary>
-    /// Creates a scope and returns the test app's <see cref="AppDbContext"/> for DB assertions (e.g. after Register/Login).
-    /// </summary>
-    public IServiceScope CreateScope() => Services.CreateScope();
-
-    public AppDbContext GetDbContext(IServiceScope scope) => scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
     private void EnsureDatabaseCreated()
     {
-        if (_initialized)
-            return;
+        if (_initialized) return;
         lock (_initLock)
         {
-            if (_initialized)
-                return;
+            if (_initialized) return;
             CreateDatabaseAsync().GetAwaiter().GetResult();
             _initialized = true;
         }
@@ -66,7 +49,7 @@ public sealed class WebAppFixture : WebApplicationFactory<WebAppEntry>, IDisposa
 
     private async Task CreateDatabaseAsync()
     {
-        _testDatabaseName = "family_test_" + Guid.NewGuid().ToString("N")[..12];
+        _testDatabaseName = "family_uitest_" + Guid.NewGuid().ToString("N")[..12];
         _testConnectionString = $"{BaseConnectionString};Database={_testDatabaseName}";
 
         await using (var conn = new NpgsqlConnection(BaseConnectionString + ";Database=postgres"))
@@ -77,10 +60,56 @@ public sealed class WebAppFixture : WebApplicationFactory<WebAppEntry>, IDisposa
         }
     }
 
+    protected override IHost CreateHost(IHostBuilder builder)
+    {
+        // 1. Let the base create the TestServer for migrations to run via EF Core automatically
+        var dummyHost = base.CreateHost(builder);
+
+        // 2. Now spin up the Kestrel server on a random port for Playwright
+        builder.ConfigureWebHost(webHostBuilder =>
+        {
+            webHostBuilder.UseStaticWebAssets();
+            webHostBuilder.UseKestrel();
+            webHostBuilder.UseUrls(ServerAddress);
+        });
+
+        _host = builder.Build();
+        _host.Start();
+
+        // 3. Create test user and seed data
+        using (var scope = dummyHost.Services.CreateScope())
+        {
+            var userManager = scope.ServiceProvider.GetRequiredService<Microsoft.AspNetCore.Identity.UserManager<Microsoft.AspNetCore.Identity.IdentityUser>>();
+            var user = new Microsoft.AspNetCore.Identity.IdentityUser
+            {
+                UserName = "test@example.com",
+                Email = "test@example.com",
+                EmailConfirmed = true
+            };
+            userManager.CreateAsync(user, "TestPassword1!").GetAwaiter().GetResult();
+        }
+
+        SeedDatabaseAsync().GetAwaiter().GetResult();
+
+        return dummyHost; // return the original dummyHost to satisfy WebApplicationFactory requirements
+    }
+
+    private async Task SeedDatabaseAsync()
+    {
+        var seedPath = Path.Combine(AppContext.BaseDirectory, "Data", "seed_3gen.sql");
+
+        var sql = await File.ReadAllTextAsync(seedPath);
+
+        await using var conn = new NpgsqlConnection(_testConnectionString);
+        await conn.OpenAsync();
+        await using var cmd = new NpgsqlCommand(sql, conn);
+        await cmd.ExecuteNonQueryAsync();
+    }
+
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseSetting("ConnectionStrings:DefaultConnection", _testConnectionString);
-        builder.UseSetting("Telemetry:Otlp:Endpoint", "http://localhost:4317"); // avoid null Endpoint when binding OtlpExporterOptions
+        builder.UseSetting("Telemetry:Otlp:Endpoint", "http://localhost:4317");
 
         // Suppress verbose EF Core and ASP.NET Core Information logs during tests
         builder.UseSetting("Serilog:MinimumLevel:Default", "Error");
@@ -98,6 +127,7 @@ public sealed class WebAppFixture : WebApplicationFactory<WebAppEntry>, IDisposa
 
     protected override void Dispose(bool disposing)
     {
+        _host?.Dispose();
         if (disposing && !_dbDropped)
             DropTestDatabaseAsync().GetAwaiter().GetResult();
         base.Dispose(disposing);
@@ -105,8 +135,7 @@ public sealed class WebAppFixture : WebApplicationFactory<WebAppEntry>, IDisposa
 
     private async Task DropTestDatabaseAsync()
     {
-        if (_dbDropped)
-            return;
+        if (_dbDropped) return;
         _dbDropped = true;
         try
         {
