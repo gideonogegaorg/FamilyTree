@@ -108,6 +108,9 @@ jobs:
             -p:FileVersion=${{ env.ASSEMBLY_VERSION }} \
             -p:InformationalVersion=${{ env.DLL_VERSION }}
 
+      - name: Install Playwright Browsers
+        run: pwsh tst/GMO.Family.Web.UiTests/bin/Debug/net10.0/playwright.ps1 install --with-deps chromium
+
       - name: Test
         run: |
           set +e
@@ -144,6 +147,15 @@ jobs:
           path: |
             coverage/**/coverage.cobertura.xml
             coverage/combined/
+          retention-days: 30
+          if-no-files-found: ignore
+
+      - name: Upload UI test artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-test-artifacts
+          path: working/
           retention-days: 30
           if-no-files-found: ignore
 
