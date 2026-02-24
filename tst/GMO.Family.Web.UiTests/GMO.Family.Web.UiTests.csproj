@@ -25,4 +25,10 @@
     <ProjectReference Include="..\..\src\GMO.Family.Web\GMO.Family.Web.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Update="Data\seed_3gen.sql">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>

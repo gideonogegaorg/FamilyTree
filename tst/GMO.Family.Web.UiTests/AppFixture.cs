@@ -96,12 +96,7 @@ public sealed class AppFixture : WebApplicationFactory<WebAppEntry>, IDisposable
 
     private async Task SeedDatabaseAsync()
     {
-        var seedPath = Path.Combine("..", "..", "..", "..", "..", "working", "seed_3gen.sql");
-        if (!File.Exists(seedPath))
-        {
-            // fallback if running from CLI directly
-            seedPath = Path.Combine("..", "..", "..", "working", "seed_3gen.sql");
-        }
+        var seedPath = Path.Combine(AppContext.BaseDirectory, "Data", "seed_3gen.sql");
 
         var sql = await File.ReadAllTextAsync(seedPath);
 
