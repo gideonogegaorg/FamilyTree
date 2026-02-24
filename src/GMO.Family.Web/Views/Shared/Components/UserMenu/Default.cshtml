@@ -80,16 +80,16 @@ else
                     </form>
                 </div>
             </li>
-            <li class="dropdown-header small text-muted">Tree path</li>
+            <li class="dropdown-header small text-muted">Lineage</li>
             <li class="px-3 py-2">
                 <div class="btn-group btn-group-sm w-100" role="group">
-                    <form asp-controller="Account" asp-action="SetTreePathMode" method="post" class="d-inline flex-grow-1">
+                    <form asp-controller="Account" asp-action="SetLineageMode" method="post" class="d-inline flex-grow-1">
                         <input type="hidden" name="mode" value="0" />
-                        <button type="submit" class="btn @(Model.TreePathMode == GMO.Family.Web.Data.TreePathMode.Paternal ? "btn-primary" : "btn-outline-secondary") w-100">Paternal</button>
+                        <button type="submit" class="btn @(Model.LineageMode == GMO.Family.Web.Data.LineageMode.Paternal ? "btn-primary" : "btn-outline-secondary") w-100">Paternal</button>
                     </form>
-                    <form asp-controller="Account" asp-action="SetTreePathMode" method="post" class="d-inline flex-grow-1">
+                    <form asp-controller="Account" asp-action="SetLineageMode" method="post" class="d-inline flex-grow-1">
                         <input type="hidden" name="mode" value="1" />
-                        <button type="submit" class="btn @(Model.TreePathMode == GMO.Family.Web.Data.TreePathMode.Maternal ? "btn-primary" : "btn-outline-secondary") w-100">Maternal</button>
+                        <button type="submit" class="btn @(Model.LineageMode == GMO.Family.Web.Data.LineageMode.Maternal ? "btn-primary" : "btn-outline-secondary") w-100">Maternal</button>
                     </form>
                 </div>
             </li>

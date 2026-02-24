@@ -1,6 +1,6 @@
 namespace GMO.Family.Web.Data;
 
-public enum TreePathMode
+public enum LineageMode
 {
     Paternal = 0,
     Maternal = 1

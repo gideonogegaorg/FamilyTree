@@ -4,12 +4,39 @@ using GMO.Family.Web.Models;
 namespace GMO.Family.Web.Services;
 
 /// <summary>
-/// Computes row (generation depth) and visual rank for family tree layout.
-/// Used by HomeController to build nodes JSON; extracted for unit testing.
+/// Computes the complete ranking system for family tree layout, including both row (generation depth) and visual rank calculations.
+/// 
+/// The ranking system consists of two related concepts:
+/// <list type="bullet">
+/// <item><description><b>Row</b>: Integer generation depth (0 = roots, 1 = children, 2 = grandchildren, etc.)</description></item>
+/// <item><description><b>Visual Rank</b>: Extended row system with half-ranks (0.5, 1.5, etc.) for partners of multi-partner primary members</description></item>
+/// </list>
+/// 
+/// <para>
+/// <b>Row Calculation</b>: Determines generation depth based on parent relationships. Partners without parents inherit the row of their partner.
+/// </para>
+/// 
+/// <para>
+/// <b>Visual Rank Calculation</b>: Extends rows with half-ranks for secondary partners in multi-partner relationships.
+/// The primary gender is determined by LineageMode (male for Paternal, female for Maternal).
+/// Partners of multi-partner primary members who have no parents get rank = primary's rank + 0.5.
+/// </para>
+/// 
+/// Used by HomeController to build the nodes JSON for the family tree visualization. Extracted for unit testing.
 /// </summary>
 public static class TreeLayoutRanking
 {
-    /// <summary>Row 0 = roots (no incoming parent); row k+1 = 1 + max(parent rows). Partners without parents inherit row from couple partner.</summary>
+    /// <summary>
+    /// Calculates generation depth (row) for each family member based on parent-child relationships.
+    /// 
+    /// Algorithm:
+    /// 1. Root members (no parents) get Row 0
+    /// 2. Children get Row = 1 + max(parent rows)  
+    /// 3. Partners without parents inherit their partner's row (alignment)
+    /// 4. Changes propagate through the tree to maintain consistency
+    /// 
+    /// This provides the foundation for visual rank calculation.
+    /// </summary>
     public static Dictionary<long, int> ComputeRowByMember(IReadOnlyList<FamilyMemberCardViewModel> cards)
     {
         var cardById = cards.ToDictionary(c => c.Id);
@@ -73,19 +100,27 @@ public static class TreeLayoutRanking
     }
 
     /// <summary>
-    /// Visual rank: same as row for most members. Partners of a multi-partner primary who have
-    /// no parents of their own get rank = primary's rank + 0.5 (a half-level between the primary
-    /// and their children). Primary is male when Paternal, female when Maternal.
+    /// Extends row calculations with half-ranks for secondary partners in multi-partner relationships.
+    /// 
+    /// Algorithm:
+    /// 1. Start with row values as base visual ranks (convert to double)
+    /// 2. Determine primary gender based on LineageMode (male for Paternal, female for Maternal)
+    /// 3. For each multi-partner primary member:
+    ///    - Find partners who are dominated by the primary (no parents of their own)
+    ///    - Assign them rank = primary's rank + 0.5 (half-rank positioning)
+    /// 4. Bloodline domination ensures family tree topology anchors the visual structure
+    /// 
+    /// This creates the precise positioning needed for the JavaScript layout engine.
     /// </summary>
     public static Dictionary<long, double> ComputeVisualRank(
         IReadOnlyList<FamilyMemberCardViewModel> cards,
         Dictionary<long, int> rowById,
-        TreePathMode pathMode)
+        LineageMode pathMode)
     {
         var cardById = cards.ToDictionary(c => c.Id);
         var rankById = rowById.ToDictionary(kv => kv.Key, kv => (double)kv.Value);
 
-        bool isPrimary(FamilyMemberCardViewModel c) => pathMode == TreePathMode.Paternal ? c.IsMale : !c.IsMale;
+        bool isPrimary(FamilyMemberCardViewModel c) => pathMode == LineageMode.Paternal ? c.IsMale : !c.IsMale;
 
         bool dominates(FamilyMemberCardViewModel nodeA, FamilyMemberCardViewModel nodeB)
         {

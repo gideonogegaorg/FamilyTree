@@ -24,7 +24,7 @@ public class AccountController : Controller
     private readonly AppDbContext _db;
     private readonly ICurrentFamilyTreeService _currentFamilyTree;
     private readonly ITreeViewOrientationService _treeViewOrientation;
-    private readonly ITreePathModeService _treePathMode;
+    private readonly ILineageModeService _lineageMode;
     private readonly IDefaultFamilyTreeService _defaultFamilyTree;
     private readonly IWebHostEnvironment _env;
     private readonly PathsOptions _paths;
@@ -38,7 +38,7 @@ public class AccountController : Controller
         AppDbContext db,
         ICurrentFamilyTreeService currentFamilyTree,
         ITreeViewOrientationService treeViewOrientation,
-        ITreePathModeService treePathMode,
+        ILineageModeService lineageMode,
         IDefaultFamilyTreeService defaultFamilyTree,
         IWebHostEnvironment env,
         IOptions<PathsOptions> paths,
@@ -51,7 +51,7 @@ public class AccountController : Controller
         _db = db;
         _currentFamilyTree = currentFamilyTree;
         _treeViewOrientation = treeViewOrientation;
-        _treePathMode = treePathMode;
+        _lineageMode = lineageMode;
         _defaultFamilyTree = defaultFamilyTree;
         _env = env;
         _paths = paths.Value;
@@ -363,12 +363,12 @@ public class AccountController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> SetTreePathMode(int mode, CancellationToken cancellationToken)
+    public async Task<IActionResult> SetLineageMode(int mode, CancellationToken cancellationToken)
     {
-        var value = Enum.IsDefined(typeof(TreePathMode), mode)
-            ? (TreePathMode)mode
-            : TreePathMode.Paternal;
-        await _treePathMode.SetAsync(value, cancellationToken);
+        var value = Enum.IsDefined(typeof(LineageMode), mode)
+            ? (LineageMode)mode
+            : LineageMode.Paternal;
+        await _lineageMode.SetAsync(value, cancellationToken);
         return RedirectToAction("Index", "Home");
     }
 }
