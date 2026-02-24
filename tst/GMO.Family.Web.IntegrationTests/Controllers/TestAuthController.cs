@@ -38,11 +38,4 @@ public class TestAuthController : ControllerBase
         await _signInManager.SignInAsync(user, isPersistent: false);
         return Ok();
     }
-
-    [HttpGet("SignOut")]
-    public async Task<IActionResult> SignOut(CancellationToken cancellationToken)
-    {
-        await _signInManager.SignOutAsync();
-        return Ok();
-    }
 }

@@ -36,15 +36,9 @@ public sealed class WebAppFixture : WebApplicationFactory<WebAppEntry>, IDisposa
             AllowAutoRedirect = false,
             HandleCookies = true
         });
-
         if (signIn)
         {
             client.GetAsync("/TestAuth/SignIn").GetAwaiter().GetResult();
-        }
-        else
-        {
-            // Call the explicit endpoint we added to forcefully sign out and clear cookies for this client's session
-            client.GetAsync("/TestAuth/SignOut").GetAwaiter().GetResult();
         }
 
         return client;

@@ -35,6 +35,21 @@ public class AccountControllerTests : IClassFixture<WebAppFixture>
         Assert.Contains("Login", html);
     }
 
+    [Fact]
+    public async Task Unauthenticated_request_shows_sign_in_link_in_menu()
+    {
+        // Arrange: page that uses _Layout (and thus UserMenu) when not authenticated
+        var client = _fixture.CreateClient(signIn: false);
+
+        // Act: GET any page with main layout to exercise UserMenu unauthenticated path
+        var response = await client.GetAsync("/Home/Privacy");
+
+        // Assert
+        response.EnsureSuccessStatusCode();
+        var html = await response.Content.ReadAsStringAsync();
+        Assert.Contains("Sign in", html);
+    }
+
 
     [Fact]
     public async Task Register_GET_returns_200()
