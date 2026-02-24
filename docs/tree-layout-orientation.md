@@ -210,12 +210,28 @@ The family tree also supports two lineage modes that determine which lineage is 
 | Layout emphasis | Father's branch is primary/featured | Mother's branch is primary/featured |
 | Half-rank logic | Multi-partner **males** get half-rank for partners | Multi-partner **females** get half-rank for partners |
 
-### Primary Selection Logic
+### Primary Selection Logic (Bloodline Domination)
+
+When dealing with multi-partner relationships, determining which partner is the "Primary" anchor for the layout evaluates their bloodline depth first to prevent lineage fragmentation:
 
 ```csharp
 bool isPrimary(FamilyMemberCardViewModel c) => 
     pathMode == TreeLineageMode.Paternal ? c.IsMale : !c.IsMale;
+
+bool dominates(FamilyMemberCardViewModel nodeA, FamilyMemberCardViewModel nodeB)
+{
+    // 1. Bloodline depth: nodes with parents in the tree dominate those inserted via marriage
+    bool bloodlineA = nodeA.ParentIds.Count > 0;
+    bool bloodlineB = nodeB.ParentIds.Count > 0;
+    if (bloodlineA && !bloodlineB) return true;
+    if (!bloodlineA && bloodlineB) return false;
+
+    // 2. Fallback: Lineage mode gender logic
+    return isPrimary(nodeA) && !isPrimary(nodeB);
+}
 ```
+
+This ensures that the member natively connected to the family tree topology (e.g. "Fathers Brother" who has parents) anchors the visual tree, even if the tree is rendering in a Lineage mode (like Maternal) where their gender isn't typically primary.
 
 ### Visual Layout Differences
 
