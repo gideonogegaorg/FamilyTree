@@ -13,12 +13,14 @@ html {
 }
 
 html {
-  position: relative;
   min-height: 100%;
 }
 
 body {
-  margin-bottom: 60px;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  margin: 0;
 }
 
 .form-floating > .form-control-plaintext::placeholder, .form-floating > .form-control::placeholder {
@@ -35,10 +37,10 @@ body {
   opacity: 1 !important;
 }
 
-/* Family tree: nested column layout, use full viewport height */
+/* Family tree: nested column layout */
 .family-tree-graph {
   width: 100%;
-  min-height: calc(100vh - 8rem);
+  flex: 1;
   overflow: auto;
   background: transparent;
 }
