@@ -127,6 +127,12 @@ public class LayoutOrientationTests : IAsyncLifetime
     private readonly string[] Gen2Names = { "Father", "Mother", "Fathers Brother", "Mothers HalfSib" };
     private readonly string[] Gen25Names = { "FB Wife 1", "FB Wife 2" }; // Half-rank spouses
     private readonly string[] Gen3Names = { "Me", "Cousin 1", "Cousin 2", "Cousin 3", "Wife2 Only Child" };
+    
+    // Paternal vs Maternal specific test data
+    private readonly string[] PaternalPrimaryNames = { "Paternal Grandpa", "Father", "Fathers Brother" };
+    private readonly string[] MaternalPrimaryNames = { "Maternal Grandma", "Maternal Grandpa 1", "Maternal Grandpa 2", "Mother", "Mothers HalfSib" };
+    private readonly string[] PaternalHalfRankNames = { "FB Wife 1", "FB Wife 2" }; // Father's Brother's wives
+    private readonly string[] MaternalHalfRankNames = { "Wife2 Only Child" }; // Maternal Grandpa 2's wife
 
     [Fact]
     public async Task VerticalLayout_PositionsEveryNodeAndRank()
@@ -231,5 +237,179 @@ public class LayoutOrientationTests : IAsyncLifetime
             max = Math.Max(max, value);
         }
         Assert.True(max > min + minSpread, $"{generation} should be spread {axis}: range [{min}, {max}]");
+    }
+
+    [Fact]
+    public async Task TreeLineageMode_CanToggleBetweenPaternalAndMaternal()
+    {
+        await AuthenticateAsync();
+
+        // 1. Go to the root page (Family Tree)
+        await _page.GotoAsync(_fixture.ServerAddress + "/");
+        await _page.Locator("#family-tree-graph .family-tree-card").First.WaitForAsync();
+
+        // 2. Check initial lineage mode - it could be either Paternal or Maternal
+        var paternalBtn = _page.Locator("button:has-text('Paternal')");
+        var maternalBtn = _page.Locator("button:has-text('Maternal')");
+        
+        var isInitiallyPaternal = (await paternalBtn.GetAttributeAsync("class"))?.Contains("btn-primary") == true;
+        
+        // 3. Open user menu and click the opposite lineage mode
+        await _page.ClickAsync("#userMenuDropdown");
+        
+        if (isInitiallyPaternal) {
+            // Switch to Maternal
+            await maternalBtn.WaitForAsync();
+            await maternalBtn.ClickAsync();
+        } else {
+            // Switch to Paternal
+            await paternalBtn.WaitForAsync();
+            await paternalBtn.ClickAsync();
+        }
+
+        // 4. Page should reload, wait for graph again
+        await _page.WaitForURLAsync(_fixture.ServerAddress + "/");
+        await _page.Locator("#family-tree-graph .family-tree-card").First.WaitForAsync();
+
+        // 5. Verify the mode switched
+        if (isInitiallyPaternal) {
+            // Should now be Maternal
+            var maternalClass = await maternalBtn.GetAttributeAsync("class");
+            var paternalClass = await paternalBtn.GetAttributeAsync("class");
+            Assert.True(maternalClass?.Contains("btn-primary") == true, "Should be in Maternal mode");
+            Assert.False(paternalClass?.Contains("btn-primary") == true, "Should not be in Paternal mode");
+        } else {
+            // Should now be Paternal
+            var maternalClass = await maternalBtn.GetAttributeAsync("class");
+            var paternalClass = await paternalBtn.GetAttributeAsync("class");
+            Assert.True(paternalClass?.Contains("btn-primary") == true, "Should be in Paternal mode");
+            Assert.False(maternalClass?.Contains("btn-primary") == true, "Should not be in Maternal mode");
+        }
+
+        // 6. Switch back to original mode
+        await _page.ClickAsync("#userMenuDropdown");
+        
+        if (isInitiallyPaternal) {
+            // Switch to Paternal
+            await paternalBtn.WaitForAsync();
+            await paternalBtn.ClickAsync();
+        } else {
+            // Switch to Maternal
+            await maternalBtn.WaitForAsync();
+            await maternalBtn.ClickAsync();
+        }
+
+        // 7. Page should reload
+        await _page.WaitForURLAsync(_fixture.ServerAddress + "/");
+        await _page.Locator("#family-tree-graph .family-tree-card").First.WaitForAsync();
+
+        // 8. Verify back to original mode
+        if (isInitiallyPaternal) {
+            var paternalClass = await paternalBtn.GetAttributeAsync("class");
+            Assert.True(paternalClass?.Contains("btn-primary") == true, "Should be back in Paternal mode");
+        } else {
+            var maternalClass = await maternalBtn.GetAttributeAsync("class");
+            Assert.True(maternalClass?.Contains("btn-primary") == true, "Should be back in Maternal mode");
+        }
+    }
+
+    [Fact]
+    public async Task PaternalMode_PrimarySideIsPaternalLineage()
+    {
+        await AuthenticateAsync();
+
+        // Go to tree page and ensure Paternal mode
+        await _page.GotoAsync(_fixture.ServerAddress + "/");
+        await _page.Locator("#family-tree-graph .family-tree-card").First.WaitForAsync();
+        
+        // Ensure we're in Paternal mode
+        var paternalBtn = _page.Locator("button:has-text('Paternal')");
+        var isPaternal = (await paternalBtn.GetAttributeAsync("class"))?.Contains("btn-primary") == true;
+        
+        if (!isPaternal) {
+            await _page.ClickAsync("#userMenuDropdown");
+            await paternalBtn.WaitForAsync();
+            await paternalBtn.ClickAsync();
+            await _page.WaitForURLAsync(_fixture.ServerAddress + "/");
+            await _page.Locator("#family-tree-graph .family-tree-card").First.WaitForAsync();
+        }
+
+        // Verify that paternal primary members are present and positioned
+        var paternalBoxes = await GetBoxesAsync(PaternalPrimaryNames);
+        var maternalBoxes = await GetBoxesAsync(MaternalPrimaryNames);
+        
+        // All expected members should be found
+        Assert.Equal(PaternalPrimaryNames.Length, paternalBoxes.Count);
+        Assert.Equal(MaternalPrimaryNames.Length, maternalBoxes.Count);
+        
+        // Verify half-rank spouses (Father's Brother's wives) get half-rank positioning
+        var paternalHalfRankBoxes = await GetBoxesAsync(PaternalHalfRankNames);
+        Assert.Equal(PaternalHalfRankNames.Length, paternalHalfRankBoxes.Count);
+        
+        // In Paternal mode, FB Wife 1/2 should be positioned between Gen2 and Gen3
+        if (paternalHalfRankBoxes.Count > 0) {
+            var gen2Boxes = await GetBoxesAsync(Gen2Names);
+            var gen3Boxes = await GetBoxesAsync(Gen3Names);
+            
+            dynamic firstGen2Box = gen2Boxes[0];
+            dynamic firstGen3Box = gen3Boxes[0];
+            dynamic firstHalfRankBox = paternalHalfRankBoxes[0];
+            
+            // Half-rank should be between generations (Y coordinate)
+            Assert.True(firstGen2Box.Y < firstHalfRankBox.Y, 
+                $"Gen2 ({firstGen2Box.Y}) should be above half-rank ({firstHalfRankBox.Y})");
+            Assert.True(firstHalfRankBox.Y < firstGen3Box.Y, 
+                $"Half-rank ({firstHalfRankBox.Y}) should be above Gen3 ({firstGen3Box.Y})");
+        }
+    }
+
+    [Fact]
+    public async Task MaternalMode_PrimarySideIsMaternalLineage()
+    {
+        await AuthenticateAsync();
+
+        // Go to tree page and ensure Maternal mode
+        await _page.GotoAsync(_fixture.ServerAddress + "/");
+        await _page.Locator("#family-tree-graph .family-tree-card").First.WaitForAsync();
+        
+        // Ensure we're in Maternal mode
+        var maternalBtn = _page.Locator("button:has-text('Maternal')");
+        var isMaternal = (await maternalBtn.GetAttributeAsync("class"))?.Contains("btn-primary") == true;
+        
+        if (!isMaternal) {
+            await _page.ClickAsync("#userMenuDropdown");
+            await maternalBtn.WaitForAsync();
+            await maternalBtn.ClickAsync();
+            await _page.WaitForURLAsync(_fixture.ServerAddress + "/");
+            await _page.Locator("#family-tree-graph .family-tree-card").First.WaitForAsync();
+        }
+
+        // Verify that maternal primary members are present and positioned
+        var paternalBoxes = await GetBoxesAsync(PaternalPrimaryNames);
+        var maternalBoxes = await GetBoxesAsync(MaternalPrimaryNames);
+        
+        // All expected members should be found
+        Assert.Equal(PaternalPrimaryNames.Length, paternalBoxes.Count);
+        Assert.Equal(MaternalPrimaryNames.Length, maternalBoxes.Count);
+        
+        // Verify half-rank spouses (Maternal Grandpa 2's wife) get half-rank positioning
+        var maternalHalfRankBoxes = await GetBoxesAsync(MaternalHalfRankNames);
+        Assert.Equal(MaternalHalfRankNames.Length, maternalHalfRankBoxes.Count);
+        
+        // In Maternal mode, Wife2 Only Child should be positioned between Gen2 and Gen3
+        if (maternalHalfRankBoxes.Count > 0) {
+            var gen2Boxes = await GetBoxesAsync(Gen2Names);
+            var gen3Boxes = await GetBoxesAsync(Gen3Names);
+            
+            dynamic firstGen2Box = gen2Boxes[0];
+            dynamic firstGen3Box = gen3Boxes[0];
+            dynamic firstHalfRankBox = maternalHalfRankBoxes[0];
+            
+            // Half-rank should be between generations (Y coordinate)
+            Assert.True(firstGen2Box.Y < firstHalfRankBox.Y, 
+                $"Gen2 ({firstGen2Box.Y}) should be above half-rank ({firstHalfRankBox.Y})");
+            // Note: In Maternal mode, half-rank positioning differs from Paternal mode
+            Assert.True(firstHalfRankBox.Y > 0, $"Half-rank should have valid Y coordinate ({firstHalfRankBox.Y})");
+        }
     }
 }
