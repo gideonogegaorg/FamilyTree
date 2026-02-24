@@ -114,18 +114,32 @@ jobs:
       - name: Create working directory
         run: mkdir -p working
 
-      - name: Test
+      - name: Test (Unit)
         run: |
           set +e
-          dotnet test GMO.Family.sln --no-build --verbosity normal \
+          dotnet test tst/GMO.Family.Web.UnitTests --no-build --verbosity normal \
             --collect:"XPlat Code Coverage" \
-            --results-directory ./coverage 2>&1 | tee test.log
+            --results-directory ./coverage/unit 2>&1 | tee unit-test.log
           EXIT=${PIPESTATUS[0]}
-          if [ $EXIT -ne 0 ] && grep -qi "no test is available\|no test matched" test.log; then
-            echo "No test projects yet; step passes until tests are added."
-            exit 0
-          fi
-          exit $EXIT
+          if [ $EXIT -ne 0 ]; then exit $EXIT; fi
+
+      - name: Test (Integration)
+        run: |
+          set +e
+          dotnet test tst/GMO.Family.Web.IntegrationTests --no-build --verbosity normal \
+            --collect:"XPlat Code Coverage" \
+            --results-directory ./coverage/integration 2>&1 | tee integration-test.log
+          EXIT=${PIPESTATUS[0]}
+          if [ $EXIT -ne 0 ]; then exit $EXIT; fi
+
+      - name: Test (UI)
+        run: |
+          set +e
+          dotnet test tst/GMO.Family.Web.UiTests --no-build --verbosity normal \
+            --collect:"XPlat Code Coverage" \
+            --results-directory ./coverage/ui 2>&1 | tee ui-test.log
+          EXIT=${PIPESTATUS[0]}
+          if [ $EXIT -ne 0 ]; then exit $EXIT; fi
 
       - name: Generate HTML coverage report
         if: always()
