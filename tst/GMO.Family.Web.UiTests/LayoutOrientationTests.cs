@@ -1,5 +1,7 @@
-using Microsoft.Playwright;
 using System.Threading.Tasks;
+
+using Microsoft.Playwright;
+
 using Xunit;
 
 namespace GMO.Family.Web.UiTests;
@@ -45,12 +47,15 @@ public class LayoutOrientationTests : IAsyncLifetime
 
         // 1. Go to the root page (Family Tree)
         await _page.GotoAsync(_fixture.ServerAddress + "/");
-        
+
         // Ensure the graph is loaded by waiting for at least one node to be injected by JS
         var graphNode = _page.Locator("#family-tree-graph .family-tree-card").First;
-        try {
+        try
+        {
             await graphNode.WaitForAsync(new LocatorWaitForOptions { State = WaitForSelectorState.Attached, Timeout = 5000 });
-        } catch {
+        }
+        catch
+        {
             var screenshotPath = System.IO.Path.Combine("..", "..", "..", "..", "..", "working", "debug_screenshot.png");
             if (!System.IO.Directory.Exists(System.IO.Path.GetDirectoryName(screenshotPath)))
             {
@@ -69,7 +74,7 @@ public class LayoutOrientationTests : IAsyncLifetime
 
         // 3. Open user menu and click "Vertical"
         await _page.ClickAsync("#userMenuDropdown");
-        
+
         // Wait for user menu to appear and click Vertical form button
         var verticalBtn = _page.Locator("button:has-text('Vertical')");
         await verticalBtn.WaitForAsync();
