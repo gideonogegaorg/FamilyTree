@@ -410,7 +410,8 @@
                     var cl = document.createElement('div');
                     cl.className = 'ft-couple-link';
                     parents.appendChild(cl);
-                    parents.appendChild(createCard(nodeById[fam.partnerId]));
+                    var partnerHasOwnBranch = (fam.partnerId in branchCache) && branchCache[fam.partnerId] !== null;
+                    parents.appendChild(createCard(nodeById[fam.partnerId], partnerHasOwnBranch ? 'ref' : undefined));
                 }
                 unit.appendChild(parents);
                 if ((fam.childIds || []).length > 0) {
@@ -430,7 +431,8 @@
                         var cl = document.createElement('div');
                         cl.className = 'ft-couple-link';
                         parents.appendChild(cl);
-                        parents.appendChild(createCard(nodeById[fam.partnerId]));
+                        var partnerHasOwnBranch = (fam.partnerId in branchCache) && branchCache[fam.partnerId] !== null;
+                        parents.appendChild(createCard(nodeById[fam.partnerId], partnerHasOwnBranch ? 'ref' : undefined));
                     }
                     (fam.childIds || []).forEach(function (cid) { ownAllChildIds.push(cid); });
                 });
@@ -570,7 +572,13 @@
     treeInner.appendChild(rootContainer);
     container.appendChild(treeInner);
 
-    // Insert spacers for missing half-rank slots so same-rank members align vertically.
+    // Insert spacers for missing half-rank slots so same-rank members align.
+    // Vertical: ranks = rows → spacers add height. Horizontal: ranks = columns → spacers add width.
+    var isHorizontal = container.classList.contains('ft-orientation-horizontal');
+    var rankDim = isHorizontal ? 'width' : 'height';
+    var rankPos = isHorizontal ? 'left' : 'top';
+    var rankMargin = isHorizontal ? 'marginLeft' : 'marginTop';
+
     (function insertHalfRankSpacers() {
         var halfRankLevels = {};
         Object.keys(nodeById).forEach(function (id) {
@@ -579,7 +587,7 @@
         });
         if (Object.keys(halfRankLevels).length === 0) return;
 
-        // Phase 1: insert zero-height spacers in branches that skip a half-rank.
+        // Phase 1: insert zero-size spacers in branches that skip a half-rank.
         container.querySelectorAll('.ft-children').forEach(function (childrenEl) {
             var parent = childrenEl.parentElement;
             if (!parent) return;
@@ -603,14 +611,13 @@
 
             var spacer = document.createElement('div');
             spacer.className = 'ft-rank-spacer';
-            spacer.style.height = '0px';
+            spacer.style[rankDim] = '0px';
             parent.insertBefore(spacer, childrenEl);
         });
 
         // Phase 2: after layout settles, align root branches first, then adjust spacers.
         setTimeout(function () {
             // Phase 2a: align satellite root branches to the main (anchor) branch.
-            // The anchor is the branch with the most cards — it stays fixed.
             var rootBranches = container.querySelectorAll('.ft-roots > .ft-branch');
             var anchorBranch = null;
             var maxCardCount = 0;
@@ -631,8 +638,8 @@
                 });
                 if (!targetCard) return;
 
-                var diff = targetCard.getBoundingClientRect().top - firstCard.getBoundingClientRect().top;
-                if (Math.abs(diff) > 1) branch.style.marginTop = diff + 'px';
+                var diff = targetCard.getBoundingClientRect()[rankPos] - firstCard.getBoundingClientRect()[rankPos];
+                if (Math.abs(diff) > 1) branch.style[rankMargin] = diff + 'px';
             });
 
             // Force reflow so Phase 2b measurements account for root branch margins.
@@ -650,22 +657,22 @@
                     var childrenEl = branch.parentElement;
                     if (!childrenEl || !childrenEl.classList.contains('ft-children')) return;
                     var spacer = childrenEl.previousElementSibling;
-                    entries.push({ top: c.getBoundingClientRect().top, spacer: spacer });
+                    entries.push({ pos: c.getBoundingClientRect()[rankPos], spacer: spacer });
                 });
                 if (entries.length < 2) return;
 
-                var maxTop = -Infinity;
-                entries.forEach(function (e) { if (e.top > maxTop) maxTop = e.top; });
+                var maxPos = -Infinity;
+                entries.forEach(function (e) { if (e.pos > maxPos) maxPos = e.pos; });
 
                 var seen = new Map();
                 entries.forEach(function (e) {
                     if (!e.spacer || !e.spacer.classList.contains('ft-rank-spacer')) return;
-                    var diff = maxTop - e.top;
+                    var diff = maxPos - e.pos;
                     if (diff < 1) return;
                     if (!seen.has(e.spacer) || seen.get(e.spacer) < diff) seen.set(e.spacer, diff);
                 });
                 seen.forEach(function (diff, spacer) {
-                    spacer.style.height = (parseFloat(spacer.style.height) + diff) + 'px';
+                    spacer.style[rankDim] = (parseFloat(spacer.style[rankDim]) + diff) + 'px';
                 });
             });
         }, 50);
