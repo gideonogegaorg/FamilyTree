@@ -28,13 +28,19 @@ public sealed class WebAppFixture : WebApplicationFactory<WebAppEntry>, IDisposa
     public HttpClient CreateClient(bool signIn = true)
     {
         EnsureDatabaseCreated();
+
+        // We set HandleCookies = true so the client maintains its own CookieContainer.
+        // However, we MUST use a distinct sign-in state.
         var client = base.CreateClient(new WebApplicationFactoryClientOptions
         {
             AllowAutoRedirect = false,
             HandleCookies = true
         });
         if (signIn)
+        {
             client.GetAsync("/TestAuth/SignIn").GetAwaiter().GetResult();
+        }
+
         return client;
     }
 
@@ -75,6 +81,13 @@ public sealed class WebAppFixture : WebApplicationFactory<WebAppEntry>, IDisposa
     {
         builder.UseSetting("ConnectionStrings:DefaultConnection", _testConnectionString);
         builder.UseSetting("Telemetry:Otlp:Endpoint", "http://localhost:4317"); // avoid null Endpoint when binding OtlpExporterOptions
+
+        // Suppress verbose EF Core and ASP.NET Core Information logs during tests
+        builder.UseSetting("Serilog:MinimumLevel:Default", "Error");
+        builder.UseSetting("Serilog:MinimumLevel:Override:Microsoft", "Error");
+        builder.UseSetting("Serilog:MinimumLevel:Override:System", "Error");
+        builder.UseSetting("Serilog:MinimumLevel:Override:Microsoft.Hosting.Lifetime", "Error");
+
         builder.UseEnvironment("Testing");
         builder.ConfigureServices((_, services) =>
         {

@@ -23,6 +23,8 @@ public class AccountController : Controller
     private readonly IOptionsMonitor<GoogleAuthOptions> _googleAuth;
     private readonly AppDbContext _db;
     private readonly ICurrentFamilyTreeService _currentFamilyTree;
+    private readonly ITreeViewOrientationService _treeViewOrientation;
+    private readonly ILineageModeService _lineageMode;
     private readonly IDefaultFamilyTreeService _defaultFamilyTree;
     private readonly IWebHostEnvironment _env;
     private readonly PathsOptions _paths;
@@ -35,6 +37,8 @@ public class AccountController : Controller
         IOptionsMonitor<GoogleAuthOptions> googleAuth,
         AppDbContext db,
         ICurrentFamilyTreeService currentFamilyTree,
+        ITreeViewOrientationService treeViewOrientation,
+        ILineageModeService lineageMode,
         IDefaultFamilyTreeService defaultFamilyTree,
         IWebHostEnvironment env,
         IOptions<PathsOptions> paths,
@@ -46,6 +50,8 @@ public class AccountController : Controller
         _googleAuth = googleAuth;
         _db = db;
         _currentFamilyTree = currentFamilyTree;
+        _treeViewOrientation = treeViewOrientation;
+        _lineageMode = lineageMode;
         _defaultFamilyTree = defaultFamilyTree;
         _env = env;
         _paths = paths.Value;
@@ -341,6 +347,28 @@ public class AccountController : Controller
     public async Task<IActionResult> SwitchFamilyTree(long id, CancellationToken cancellationToken)
     {
         await _currentFamilyTree.SetCurrentFamilyTreeIdAsync(id, cancellationToken);
+        return RedirectToAction("Index", "Home");
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> SetTreeViewOrientation(int orientation, CancellationToken cancellationToken)
+    {
+        var value = Enum.IsDefined(typeof(TreeViewOrientation), orientation)
+            ? (TreeViewOrientation)orientation
+            : TreeViewOrientation.Horizontal;
+        await _treeViewOrientation.SetOrientationAsync(value, cancellationToken);
+        return RedirectToAction("Index", "Home");
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> SetLineageMode(int mode, CancellationToken cancellationToken)
+    {
+        var value = Enum.IsDefined(typeof(LineageMode), mode)
+            ? (LineageMode)mode
+            : LineageMode.Paternal;
+        await _lineageMode.SetAsync(value, cancellationToken);
         return RedirectToAction("Index", "Home");
     }
 }

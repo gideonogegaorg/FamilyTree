@@ -22,6 +22,86 @@ namespace GMO.Family.Web.Data.Migrations
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
 
+            modelBuilder.Entity("GMO.Family.Web.Data.FamilyMember", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<int?>("BirthOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<DateOnly?>("DOB")
+                        .HasColumnType("date");
+
+                    b.Property<long>("FamilyTreeId")
+                        .HasColumnType("bigint");
+
+                    b.Property<bool>("IsMale")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("NickName")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("UserId")
+                        .HasMaxLength(450)
+                        .HasColumnType("character varying(450)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FamilyTreeId");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("FamilyTreeId", "UserId")
+                        .IsUnique();
+
+                    b.ToTable("FamilyMembers");
+                });
+
+            modelBuilder.Entity("GMO.Family.Web.Data.FamilyMemberRelationship", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<long>("Id"));
+
+                    b.Property<long>("FamilyTreeId")
+                        .HasColumnType("bigint");
+
+                    b.Property<long>("FromMemberId")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("RelationshipType")
+                        .HasColumnType("integer");
+
+                    b.Property<long>("ToMemberId")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FamilyTreeId");
+
+                    b.HasIndex("ToMemberId");
+
+                    b.HasIndex("FromMemberId", "ToMemberId", "RelationshipType")
+                        .IsUnique();
+
+                    b.ToTable("FamilyMemberRelationships", t =>
+                        {
+                            t.HasCheckConstraint("CK_FamilyMemberRelationship_FromNotTo", "\"FromMemberId\" != \"ToMemberId\"");
+                        });
+                });
+
             modelBuilder.Entity("GMO.Family.Web.Data.FamilyTree", b =>
                 {
                     b.Property<long>("Id")
@@ -64,6 +144,12 @@ namespace GMO.Family.Web.Data.Migrations
                     b.Property<string>("PhotoUrl")
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
+
+                    b.Property<int?>("LineageMode")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("TreeViewOrientation")
+                        .HasColumnType("integer");
 
                     b.HasKey("UserId");
 
@@ -266,6 +352,60 @@ namespace GMO.Family.Web.Data.Migrations
                     b.ToTable("AspNetUserTokens", (string)null);
                 });
 
+            modelBuilder.Entity("GMO.Family.Web.Data.FamilyMember", b =>
+                {
+                    b.HasOne("GMO.Family.Web.Data.FamilyTree", "FamilyTree")
+                        .WithMany("Members")
+                        .HasForeignKey("FamilyTreeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("FamilyTree");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("GMO.Family.Web.Data.FamilyMemberRelationship", b =>
+                {
+                    b.HasOne("GMO.Family.Web.Data.FamilyTree", "FamilyTree")
+                        .WithMany()
+                        .HasForeignKey("FamilyTreeId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("GMO.Family.Web.Data.FamilyMember", "FromMember")
+                        .WithMany("OutgoingRelationships")
+                        .HasForeignKey("FromMemberId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("GMO.Family.Web.Data.FamilyMember", "ToMember")
+                        .WithMany("IncomingRelationships")
+                        .HasForeignKey("ToMemberId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("FamilyTree");
+
+                    b.Navigation("FromMember");
+
+                    b.Navigation("ToMember");
+                });
+
+            modelBuilder.Entity("GMO.Family.Web.Data.FamilyTree", b =>
+                {
+                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser", null)
+                        .WithMany()
+                        .HasForeignKey("OwnerId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<string>", b =>
                 {
                     b.HasOne("Microsoft.AspNetCore.Identity.IdentityRole", null)
@@ -317,13 +457,16 @@ namespace GMO.Family.Web.Data.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("GMO.Family.Web.Data.FamilyMember", b =>
+                {
+                    b.Navigation("IncomingRelationships");
+
+                    b.Navigation("OutgoingRelationships");
+                });
+
             modelBuilder.Entity("GMO.Family.Web.Data.FamilyTree", b =>
                 {
-                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser", null)
-                        .WithMany()
-                        .HasForeignKey("OwnerId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
+                    b.Navigation("Members");
                 });
 #pragma warning restore 612, 618
         }
