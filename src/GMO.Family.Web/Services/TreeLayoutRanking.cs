@@ -87,16 +87,32 @@ public static class TreeLayoutRanking
 
         bool isPrimary(FamilyMemberCardViewModel c) => pathMode == TreePathMode.Paternal ? c.IsMale : !c.IsMale;
 
-        var multiPartnerPrimaries = cards.Where(c => isPrimary(c) && c.PartnerIds.Count > 1).ToList();
+        bool dominates(FamilyMemberCardViewModel nodeA, FamilyMemberCardViewModel nodeB)
+        {
+            if (nodeA == null) return false;
+            if (nodeB == null) return true;
 
-        foreach (var primary in multiPartnerPrimaries)
+            bool bloodlineA = nodeA.ParentIds.Count > 0;
+            bool bloodlineB = nodeB.ParentIds.Count > 0;
+            if (bloodlineA && !bloodlineB) return true;
+            if (!bloodlineA && bloodlineB) return false;
+
+            return isPrimary(nodeA) && !isPrimary(nodeB);
+        }
+
+        var multiPartnerNodes = cards.Where(c => c.PartnerIds.Count > 1).ToList();
+
+        foreach (var primary in multiPartnerNodes)
         {
             var primaryRank = rankById.GetValueOrDefault(primary.Id, 0);
             foreach (var pid in primary.PartnerIds)
             {
                 if (!cardById.TryGetValue(pid, out var partner)) continue;
-                if (partner.ParentIds.Count > 0) continue;
-                rankById[pid] = primaryRank + 0.5;
+                if (dominates(primary, partner))
+                {
+                    if (partner.ParentIds.Count > 0) continue;
+                    rankById[pid] = primaryRank + 0.5;
+                }
             }
         }
 

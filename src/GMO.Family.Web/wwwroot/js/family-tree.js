@@ -15,6 +15,21 @@
     var isPaternal = treePathMode !== '1' && treePathMode !== 'Maternal';
     function isPrimary(node) { return isPaternal ? node.isMale : !node.isMale; }
 
+    var depthById = null; // Will be set later
+    function dominates(nodeA, nodeB) {
+        if (!nodeA) return false;
+        if (!nodeB) return true;
+
+        // 1. Depth: nodes connected to the root bloodline dominate those inserted via marriage
+        var depthA = depthById ? (depthById[nodeA.id] || 0) : 0;
+        var depthB = depthById ? (depthById[nodeB.id] || 0) : 0;
+        if (depthA > 0 && depthB === 0) return true;
+        if (depthA === 0 && depthB > 0) return false;
+
+        // 2. Fallback: Paternal vs Maternal mode logic
+        return isPrimary(nodeA) && !isPrimary(nodeB);
+    }
+
     function toId(x) { return typeof x === 'number' ? x : parseInt(x, 10); }
     var nodeById = {};
     rawNodes.forEach(function (n) {
@@ -81,7 +96,7 @@
         if (node && families.length > 1) {
             families = families.map(function (fam) {
                 var partner = fam.partnerId ? nodeById[fam.partnerId] : null;
-                if (!isPrimary(node) && partner && isPrimary(partner)) {
+                if (partner && dominates(partner, node)) {
                     return { partnerId: fam.partnerId, childIds: [] };
                 }
                 return fam;
@@ -325,7 +340,7 @@
         return branch;
     }
 
-    var depthById = computeDepthById();
+    depthById = computeDepthById();
     var allIds = rawNodes.map(function (n) { return toId(n.id); });
     allIds.sort(function (a, b) {
         var da = depthById[a] || 0;
@@ -358,9 +373,9 @@
             return b;
         }
         var primaryPartnerId = null;
-        if (!isPrimary(node) && families.length) {
+        if (families.length) {
             families.forEach(function (f) {
-                if (!primaryPartnerId && f.partnerId && nodeById[f.partnerId] && isPrimary(nodeById[f.partnerId]))
+                if (!primaryPartnerId && f.partnerId && nodeById[f.partnerId] && dominates(nodeById[f.partnerId], node))
                     primaryPartnerId = f.partnerId;
             });
         }
@@ -458,8 +473,8 @@
         parents.className = 'ft-parents';
         parents.appendChild(createCard(node));
 
-        var multiPartnerMale = isPrimary(node) && families.length > 1;
-        if (multiPartnerMale) {
+        var multiPartnerNode = families.length > 1;
+        if (multiPartnerNode) {
             var singleParentChildIds = [];
             function hasBothParents(cid, partnerId) {
                 var c = nodeById[cid];
@@ -618,32 +633,38 @@
         // Phase 2: after layout settles, align root branches first, then adjust spacers.
         setTimeout(function () {
             // Phase 2a: align satellite root branches to the main (anchor) branch.
-            var rootBranches = container.querySelectorAll('.ft-roots > .ft-branch');
-            var anchorBranch = null;
-            var maxCardCount = 0;
-            rootBranches.forEach(function (branch) {
-                var count = branch.querySelectorAll('.family-tree-card').length;
-                if (count > maxCardCount) { maxCardCount = count; anchorBranch = branch; }
-            });
-            rootBranches.forEach(function (branch) {
-                if (branch === anchorBranch) return;
-                var firstCard = branch.querySelector('.family-tree-card[data-visual-rank]');
-                if (!firstCard) return;
-                var firstRank = parseFloat(firstCard.getAttribute('data-visual-rank'));
-                if (firstRank === 0) return;
-
-                var targetCard = null;
-                anchorBranch.querySelectorAll('.family-tree-card[data-visual-rank]').forEach(function (c) {
-                    if (parseFloat(c.getAttribute('data-visual-rank')) === firstRank) targetCard = c;
+            function alignRoots() {
+                var rootBranches = container.querySelectorAll('.ft-roots > .ft-branch');
+                var anchorBranch = null;
+                var maxCardCount = 0;
+                rootBranches.forEach(function (branch) {
+                    var count = branch.querySelectorAll('.family-tree-card').length;
+                    if (count > maxCardCount) { maxCardCount = count; anchorBranch = branch; }
                 });
-                if (!targetCard) return;
+                rootBranches.forEach(function (branch) {
+                    if (branch === anchorBranch) return;
+                    var firstCard = branch.querySelector('.family-tree-card[data-visual-rank]');
+                    if (!firstCard) return;
+                    var firstRank = parseFloat(firstCard.getAttribute('data-visual-rank'));
+                    if (firstRank === 0) return;
 
-                var diff = targetCard.getBoundingClientRect()[rankPos] - firstCard.getBoundingClientRect()[rankPos];
-                if (Math.abs(diff) > 1) branch.style[rankMargin] = diff + 'px';
-            });
+                    var targetCard = null;
+                    anchorBranch.querySelectorAll('.family-tree-card[data-visual-rank]').forEach(function (c) {
+                        if (parseFloat(c.getAttribute('data-visual-rank')) === firstRank) targetCard = c;
+                    });
+                    if (!targetCard) return;
 
-            // Force reflow so Phase 2b measurements account for root branch margins.
-            void container.offsetHeight;
+                    var diff = targetCard.getBoundingClientRect()[rankPos] - firstCard.getBoundingClientRect()[rankPos];
+                    if (Math.abs(diff) > 1) {
+                        var currentMargin = parseFloat(branch.style[rankMargin] || '0');
+                        branch.style[rankMargin] = (currentMargin + diff) + 'px';
+                    }
+                });
+                // Force reflow so measurements account for root branch margins.
+                void container.offsetHeight;
+            }
+
+            alignRoots();
 
             // Phase 2b: measure card positions and adjust spacers for same-rank alignment.
             Object.keys(halfRankLevels).forEach(function (baseStr) {
@@ -675,6 +696,9 @@
                     spacer.style[rankDim] = (parseFloat(spacer.style[rankDim]) + diff) + 'px';
                 });
             });
+
+            // Phase 2c: Re-align satellite root branches since Phase 2b spacers may have shifted target anchors
+            alignRoots();
         }, 50);
     })();
 
@@ -743,17 +767,17 @@
         fetch('/FamilyMember/ActionMenuContent?memberId=' + encodeURIComponent(memberId), {
             headers: { 'X-Requested-With': 'XMLHttpRequest' }
         })
-        .then(function (r) { return r.text(); })
-        .then(function (html) {
-            popup.innerHTML = html;
-            var menuEl = popup.querySelector('.cascading-menu');
-            if (menuEl) initCascadingMenu(menuEl);
-            positionPopupInView(rect);
-        })
-        .catch(function () {
-            popup.innerHTML = '<div class="text-danger small p-2">Failed to load.</div>';
-            positionPopupInView(rect);
-        });
+            .then(function (r) { return r.text(); })
+            .then(function (html) {
+                popup.innerHTML = html;
+                var menuEl = popup.querySelector('.cascading-menu');
+                if (menuEl) initCascadingMenu(menuEl);
+                positionPopupInView(rect);
+            })
+            .catch(function () {
+                popup.innerHTML = '<div class="text-danger small p-2">Failed to load.</div>';
+                positionPopupInView(rect);
+            });
     }
 
     container.addEventListener('click', function (e) {
