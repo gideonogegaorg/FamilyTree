@@ -10,6 +10,7 @@ The family tree supports two display orientations, toggled from the **user menu*
 |---|---|---|
 | Tree flow | Top → Down | Left → Right |
 | Ranks | Rows (stacked vertically) | Columns (stacked horizontally) |
+| Alignment axis | **Same Y** per generation | **Same X** per generation |
 | Grandparents | Top of the page | Left side of the page |
 | Children / Cousins | Bottom of the page | Right side of the page |
 | Couple link (red line) | Horizontal line between spouses | Vertical line between spouses |
@@ -17,6 +18,26 @@ The family tree supports two display orientations, toggled from the **user menu*
 
 > [!IMPORTANT]
 > **Core rule**: Horizontal mode is literally a 90° rotation of Vertical. Rows become columns, `height` becomes `width`, `top` becomes `left`, etc. Every CSS, JS, and connector change follows this axis swap.
+
+### Visual Coordinate System
+
+**Vertical Layout:**
+```
+Y=105  [Grandparents] ← Same Y (row alignment)
+Y=241  [Parents]      ← Same Y (row alignment)  
+Y=519  [Children]    ← Same Y (row alignment)
+       ↑
+       Y increases downward
+```
+
+**Horizontal Layout:**
+```
+X=40   [Grandparents] ← Same X (column alignment)
+X=272  [Parents]      ← Same X (column alignment)
+X=690  [Children]    ← Same X (column alignment)
+       →
+       X increases rightward
+```
 
 ---
 
@@ -101,7 +122,46 @@ Members are assigned a `visualRank` that determines which column (horizontal) or
 | 1.5 | 1.5 | Partners of Uncles/Aunts (half-rank) |
 | 2 | 2 | Me, Cousins, Siblings |
 
-When a half-rank exists (e.g., rank 1.5 for a partners), the JS inserts `.ft-rank-spacer` elements in branches that skip that half-rank, pushing their children down/right to align with children in branches that do have a half-rank member.
+### Coordinate Alignment Details
+
+**Vertical Mode - Row Alignment (Same Y):**
+- All grandparents share the same Y coordinate (row 0)
+- All parents share the same Y coordinate (row 1) 
+- All children share the same Y coordinate (row 2)
+- X coordinates vary horizontally within each row
+
+**Horizontal Mode - Column Alignment (Same X):**
+- All grandparents share the same X coordinate (column 0)
+- All parents share the same X coordinate (column 1)
+- All children share the same X coordinate (column 2)
+- Y coordinates vary vertically within each column
+
+### Practical Example
+
+**Given this family structure:**
+```
+Grandparents (rank 0)
+├── Parents (rank 1)
+│   ├── Me (rank 2)
+│   └── My Siblings (rank 2)
+└── Uncle/Aunt (rank 1)
+    ├── Cousins (rank 2)
+    └── Uncle's Wife (rank 1.5) ← half-rank
+```
+
+**Vertical Layout Result:**
+- All grandparents at Y=105 (same row)
+- All parents/uncles/aunts at Y=241 (same row)  
+- All children/cousins at Y=519 (same row)
+- Uncle's wife at Y=383 (between rows)
+
+**Horizontal Layout Result:**
+- All grandparents at X=40 (same column)
+- All parents/uncles/aunts at X=272 (same column)
+- All children/cousins at X=690 (same column)
+- Uncle's wife at X=458 (between columns)
+
+When a half-rank exists (e.g., rank 1.5 for partners), the JS inserts `.ft-rank-spacer` elements in branches that skip that half-rank, pushing their children down/right to align with children in branches that do have a half-rank member.
 
 ---
 
@@ -123,3 +183,16 @@ Each button submits a `POST` to `AccountController.SetTreeViewOrientation` with 
 1. **CSS-first approach**: The bulk of the horizontal layout is pure CSS, scoped under `.ft-orientation-horizontal`. No DOM structure changes — the same HTML works for both orientations.
 2. **Axis swap principle**: Every geometric property is swapped consistently — `row↔column`, `top↔left`, `height↔width`, `border-top↔border-left`.
 3. **JS alignment is orientation-aware**: The spacer logic doesn't duplicate code for each orientation; it uses `rankDim`/`rankPos`/`rankMargin` variables to handle both modes with the same algorithm.
+
+---
+
+## Testing Validation
+
+The UI tests in [`LayoutOrientationTests.cs`](../tst/GMO.Family.Web.UiTests/LayoutOrientationTests.cs) validate the documented behavior:
+
+- **Vertical Layout**: Tests same Y alignment for generations (rows)
+- **Horizontal Layout**: Tests same X alignment for generations (columns)
+- **Half-rank positioning**: Validates spouses are positioned between parent and child generations
+- **Orientation toggle**: Confirms CSS classes are correctly applied/removed
+
+Tests ensure the implementation matches the documented 90° rotation principle where rows become columns in horizontal mode.
