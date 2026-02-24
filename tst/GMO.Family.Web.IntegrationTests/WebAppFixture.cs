@@ -28,7 +28,7 @@ public sealed class WebAppFixture : WebApplicationFactory<WebAppEntry>, IDisposa
     public HttpClient CreateClient(bool signIn = true)
     {
         EnsureDatabaseCreated();
-        
+
         // We set HandleCookies = true so the client maintains its own CookieContainer.
         // However, we MUST use a distinct sign-in state.
         var client = base.CreateClient(new WebApplicationFactoryClientOptions
@@ -36,7 +36,7 @@ public sealed class WebAppFixture : WebApplicationFactory<WebAppEntry>, IDisposa
             AllowAutoRedirect = false,
             HandleCookies = true
         });
-        
+
         if (signIn)
         {
             client.GetAsync("/TestAuth/SignIn").GetAwaiter().GetResult();
@@ -46,7 +46,7 @@ public sealed class WebAppFixture : WebApplicationFactory<WebAppEntry>, IDisposa
             // Call the explicit endpoint we added to forcefully sign out and clear cookies for this client's session
             client.GetAsync("/TestAuth/SignOut").GetAwaiter().GetResult();
         }
-        
+
         return client;
     }
 
