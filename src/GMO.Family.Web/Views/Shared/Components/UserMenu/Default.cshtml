@@ -72,7 +72,7 @@ else
                 <div class="btn-group btn-group-sm w-100" role="group">
                     <form asp-controller="Account" asp-action="SetTreeViewOrientation" method="post" class="d-inline flex-grow-1">
                         <input type="hidden" name="orientation" value="0" />
-<button type="submit" class="btn @(Model.TreeViewOrientation == GMO.Family.Web.Data.TreeViewOrientation.Horizontal ? "btn-primary" : "btn-outline-secondary") w-100">Horizontal</button>
+                        <button type="submit" class="btn @(Model.TreeViewOrientation == GMO.Family.Web.Data.TreeViewOrientation.Horizontal ? "btn-primary" : "btn-outline-secondary") w-100">Horizontal</button>
                     </form>
                     <form asp-controller="Account" asp-action="SetTreeViewOrientation" method="post" class="d-inline flex-grow-1">
                         <input type="hidden" name="orientation" value="1" />
