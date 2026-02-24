@@ -208,24 +208,41 @@ body {
   border-left: 1.5px solid #6c757d;
 }
 
-/* Horizontal: partner units to the right of male; each unit = partner + children column */
+/* Horizontal: partner-units stack vertically (each partner is a row), flow right from primary */
 .ft-orientation-horizontal .ft-partner-units {
-  flex-direction: row;
-  margin-left: 1rem;
+  flex-direction: column;
+  margin-left: 1.5rem;
   margin-top: 0;
   padding-top: 0;
+  gap: 1rem;
 }
 .ft-orientation-horizontal .ft-partner-units::before {
   display: none;
 }
+/* Each partner-unit flows left-to-right: partner card on left, children to right */
 .ft-orientation-horizontal .ft-partner-unit {
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
   padding: 0;
 }
 .ft-orientation-horizontal .ft-partner-unit::before,
 .ft-orientation-horizontal .ft-partner-unit::after {
   display: none;
+}
+
+/* Horizontal rank-spacer: adds width (column gap) instead of height */
+.ft-orientation-horizontal .ft-rank-spacer {
+  align-self: auto;
+  width: 0px;
+  height: auto;
+}
+.ft-orientation-horizontal .ft-rank-spacer::after {
+  left: 0;
+  top: 50%;
+  width: 100%;
+  height: 0;
+  border-left: none;
+  border-top: 1.5px solid #6c757d;
 }
 
 /* Children container: horizontal flex of branches */
