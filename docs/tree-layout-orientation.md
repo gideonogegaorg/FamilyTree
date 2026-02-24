@@ -279,29 +279,20 @@ Each button submits a `POST` to `AccountController.SetTreeViewOrientation` with 
 
 ## Testing Validation
 
-The UI tests in [`LayoutOrientationTests.cs`](../tst/GMO.Family.Web.UiTests/LayoutOrientationTests.cs) validate the documented behavior:
+The UI tests validate the documented behavior using a **relative positioning approach**. For detailed testing strategy and implementation, see [`ui-testing-approach.md`](ui-testing-approach.md).
 
-### Visual Rank-Based Testing
+### Test Coverage Overview
 
-The tests use a **visual rank-based approach** rather than generation-based assumptions:
+- **Visual Rank-Based Testing**: Tests read `data-visual-rank` attributes and validate relative positioning
+- **Orientation Validation**: Confirms horizontal/vertical layout switching works correctly
+- **Lineage Mode Testing**: Validates paternal/maternal rank assignments and positioning
+- **Robust Tolerance**: Uses 50px tolerance for browser rendering variations
 
-- **Data Attribute Reading**: Tests read `data-visual-rank` attributes from DOM elements
-- **Rank Grouping**: Nodes are grouped by their actual visual rank values (0, 0.5, 1, 1.5, 2)
-- **Alignment Validation**: Asserts that nodes with the same visual rank align on the correct axis
-- **Rank Ordering**: Validates that ranks are positioned in ascending order (0 < 0.5 < 1 < 1.5 < 2)
+### Key Test Files
 
-### Test Coverage
-
-- **Vertical Layout**: Tests same Y alignment for visual ranks (rows)
-- **Horizontal Layout**: Tests same X alignment for visual ranks (columns)
-- **Visual rank ordering**: Validates ranks are positioned in ascending order
-- **Half-rank positioning**: Validates spouses are positioned between appropriate ranks
-- **Lineage mode testing**: Specific tests for Paternal vs Maternal rank assignments
-- **Orientation toggle**: Confirms CSS classes are correctly applied/removed
-
-### Implementation Details
-
-The tests ensure the implementation matches the documented 90° rotation principle where rows become columns in horizontal mode, while accurately reflecting the visual rank system used by the actual layout algorithm.
+- **Primary**: `tst/GMO.Family.Web.UiTests/LayoutOrientationTests.cs`
+- **Documentation**: `docs/ui-testing-approach.md` (detailed testing strategy)
+- **Coverage**: All layout orientations, lineage modes, and positioning validation
 
 ---
 
