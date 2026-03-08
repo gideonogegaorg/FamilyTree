@@ -53,6 +53,7 @@ nunit-*.xml
 
 .vs/
 .vscode/
+.claude/
 *.user
 coverage/
 logs/

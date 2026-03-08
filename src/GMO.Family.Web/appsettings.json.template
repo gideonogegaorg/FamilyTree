@@ -7,7 +7,11 @@
     "MinimumLevel": "Information",
     "WriteTo": [
       {
-        "Name": "Console"
+        "Name": "Console",
+        "Args": {
+          "theme": "Serilog.Sinks.SystemConsole.Themes.AnsiConsoleTheme::Code, Serilog.Sinks.Console",
+          "outputTemplate": "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj} <{ThreadId}>{NewLine}{Exception}"
+        }
       },
       {
         "Name": "File",
@@ -29,7 +33,7 @@
       }
     ],
     "Properties": {
-      "ApplicationName": "GMO Family"
+      "ApplicationName": "GOOM Family Tree"
     }
   },
   "Telemetry": {
@@ -52,5 +56,6 @@
       "ClientId": "^^GOOGLE_CLIENT_ID^^",
       "ClientSecret": "^^GOOGLE_CLIENT_SECRET^^"
     }
-  }
+  },
+  "IsProduction": ^^IS_PRODUCTION^^
 }
