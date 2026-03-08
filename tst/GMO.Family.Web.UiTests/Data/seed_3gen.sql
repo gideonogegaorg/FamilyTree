@@ -31,7 +31,12 @@ FROM (VALUES
   (62, 'Cousin 1', true),
   (63, 'Cousin 2', true),
   (64, 'Cousin 3', true),
-  (65, 'Wife2 Only Child', true)
+  (65, 'Wife2 Only Child', true),
+  (66, 'HalfSib Husband 1', true),
+  (67, 'HalfSib Husband 2', true),
+  (68, 'Paternal Grandma Wife', false),
+  (69, 'Maternal Grandma Wife 1', false),
+  (70, 'Maternal Grandma Wife 2', false)
 ) AS v(id, name, ismale)
 WHERE NOT EXISTS (SELECT 1 FROM "FamilyMembers" m WHERE m."FamilyTreeId" = 9 AND m."Id" = v.id);
 
@@ -41,7 +46,7 @@ UPDATE "FamilyMembers" SET "UserId" = (SELECT "Id" FROM "AspNetUsers" LIMIT 1) W
 -- Relationships: Parent = 0, Couple = 2. Idempotent via ON CONFLICT.
 -- Couples
 INSERT INTO "FamilyMemberRelationships" ("FamilyTreeId", "FromMemberId", "ToMemberId", "RelationshipType")
-SELECT 9, a, b, 2 FROM (VALUES (50,51), (52,53), (52,54), (55,57), (58,59), (58,60)) AS v(a,b)
+SELECT 9, a, b, 2 FROM (VALUES (50,51), (52,53), (52,54), (55,57), (58,59), (58,60), (61,66), (61,67), (50,68), (52,69), (52,70)) AS v(a,b)
 ON CONFLICT ("FromMemberId", "ToMemberId", "RelationshipType") DO NOTHING;
 
 -- Parents (From=parent, To=child)
