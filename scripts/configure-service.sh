@@ -2,23 +2,24 @@
 
 # ==============================================================================
 # AUTOMATED SUBDOMAIN PROVISIONER
-# Usage: sudo ./configure-service.sh <DEPLOY_DOMAIN> <port> <service_name> [cert_domain]
+# Usage: sudo ./configure-service.sh <DEPLOY_DOMAIN> <port> <service_name> [cert_domain] [is_production]
 #   DEPLOY_DOMAIN  Full hostname (e.g. family-dev.example.com); matches pipeline.
 #   port           Local port for the .NET app (e.g. 5002)
 #   service_name   Systemd service name; match pipeline SERVICE_NAME (main=family, dev=family-dev)
 #   cert_domain    Optional. Base domain for Let's Encrypt cert path
 #                  (e.g. example.com → /etc/letsencrypt/live/example.com/).
 #                  Default: example.com (replace with your cert domain).
-# Example: sudo ./configure-service.sh family-dev.example.com 5002 family-dev example.com
+#   is_production  Optional. "true" for production (no X-Robots-Tag), else adds noindex header.
+# Example: sudo ./configure-service.sh family-dev.example.com 5002 family-dev example.com false
 # See docs/configure-service.md for Let's Encrypt setup.
 # ==============================================================================
 
 set -e
 
 # 1. VALIDATION
-if [ "$#" -lt 3 ] || [ "$#" -gt 4 ]; then
-    echo "Usage: sudo $0 <DEPLOY_DOMAIN> <port> <service_name> [cert_domain]"
-    echo "Example: sudo $0 family-dev.example.com 5002 family-dev example.com"
+if [ "$#" -lt 3 ] || [ "$#" -gt 5 ]; then
+    echo "Usage: sudo $0 <DEPLOY_DOMAIN> <port> <service_name> [cert_domain] [is_production]"
+    echo "Example: sudo $0 family-dev.example.com 5002 family-dev example.com false"
     exit 1
 fi
 
@@ -26,6 +27,7 @@ DEPLOY_DOMAIN=$1
 PORT=$2
 SERVICE_NAME=$3
 CERT_DOMAIN=${4:-example.com}
+IS_PRODUCTION=${5:-false}
 WEB_ROOT="/var/www/$DEPLOY_DOMAIN"
 DLL_NAME="GMO.Family.Web.dll" # Change this if your DLL name varies per project
 
@@ -35,7 +37,7 @@ if [ "$EUID" -ne 0 ]; then
   exit 1
 fi
 
-echo "Starting provisioning for $DEPLOY_DOMAIN on port $PORT (cert domain: $CERT_DOMAIN)..."
+echo "Starting provisioning for $DEPLOY_DOMAIN on port $PORT (cert domain: $CERT_DOMAIN, is_production: $IS_PRODUCTION)..."
 
 # ==============================================================================
 # 2. DIRECTORY & PERMISSIONS
@@ -83,6 +85,12 @@ echo "Service file asserted at $SERVICE_FILE"
 echo "Generating Nginx config..."
 NGINX_FILE="/etc/nginx/sites-available/$DEPLOY_DOMAIN"
 
+# Build X-Robots-Tag directive for non-production environments
+ROBOTS_HEADER=""
+if [ "$IS_PRODUCTION" != "true" ]; then
+    ROBOTS_HEADER='add_header X-Robots-Tag "noindex, nofollow" always;'
+fi
+
 cat <<EOF > "$NGINX_FILE"
 # HTTP -> HTTPS Redirect
 server {
@@ -113,6 +121,7 @@ server {
         proxy_cache_bypass \$http_upgrade;
         proxy_set_header   X-Forwarded-For \$proxy_add_x_forwarded_for;
         proxy_set_header   X-Forwarded-Proto \$scheme;
+        $ROBOTS_HEADER
     }
 }
 EOF
