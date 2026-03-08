@@ -330,6 +330,12 @@ bool dominates(FamilyMemberCardViewModel nodeA, FamilyMemberCardViewModel nodeB)
 
 This ensures that the member natively connected to the family tree topology (e.g. "Fathers Brother" who has parents) anchors the visual tree, even if the tree is rendering in a Lineage mode (like Maternal) where their gender isn't typically primary.
 
+#### Same-Sex Couples Support
+The "bloodline domination" rule naturally supports same-sex couples (e.g., Male/Male or Female/Female) without requiring special casing. If both partners share the same gender, the Lineage mode's gender preference yields a tie. The tie is broken by the topological connection: the partner who is natively connected to the tree (has parents in the data) dominates the partner who was inserted via marriage (has no parents).
+- **In Paternal mode**: A bloodline Male dominates an inserted Male partner. The inserted Male partner will be correctly recognized as a secondary partner.
+- **In Maternal mode**: A bloodline Female dominates an inserted Female partner identically.
+Both C# and JS layout engines share this exact logic to keep rendering consistent.
+
 ### Visual Layout Differences
 
 **Paternal Mode:**
