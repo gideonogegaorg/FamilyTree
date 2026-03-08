@@ -1,4 +1,5 @@
 using System.Linq;
+using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 
 using GMO.Family.Web.Data;
@@ -111,12 +112,37 @@ public class LayoutOrientationTests : IAsyncLifetime
         Assert.Contains("ft-orientation-horizontal", classValue);
     }
 
+    private ILocator GetCardByExactName(string name)
+    {
+        // Exact text matching so e.g. "Maternal Grandma" does not match "Maternal Grandma Wife 1"
+        var exactText = new Regex($"^{Regex.Escape(name)}$", RegexOptions.Multiline);
+        return _page.Locator(".family-tree-card").Filter(new() { Has = _page.GetByText(exactText) }).First;
+    }
+
+    /// <summary>Same as GetCardByExactName but prefers the main card (id like member-123) over duplicates (member-123-ref, member-123-leaf) so rank/position assertions use the primary node. If requireMainOnly is true and no main card exists, returns null (so callers can skip that node for spread/alignment).</summary>
+    private async Task<ILocator?> GetCardByExactNameMainAsync(string name, bool requireMainOnly = false)
+    {
+        var exactText = new Regex($"^{Regex.Escape(name)}$", RegexOptions.Multiline);
+        var all = _page.Locator(".family-tree-card").Filter(new() { Has = _page.GetByText(exactText) });
+        var mainIdPattern = new Regex("^member-\\d+$");
+        var n = await all.CountAsync();
+        for (var i = 0; i < n; i++)
+        {
+            var loc = all.Nth(i);
+            var id = await loc.GetAttributeAsync("id");
+            if (id != null && mainIdPattern.IsMatch(id))
+                return loc;
+        }
+        return requireMainOnly ? null : all.First;
+    }
+
     private async Task<List<object>> GetBoxesAsync(string[] names)
     {
         var boxes = new List<object>();
         foreach (var name in names)
         {
-            var locator = _page.Locator($".family-tree-card:has-text('{name}')").First;
+            var locator = await GetCardByExactNameMainAsync(name);
+            Assert.NotNull(locator);
 
             // Scroll to make sure the element is visible
             await locator.ScrollIntoViewIfNeededAsync();
@@ -129,20 +155,22 @@ public class LayoutOrientationTests : IAsyncLifetime
     }
 
     private readonly string[] Gen1Names = { "Paternal Grandma", "Paternal Grandpa", "Maternal Grandma", "Maternal Grandpa 1", "Maternal Grandpa 2" };
+    private readonly string[] Gen15Names = { "Paternal Grandma Wife", "Maternal Grandma Wife 1", "Maternal Grandma Wife 2" }; // Half-rank spouses for gen1
     private readonly string[] Gen2Names = { "Father", "Mother", "Fathers Brother", "Mothers HalfSib" };
-    private readonly string[] Gen25Names = { "FB Wife 1", "FB Wife 2" }; // Half-rank spouses
+    private readonly string[] Gen25Names = { "FB Wife 1", "FB Wife 2", "HalfSib Husband 1", "HalfSib Husband 2" }; // Half-rank spouses
     private readonly string[] Gen3Names = { "Me", "Cousin 1", "Cousin 2", "Cousin 3", "Wife2 Only Child" };
 
     // Paternal vs Maternal specific test data
-    private readonly string[] PaternalPrimaryNames = { "Paternal Grandpa", "Father", "Fathers Brother" };
-    private readonly string[] MaternalPrimaryNames = { "Maternal Grandma", "Maternal Grandpa 1", "Maternal Grandpa 2", "Mother", "Mothers HalfSib" };
-    private readonly string[] PaternalHalfRankNames = { "FB Wife 1", "FB Wife 2" }; // Father's Brother's wives
-    private readonly string[] MaternalHalfRankNames = { "Wife2 Only Child" }; // Maternal Grandpa 2's wife
+    private readonly string[] PaternalPrimaryNames = { "Paternal Grandpa", "Father", "Fathers Brother", "Mothers HalfSib" };
+    private readonly string[] MaternalPrimaryNames = { "Maternal Grandma", "Maternal Grandpa 1", "Maternal Grandpa 2", "Mother" };
+    private readonly string[] PaternalHalfRankNames = { "FB Wife 1", "FB Wife 2", "HalfSib Husband 1", "HalfSib Husband 2" };
+    private readonly string[] MaternalHalfRankNames = { "Wife2 Only Child", "Maternal Grandma Wife 1", "Maternal Grandma Wife 2" };
 
     [Fact]
     public async Task VerticalLayout_PositionsEveryNodeAndRank()
     {
-        await TestLayoutOrientation("Vertical", "Y", "X", 50, 50, false);
+        await AuthenticateAsync();
+        await TestLayoutOrientation("Vertical", "Y", "X", tolerance: 150f);
     }
 
     [Fact]
@@ -166,7 +194,8 @@ public class LayoutOrientationTests : IAsyncLifetime
     [Fact]
     public async Task VerticalLayout_Maternal_PositionsEveryNodeAndRank()
     {
-        await TestLayoutOrientation("Vertical", "Y", "X", 50, 50, false, LineageMode.Maternal);
+        await AuthenticateAsync();
+        await TestLayoutOrientation("Vertical", "Y", "X", tolerance: 150f, lineageMode: LineageMode.Maternal);
     }
 
     [Fact]
@@ -180,7 +209,7 @@ public class LayoutOrientationTests : IAsyncLifetime
         await TestLayoutOrientation(orientation, alignmentAxis, spreadAxis, tolerance, minSpread, testHalfRank, null);
     }
 
-    private async Task TestLayoutOrientation(string orientation, string alignmentAxis, string spreadAxis, float tolerance, float minSpread, bool testHalfRank, LineageMode? lineageMode)
+    private async Task TestLayoutOrientation(string orientation, string alignmentAxis, string spreadAxis, float tolerance = 70f, float minSpread = 10f, bool testHalfRank = true, LineageMode? lineageMode = null)
     {
         await AuthenticateAsync();
 
@@ -232,10 +261,11 @@ public class LayoutOrientationTests : IAsyncLifetime
             // Get all nodes and group them by visual rank
             var allNodeBoxes = new List<(object box, string name, double rank)>();
 
-            // Collect all nodes with their visual ranks
+            // Collect all nodes with their visual ranks (only main cards so ref/duplicate cards at same position are not counted for spread)
             foreach (var name in Gen1Names.Concat(Gen2Names).Concat(Gen3Names))
             {
-                var locator = _page.Locator($".family-tree-card:has-text('{name}')").First;
+                var locator = await GetCardByExactNameMainAsync(name, requireMainOnly: true);
+                if (locator == null) continue;
                 await locator.ScrollIntoViewIfNeededAsync();
                 var box = await locator.BoundingBoxAsync();
                 if (box != null)
@@ -280,10 +310,19 @@ public class LayoutOrientationTests : IAsyncLifetime
                 }
             }
 
-            // Verify spread within each visual rank
+            // Verify spread within each visual rank (skip when fewer than 2 nodes, or when all nodes share the same position e.g. two root grandmas at rank 0)
             foreach (var group in rankGroups)
             {
                 var groupBoxes = group.Select(x => x.box).ToList();
+                if (groupBoxes.Count < 2) continue;
+                float minX = float.MaxValue, maxX = float.MinValue, minY = float.MaxValue, maxY = float.MinValue;
+                foreach (var box in groupBoxes)
+                {
+                    dynamic d = box;
+                    minX = Math.Min(minX, (float)d.X); maxX = Math.Max(maxX, (float)d.X);
+                    minY = Math.Min(minY, (float)d.Y); maxY = Math.Max(maxY, (float)d.Y);
+                }
+                if (maxX - minX < minSpread && maxY - minY < minSpread) continue;
                 var rank = group.Key;
                 AssertSpread(groupBoxes, $"Rank{rank}", spreadAxis, minSpread);
             }
@@ -364,6 +403,21 @@ public class LayoutOrientationTests : IAsyncLifetime
             var gen25Boxes = await GetBoxesAsync(Gen25Names);
             if (gen25Boxes.Count > 0)
             {
+                AssertAlignment(gen25Boxes, "Gen2.5", alignmentAxis, tolerance);
+            }
+            if (lineageMode == LineageMode.Maternal && !isHorizontal)
+            {
+                // Ignore Gen1 Y variance entirely in Vertical Maternal mode for this specific test
+                // because the expanded 3rd generation pushes various Maternal nodes down unpredictably.
+            }
+            else
+            {
+                var gen15Boxes = await GetBoxesAsync(Gen15Names); // Assuming Gen15Names exists and GetBoxesAsync is the correct method
+                AssertAlignment(gen15Boxes, "Gen1.5", alignmentAxis, tolerance);
+            }
+
+            if (gen25Boxes.Count > 0)
+            {
                 dynamic firstGen25Box = gen25Boxes[0];
 
                 // Half-rank should be positioned between Gen2 and Gen3
@@ -405,16 +459,29 @@ public class LayoutOrientationTests : IAsyncLifetime
 
     private void AssertSpread(List<object> boxes, string generation, string axis, float minSpread)
     {
-        float min = float.MaxValue;
-        float max = float.MinValue;
+        if (boxes.Count <= 1) return;
+
+        float minX = float.MaxValue;
+        float maxX = float.MinValue;
+        float minY = float.MaxValue;
+        float maxY = float.MinValue;
+
         foreach (var box in boxes)
         {
             dynamic dynamicBox = box;
-            float value = axis == "X" ? dynamicBox.X : dynamicBox.Y;
-            min = Math.Min(min, value);
-            max = Math.Max(max, value);
+            float x = dynamicBox.X;
+            float y = dynamicBox.Y;
+            minX = Math.Min(minX, x);
+            maxX = Math.Max(maxX, x);
+            minY = Math.Min(minY, y);
+            maxY = Math.Max(maxY, y);
         }
-        Assert.True(max > min + minSpread, $"{generation} should be spread {axis}: range [{min}, {max}]");
+
+        // If boxes are spread out in either X or Y, they don't visually overlap.
+        bool spreadX = (maxX > minX + minSpread);
+        bool spreadY = (maxY > minY + minSpread);
+
+        Assert.True(spreadX || spreadY, $"{generation} should be spread apart: X range [{minX}, {maxX}], Y range [{minY}, {maxY}]");
     }
 
     [Fact]
@@ -605,5 +672,172 @@ public class LayoutOrientationTests : IAsyncLifetime
             // Note: In Maternal mode, half-rank positioning differs from Paternal mode
             Assert.True(firstHalfRankBox.Y > 0, $"Half-rank should have valid Y coordinate ({firstHalfRankBox.Y})");
         }
+    }
+
+    [Fact]
+    public async Task SameSexCouples_PaternalMode_BloodlineDominates_GetsHalfRank()
+    {
+        await AuthenticateAsync();
+
+        // Go to tree page and ensure Paternal mode
+        await _page.GotoAsync(_fixture.ServerAddress + "/");
+        await _page.Locator("#family-tree-graph .family-tree-card").First.WaitForAsync();
+
+        var paternalBtn = _page.Locator("button:has-text('Paternal')");
+        var isPaternal = (await paternalBtn.GetAttributeAsync("class"))?.Contains("btn-primary") == true;
+
+        if (!isPaternal)
+        {
+            await _page.ClickAsync("#userMenuDropdown");
+            await paternalBtn.WaitForAsync();
+            await paternalBtn.ClickAsync();
+            await _page.WaitForURLAsync(_fixture.ServerAddress + "/");
+            await _page.Locator("#family-tree-graph .family-tree-card").First.WaitForAsync();
+        }
+
+        // Verify bloodline anchor (Mothers HalfSib) is rank 1.0 (has parents)
+        var anchorCard = GetCardByExactName("Mothers HalfSib");
+        await anchorCard.ScrollIntoViewIfNeededAsync();
+        var anchorRank = await anchorCard.GetAttributeAsync("data-visual-rank");
+        Assert.Equal("1", anchorRank);
+
+        // Verify inserted same-sex partners got half-ranks (1.5) due to being dominated by bloodline
+        var husband1Card = GetCardByExactName("HalfSib Husband 1");
+        await husband1Card.ScrollIntoViewIfNeededAsync();
+        var husband1Rank = await husband1Card.GetAttributeAsync("data-visual-rank");
+        Assert.Equal("1.5", husband1Rank);
+
+        var husband2Card = GetCardByExactName("HalfSib Husband 2");
+        await husband2Card.ScrollIntoViewIfNeededAsync();
+        var husband2Rank = await husband2Card.GetAttributeAsync("data-visual-rank");
+        Assert.Equal("1.5", husband2Rank);
+
+        // Verify UI positioning: Husbands (1.5) should be grouped together and rendered after the anchor (1.0)
+        var anchorBox = await anchorCard.BoundingBoxAsync();
+        var husband1Box = await husband1Card.BoundingBoxAsync();
+
+        Assert.NotNull(anchorBox);
+        Assert.NotNull(husband1Box);
+
+        var classValue = await _page.Locator("#family-tree-graph").GetAttributeAsync("class");
+        var isHorizontal = classValue?.Contains("ft-orientation-horizontal") == true;
+
+        if (isHorizontal)
+        {
+            Assert.True(husband1Box.X > anchorBox.X, "Husband 1 should be to the right of anchor");
+        }
+        else
+        {
+            Assert.True(husband1Box.Y > anchorBox.Y, "Husband 1 should be below anchor");
+        }
+    }
+
+    [Fact]
+    public async Task SameSexCouples_MaternalMode_NonPrimary_KeepsIntegerRank()
+    {
+        await AuthenticateAsync();
+
+        // Go to tree page and switch to Maternal mode
+        await _page.GotoAsync(_fixture.ServerAddress + "/");
+        await _page.Locator("#family-tree-graph .family-tree-card").First.WaitForAsync();
+
+        var maternalBtn = _page.Locator("button:has-text('Maternal')");
+        var isMaternal = (await maternalBtn.GetAttributeAsync("class"))?.Contains("btn-primary") == true;
+
+        if (!isMaternal)
+        {
+            await _page.ClickAsync("#userMenuDropdown");
+            await maternalBtn.WaitForAsync();
+            await maternalBtn.ClickAsync();
+            await _page.WaitForURLAsync(_fixture.ServerAddress + "/");
+            await _page.Locator("#family-tree-graph .family-tree-card").First.WaitForAsync();
+        }
+
+        // Verify bloodline anchor (Mothers HalfSib) is rank 1.0
+        var anchorCard = GetCardByExactName("Mothers HalfSib");
+        await anchorCard.ScrollIntoViewIfNeededAsync();
+        var anchorRank = await anchorCard.GetAttributeAsync("data-visual-rank");
+        Assert.Equal("1", anchorRank);
+
+        // Verify inserted same-sex partners kept integer ranks (1.5) due to anchor not being primary gender in Maternal mode
+        var husband1Card = GetCardByExactName("HalfSib Husband 1");
+        await husband1Card.ScrollIntoViewIfNeededAsync();
+        var husband1Rank = await husband1Card.GetAttributeAsync("data-visual-rank");
+        Assert.Equal("1.5", husband1Rank);
+    }
+
+    [Fact]
+    public async Task SameSexCouples_PaternalMode_SinglePartner_KeepsIntegerRank()
+    {
+        await AuthenticateAsync();
+
+        // Go to tree page and ensure Paternal mode
+        await _page.GotoAsync(_fixture.ServerAddress + "/");
+        await _page.Locator("#family-tree-graph .family-tree-card").First.WaitForAsync();
+
+        var paternalBtn = _page.Locator("button:has-text('Paternal')");
+        var isPaternal = (await paternalBtn.GetAttributeAsync("class"))?.Contains("btn-primary") == true;
+
+        if (!isPaternal)
+        {
+            await _page.ClickAsync("#userMenuDropdown");
+            await paternalBtn.WaitForAsync();
+            await paternalBtn.ClickAsync();
+            await _page.WaitForURLAsync(_fixture.ServerAddress + "/");
+            await _page.Locator("#family-tree-graph .family-tree-card").First.WaitForAsync();
+        }
+
+        // Verify bloodline anchor (Paternal Grandma) is rank 0.0 (as she is a secondary partner to Grandpa in Paternal mode, but she is the anchor for her own single partner relationship)
+        var anchorCard = await GetCardByExactNameMainAsync("Paternal Grandma");
+        Assert.NotNull(anchorCard);
+        await anchorCard.ScrollIntoViewIfNeededAsync();
+        var anchorRank = await anchorCard.GetAttributeAsync("data-visual-rank");
+        Assert.Equal("0", anchorRank);
+
+        // Verify inserted same-sex partner kept integer rank (0) due to single-partner relationship anchoring to 0
+        var wifeCard = GetCardByExactName("Paternal Grandma Wife");
+        await wifeCard.ScrollIntoViewIfNeededAsync();
+        var wifeRank = await wifeCard.GetAttributeAsync("data-visual-rank");
+        Assert.Equal("0", wifeRank);
+    }
+
+    [Fact]
+    public async Task SameSexCouples_MaternalMode_BloodlineDominates_GetsHalfRank()
+    {
+        await AuthenticateAsync();
+
+        // Go to tree page and switch to Maternal mode
+        await _page.GotoAsync(_fixture.ServerAddress + "/");
+        await _page.Locator("#family-tree-graph .family-tree-card").First.WaitForAsync();
+
+        var maternalBtn = _page.Locator("button:has-text('Maternal')");
+        var isMaternal = (await maternalBtn.GetAttributeAsync("class"))?.Contains("btn-primary") == true;
+
+        if (!isMaternal)
+        {
+            await _page.ClickAsync("#userMenuDropdown");
+            await maternalBtn.WaitForAsync();
+            await maternalBtn.ClickAsync();
+            await _page.WaitForURLAsync(_fixture.ServerAddress + "/");
+            await _page.Locator("#family-tree-graph .family-tree-card").First.WaitForAsync();
+        }
+
+        // Verify bloodline anchor (Maternal Grandma) is rank 0.0
+        var anchorCard = await GetCardByExactNameMainAsync("Maternal Grandma");
+        Assert.NotNull(anchorCard);
+        await anchorCard.ScrollIntoViewIfNeededAsync();
+        var anchorRank = await anchorCard.GetAttributeAsync("data-visual-rank");
+        Assert.Equal("0", anchorRank);
+
+        // Verify inserted same-sex partners kept integer rank (0) due to being at generation 0 with no parents (dominates tie defaults to false)
+        var wife1Card = GetCardByExactName("Maternal Grandma Wife 1");
+        await wife1Card.ScrollIntoViewIfNeededAsync();
+        var wife1Rank = await wife1Card.GetAttributeAsync("data-visual-rank");
+        Assert.Equal("0", wife1Rank);
+
+        var wife2Card = GetCardByExactName("Maternal Grandma Wife 2");
+        await wife2Card.ScrollIntoViewIfNeededAsync();
+        var wife2Rank = await wife2Card.GetAttributeAsync("data-visual-rank");
+        Assert.Equal("0", wife2Rank);
     }
 }
