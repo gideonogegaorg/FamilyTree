@@ -217,6 +217,7 @@ jobs:
       OPENTELEMETRY_METRICSENDPOINT: ${{ secrets.OPENTELEMETRY_METRICSENDPOINT }}
       GITHUB_USERNAME: ${{ secrets.GH_USER }}
       GITHUB_PAT: ${{ secrets.GH_CLASSIC_PAT }}
+      IS_PRODUCTION: ${{ vars.IS_PRODUCTION }}
     steps:
       - uses: actions/checkout@v4
 
@@ -246,6 +247,9 @@ jobs:
           UPLOADS_PATH: ${{ env.DEPLOY_PATH }}/uploads
           TELEMETRY_ENVIRONMENT_NAME: ${{ github.ref_name }}
         run: bash scripts/generate-appsettings.sh
+
+      - name: Generate robots.txt
+        run: bash scripts/generate-robots.sh
 
       - name: Publish
         run: |
@@ -298,6 +302,7 @@ jobs:
             PORT='${{ env.PORT }}'
             SERVICE_NAME='${{ env.SERVICE_NAME }}'
             CERT_DOMAIN='${{ env.CERT_DOMAIN }}'
+            IS_PRODUCTION='${{ env.IS_PRODUCTION }}'
             STAGING="/tmp/family-deploy-${{ github.run_id }}"
             trap 'rm -rf "$STAGING"' EXIT
             echo "[Deploy] Ensuring directory..."
@@ -305,7 +310,7 @@ jobs:
             sudo chown -R ubuntu:www-data "$DEPLOY_PATH"
             if [ "$SETUP_CHANGED" = "true" ] || [ ! -f "/etc/systemd/system/${SERVICE_NAME}.service" ]; then
               echo "[Deploy] Running configure-service.sh..."
-              sudo bash "$STAGING/scripts/configure-service.sh" "$FULL_HOSTNAME" "$PORT" "$SERVICE_NAME" "$CERT_DOMAIN"
+              sudo bash "$STAGING/scripts/configure-service.sh" "$FULL_HOSTNAME" "$PORT" "$SERVICE_NAME" "$CERT_DOMAIN" "$IS_PRODUCTION"
             fi
             echo "[Deploy] Copying site output..."
             cp -r "$STAGING/site/"* "$DEPLOY_PATH/site/"
