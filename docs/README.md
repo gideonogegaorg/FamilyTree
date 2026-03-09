@@ -1,29 +1,21 @@
-# Family Tree Documentation
+﻿# Family Tree Documentation
 
 This directory contains comprehensive documentation for the Family Tree application, organized for both production features and testing approaches.
 
 ---
 
-## 🔗 Development Setup
+## Development Setup
 
-**For local development setup, see the [root README.md](../README.md)** which includes:**
-- **appsettings.json** configuration (git ignored template system)
-- **Build and run** instructions
-- **Environment variables** and secrets
+For local setup (appsettings, build, run, env vars) see [root README.md](../README.md).
 
 ---
 
-## 🚀 New User Guide
+## New User Guide
 
-### Quick Start for Development
-
-**For complete development setup:**
-
-1. **🔧 Development Environment**: See [root README.md](../README.md#local-setup) for appsettings.json, build, and run instructions
-2. **📖 Understand the Core Feature**: Start with [`tree-layout-orientation.md`](tree-layout-orientation.md) - learn about visual ranks, orientations, and lineage modes
-3. **🗄️ Database Setup**: Use [`database-setup.md`](database-setup.md) - configure PostgreSQL and seed test data
-4. **🧪 Testing Environment**: Follow [`testing-environment.md`](testing-environment.md) - set up test accounts and validation
-5. **🔧 Run Tests**: Use [`ui-testing-approach.md`](ui-testing-approach.md) - understand testing strategy and run tests
+1. [root README.md](../README.md#local-setup) — appsettings, build, run
+2. [`tree-layout-orientation.md`](tree-layout-orientation.md) — visual ranks, orientations, lineage modes
+3. [`database-setup.md`](database-setup.md) — PostgreSQL and seed data
+4. [`testing-environment.md`](testing-environment.md) — test accounts and validation; [`ui-testing-approach.md`](ui-testing-approach.md) — test strategy
 
 ### Critical Prerequisites
 
@@ -45,7 +37,7 @@ This directory contains comprehensive documentation for the Family Tree applicat
 
 ## Documentation Structure
 
-### 📋 Production Documentation
+### Production Documentation
 **Focus**: Features, behavior, and implementation details for production functionality
 
 | File | Purpose | Key Topics |
@@ -55,7 +47,7 @@ This directory contains comprehensive documentation for the Family Tree applicat
 | [`configure-service.md`](configure-service.md) | **Service Configuration** | Service setup, configuration options |
 | [`coverage-pending.md`](coverage-pending.md) | **Test Coverage Planning** | Pending test coverage areas and planning |
 
-### 🧪 Testing Documentation  
+### Testing Documentation
 **Focus**: Testing strategy, validation approaches, and test implementation
 
 | File | Purpose | Key Topics |
@@ -66,7 +58,7 @@ This directory contains comprehensive documentation for the Family Tree applicat
 
 ---
 
-## � Documentation Philosophy
+## Documentation Philosophy
 
 #### Production vs Testing Separation
 
@@ -124,33 +116,15 @@ Two display orientations with **90° rotation principle**:
 
 ---
 
-## File Index
-
-### Complete File List
-
-```
-docs/
-├── README.md                           # This file - documentation overview
-├── tree-layout-orientation.md          # Core feature documentation
-├── database-setup.md                   # NEW - Database configuration and seeding
-├── ui-testing-approach.md              # UI testing strategy and implementation
-├── testing-environment.md              # NEW - Test environment setup and automation
-├── configure-service.md                # Service configuration guide
-├── coverage-pending.md                 # Test coverage planning
-└── coverage-report-topic-NewUser.md    # New user test coverage
-```
-
----
-
 ## Quick Reference
 
 ### Most Important Files
 
-1. **📖 [`tree-layout-orientation.md`](tree-layout-orientation.md)** - *Must read* for understanding the core feature
-2. **🗄️ [`database-setup.md`](database-setup.md)** - *Essential* for database configuration and seeding
-3. **🧪 [`ui-testing-approach.md`](ui-testing-approach.md)** - *Essential* for understanding test validation
-4. **⚙️ [`testing-environment.md`](testing-environment.md)** - *Important* for test environment setup
-5. **⚙️ [`configure-service.md`](configure-service.md)** - *Reference* for service setup
+1. [`tree-layout-orientation.md`](tree-layout-orientation.md) — core feature (layout, ranks, lineage)
+2. [`database-setup.md`](database-setup.md) — database and seeding
+3. [`ui-testing-approach.md`](ui-testing-approach.md) — test validation
+4. [`testing-environment.md`](testing-environment.md) — test environment setup
+5. [`configure-service.md`](configure-service.md) — service setup
 
 ### Common Questions
 
