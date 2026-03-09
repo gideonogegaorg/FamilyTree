@@ -19,20 +19,9 @@ The UI testing strategy uses **relative positioning validation** rather than pix
 
 ## Prerequisites
 
-Before running UI tests, ensure the testing environment is properly set up:
+See [`testing-environment.md`](testing-environment.md) for database, test account, and environment setup. Required: database running, seed data (16 members), test account linked to "Me", app server running.
 
-**🚀 Complete Setup Guide**: See [`testing-environment.md`](testing-environment.md) for:
-- Database configuration and seeding
-- Test account creation and linking
-- Environment validation
-
-**📋 Quick Checklist:**
-- [x] Database running and accessible
-- [x] Seed data loaded (16 family members)
-- [x] Test account created and linked to "Me"
-- [x] Application server running
-
-**⚠️ Critical**: Without the complete 16-person family tree, UI tests will only validate a single "Me" node and cannot test visual rank positioning, orientation switching, or lineage mode differences.
+**Critical**: Without the 16-person family tree, tests only validate a single "Me" node and cannot test visual ranks, orientation, or lineage modes.
 
 ### Test Files
 
@@ -206,12 +195,12 @@ private static readonly Dictionary<string, FamilyMemberTestData> FamilyTestData 
 
 | Test | Orientation | Lineage Mode | Alignment | Ordering | Half-Rank | Spread |
 |---|---|---|---|---|---|---|
-| `VerticalLayout_PositionsEveryNodeAndRank` | Vertical | Auto | ✅ | ✅ | ❌ | ✅ |
-| `HorizontalLayout_PositionsEveryNodeAndRank` | Horizontal | Auto | ✅ | ✅ | ❌ | ✅ |
-| `VerticalLayout_Paternal_PositionsEveryNodeAndRank` | Vertical | Paternal | ✅ | ✅ | ✅ | ✅ |
-| `HorizontalLayout_Paternal_PositionsEveryNodeAndRank` | Horizontal | Paternal | ✅ | ✅ | ✅ | ✅ |
-| `VerticalLayout_Maternal_PositionsEveryNodeAndRank` | Vertical | Maternal | ✅ | ✅ | ✅ | ✅ |
-| `HorizontalLayout_Maternal_PositionsEveryNodeAndRank` | Horizontal | Maternal | ✅ | ✅ | ✅ | ✅ |
+| `VerticalLayout_PositionsEveryNodeAndRank` | Vertical | Auto | Yes | Yes | No | Yes |
+| `HorizontalLayout_PositionsEveryNodeAndRank` | Horizontal | Auto | Yes | Yes | No | Yes |
+| `VerticalLayout_Paternal_PositionsEveryNodeAndRank` | Vertical | Paternal | Yes | Yes | Yes | Yes |
+| `HorizontalLayout_Paternal_PositionsEveryNodeAndRank` | Horizontal | Paternal | Yes | Yes | Yes | Yes |
+| `VerticalLayout_Maternal_PositionsEveryNodeAndRank` | Vertical | Maternal | Yes | Yes | Yes | Yes |
+| `HorizontalLayout_Maternal_PositionsEveryNodeAndRank` | Horizontal | Maternal | Yes | Yes | Yes | Yes |
 
 ---
 
@@ -267,20 +256,4 @@ private static readonly Dictionary<string, FamilyMemberTestData> FamilyTestData 
 
 ## Future Enhancements
 
-### Potential Improvements
-
-1. **Visual Regression Testing**: Screenshot comparison for visual changes
-2. **Cross-Browser Testing**: Explicit testing across multiple browsers
-3. **Performance Testing**: Layout rendering performance validation
-4. **Accessibility Testing**: Screen reader and keyboard navigation validation
-
-### Test Expansion
-
-1. **Responsive Design**: Mobile/tablet layout testing
-2. **Dynamic Content**: Real-time family tree updates
-3. **User Interactions**: Drag-and-drop, zoom, pan functionality
-4. **Data Validation**: Correct family member display and relationships
-
----
-
-This testing approach ensures robust validation of the family tree's visual layout while maintaining test reliability and preventing false positives from minor rendering variations.
+Possible additions: visual regression (screenshot comparison), cross-browser runs, accessibility (screen reader, keyboard), responsive/mobile layout testing.

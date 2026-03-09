@@ -106,7 +106,7 @@ public static class TreeLayoutRanking
     /// 1. Start with row values as base visual ranks (convert to double)
     /// 2. Determine primary gender based on LineageMode (male for Paternal, female for Maternal)
     /// 3. For each multi-partner primary member:
-    ///    - Find partners who are dominated by the primary (no parents of their own)
+    ///    - Find partners who are dominated by the primary (no parents of their own; dominant = bloodline-connected in same-sex case)
     ///    - Assign them rank = primary's rank + 0.5 (half-rank positioning)
     /// 4. Bloodline domination ensures family tree topology anchors the visual structure
     /// 

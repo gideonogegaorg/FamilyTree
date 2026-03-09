@@ -96,14 +96,51 @@ public sealed class AppFixture : WebApplicationFactory<WebAppEntry>, IDisposable
 
     private async Task SeedDatabaseAsync()
     {
-        var seedPath = Path.Combine(AppContext.BaseDirectory, "Data", "seed_3gen.sql");
+        var seedPath = Path.Combine(AppContext.BaseDirectory, "Data", "seed_trees.sql");
+        if (!File.Exists(seedPath))
+            throw new InvalidOperationException($"Seed file not found: {seedPath}");
 
         var sql = await File.ReadAllTextAsync(seedPath);
 
         await using var conn = new NpgsqlConnection(_testConnectionString);
         await conn.OpenAsync();
-        await using var cmd = new NpgsqlCommand(sql, conn);
-        await cmd.ExecuteNonQueryAsync();
+        await using (var cmd = new NpgsqlCommand(sql, conn))
+        {
+            try
+            {
+                await cmd.ExecuteNonQueryAsync();
+            }
+            catch (Exception ex)
+            {
+                throw new InvalidOperationException($"Seed script failed: {ex.Message}", ex);
+            }
+        }
+
+        // Verify seed: tree 1 = 25, tree 2 = 0, tree 3 = 1, tree 4 = large (6 gen)
+        await using (var verify = new NpgsqlCommand("SELECT COUNT(*) FROM \"FamilyMembers\" WHERE \"FamilyTreeId\" = 1", conn))
+        {
+            var count = Convert.ToInt64(await verify.ExecuteScalarAsync() ?? 0);
+            if (count < 25)
+                throw new InvalidOperationException($"Seed incomplete: expected 25 members in tree 1, got {count}. Check seed_trees.sql and database schema.");
+        }
+        await using (var verify2 = new NpgsqlCommand("SELECT COUNT(*) FROM \"FamilyMembers\" WHERE \"FamilyTreeId\" = 2", conn))
+        {
+            var count2 = Convert.ToInt64(await verify2.ExecuteScalarAsync() ?? 0);
+            if (count2 != 0)
+                throw new InvalidOperationException($"Seed incomplete: expected 0 members in tree 2, got {count2}.");
+        }
+        await using (var verify3 = new NpgsqlCommand("SELECT COUNT(*) FROM \"FamilyMembers\" WHERE \"FamilyTreeId\" = 3", conn))
+        {
+            var count3 = Convert.ToInt64(await verify3.ExecuteScalarAsync() ?? 0);
+            if (count3 != 1)
+                throw new InvalidOperationException($"Seed incomplete: expected 1 member in tree 3, got {count3}.");
+        }
+        await using (var verify4 = new NpgsqlCommand("SELECT COUNT(*) FROM \"FamilyMembers\" WHERE \"FamilyTreeId\" = 4", conn))
+        {
+            var count4 = Convert.ToInt64(await verify4.ExecuteScalarAsync() ?? 0);
+            if (count4 < 85)
+                throw new InvalidOperationException($"Seed incomplete: expected at least 85 members in tree 4 (large), got {count4}.");
+        }
     }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
