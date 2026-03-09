@@ -255,13 +255,13 @@
         var node = nodeById[memberId];
         if (!node) return null;
         if (rendered[memberId]) {
-            var primaryPartnerId = null;
-            if (!isPrimary(node) && node.partnerIds.length) {
+            var domPartnerId = null;
+            if (node.partnerIds.length) {
                 node.partnerIds.forEach(function (pid) {
-                    if (nodeById[pid] && isPrimary(nodeById[pid])) primaryPartnerId = pid;
+                    if (nodeById[pid] && dominates(nodeById[pid], node)) domPartnerId = pid;
                 });
             }
-            if (primaryPartnerId) return createLeafJumpBranch(node, primaryPartnerId);
+            if (domPartnerId) return createLeafJumpBranch(node, domPartnerId);
             return null;
         }
         rendered[memberId] = true;
