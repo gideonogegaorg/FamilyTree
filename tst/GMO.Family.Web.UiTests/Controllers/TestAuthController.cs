@@ -36,7 +36,7 @@ public class TestAuthController : ControllerBase
             await _userManager.CreateAsync(user, TestUserPassword);
         }
         await _signInManager.SignInAsync(user, isPersistent: false);
-        await currentTree.SetCurrentFamilyTreeIdAsync(9, cancellationToken);
+        await currentTree.SetCurrentFamilyTreeIdAsync(1, cancellationToken);
         return Ok();
     }
 }
