@@ -136,32 +136,29 @@ Members are assigned a `visualRank` that determines which column (horizontal) or
 - All children share the same X coordinate (column 2)
 - Y coordinates vary vertically within each column
 
-### Practical Example
+### Practical Examples
 
-**Given this family structure:**
+**Structure and coordinates:** Given grandparents (rank 0), parents (rank 1), children (rank 2), and a half-rank partner (rank 1.5). Vertical: same Y per rank (e.g. Y=105 grandparents, Y=241 parents, Y=519 children; half-rank at Y=383). Horizontal: same X per rank (e.g. X=40, X=272, X=690; half-rank at X=458). When a half-rank exists, the JS inserts `.ft-rank-spacer` in branches that skip it so children align.
+
+**Paternal mode (primary male):**
 ```
-Grandparents (rank 0)
-├── Parents (rank 1)
-│   ├── Me (rank 2)
-│   └── My Siblings (rank 2)
-└── Uncle/Aunt (rank 1)
-    ├── Cousins (rank 2)
-    └── Uncle's Wife (rank 1.5) ← half-rank
+Paternal Grandpa (Row 0, Visual Rank 0.0) ← Primary male
+├── Paternal Grandma (Row 0, Visual Rank 0.5) ← Secondary partner
+├── Father (Row 1, Visual Rank 1.0)
+└── Fathers Brother (Row 1, Visual Rank 1.0)
+    ├── FB Wife 1 (Row 1, Visual Rank 1.5) ← half-rank
+    └── FB Wife 2 (Row 1, Visual Rank 1.5)
 ```
 
-**Vertical Layout Result:**
-- All grandparents at Y=105 (same row)
-- All parents/uncles/aunts at Y=241 (same row)  
-- All children/cousins at Y=519 (same row)
-- Uncle's wife at Y=383 (between rows)
-
-**Horizontal Layout Result:**
-- All grandparents at X=40 (same column)
-- All parents/uncles/aunts at X=272 (same column)
-- All children/cousins at X=690 (same column)
-- Uncle's wife at X=458 (between columns)
-
-When a half-rank exists (e.g., rank 1.5 for partners), the JS inserts `.ft-rank-spacer` elements in branches that skip that half-rank, pushing their children down/right to align with children in branches that do have a half-rank member.
+**Maternal mode (primary female):**
+```
+Maternal Grandma (Row 0, Visual Rank 0.0) ← Primary female
+├── Maternal Grandpa 1 (Row 0, Visual Rank 0.5)
+├── Maternal Grandpa 2 (Row 0, Visual Rank 0.5)
+└── Mother (Row 1, Visual Rank 1.0)
+    ├── Father (Row 1, Visual Rank 1.5)
+    └── Mothers HalfSib (Row 1, Visual Rank 1.0)
+```
 
 ---
 
@@ -194,28 +191,6 @@ The family tree uses a two-level ranking system to determine node positioning:
 - **Half-rank assignment**: Partners of multi-partner primary members who have no parents get `primaryRank + 0.5`
 - **Bloodline domination**: Members with parents in the tree dominate those inserted via marriage
 
-### Practical Examples
-
-**Paternal Mode Example:**
-```
-Paternal Grandpa (Row 0, Visual Rank 0.0) ← Primary male
-├── Paternal Grandma (Row 0, Visual Rank 0.5) ← Secondary partner, half-rank
-├── Father (Row 1, Visual Rank 1.0) ← Primary male child
-└── Fathers Brother (Row 1, Visual Rank 1.0) ← Primary male child
-    ├── FB Wife 1 (Row 1, Visual Rank 1.5) ← Secondary partner, half-rank
-    └── FB Wife 2 (Row 1, Visual Rank 1.5) ← Secondary partner, half-rank
-```
-
-**Maternal Mode Example:**
-```
-Maternal Grandma (Row 0, Visual Rank 0.0) ← Primary female
-├── Maternal Grandpa 1 (Row 0, Visual Rank 0.5) ← Secondary partner, half-rank
-├── Maternal Grandpa 2 (Row 0, Visual Rank 0.5) ← Secondary partner, half-rank
-└── Mother (Row 1, Visual Rank 1.0) ← Primary female child
-    ├── Father (Row 1, Visual Rank 1.5) ← Secondary partner, half-rank
-    └── Mothers HalfSib (Row 1, Visual Rank 1.0) ← Primary female child
-```
-
 ### Implementation Details
 
 The ranking system is implemented in `TreeLayoutRanking.cs` with two main methods:
@@ -225,9 +200,7 @@ The ranking system is implemented in `TreeLayoutRanking.cs` with two main method
 
 Both methods are used by `HomeController` to generate the `data-visual-rank` attributes that the JavaScript layout engine uses for positioning.
 
----
-
-The layout algorithm uses **visual ranks** rather than generations for precise node positioning. Visual ranks provide granular control over node placement and alignment:
+**Rank summary:**
 
 | Rank | Description | Typical Members |
 |---|---|---|
@@ -307,9 +280,9 @@ The family tree also supports two lineage modes that determine which lineage is 
 | Layout emphasis | Father's branch is primary/featured | Mother's branch is primary/featured |
 | Half-rank logic | Multi-partner **males** get half-rank for partners | Multi-partner **females** get half-rank for partners |
 
-### Primary Selection Logic (Bloodline Domination)
+### Primary Selection and Bloodline Domination
 
-When dealing with multi-partner relationships, determining which partner is the "Primary" anchor for the layout evaluates their bloodline depth first to prevent lineage fragmentation:
+When dealing with multi-partner relationships, determining which partner anchors the layout evaluates their bloodline depth first (for same-sex couples: the **dominant** partner is the one connected to the tree by bloodline):
 
 ```csharp
 bool isPrimary(FamilyMemberCardViewModel c) => 
@@ -317,13 +290,13 @@ bool isPrimary(FamilyMemberCardViewModel c) =>
 
 bool dominates(FamilyMemberCardViewModel nodeA, FamilyMemberCardViewModel nodeB)
 {
-    // 1. Bloodline depth: nodes with parents in the tree dominate those inserted via marriage
+    // 1. Bloodline depth: nodes with parents in the tree dominate those inserted via marriage (dominant = bloodline-connected)
     bool bloodlineA = nodeA.ParentIds.Count > 0;
     bool bloodlineB = nodeB.ParentIds.Count > 0;
     if (bloodlineA && !bloodlineB) return true;
     if (!bloodlineA && bloodlineB) return false;
 
-    // 2. Fallback: Lineage mode gender logic
+    // 2. Fallback: Lineage mode gender logic (primary gender)
     return isPrimary(nodeA) && !isPrimary(nodeB);
 }
 ```
@@ -331,7 +304,7 @@ bool dominates(FamilyMemberCardViewModel nodeA, FamilyMemberCardViewModel nodeB)
 This ensures that the member natively connected to the family tree topology (e.g. "Fathers Brother" who has parents) anchors the visual tree, even if the tree is rendering in a Lineage mode (like Maternal) where their gender isn't typically primary.
 
 #### Same-Sex Couples Support
-The "bloodline domination" rule naturally supports same-sex couples (e.g., Male/Male or Female/Female) without requiring special casing. If both partners share the same gender, the Lineage mode's gender preference yields a tie. The tie is broken by the topological connection: the partner who is natively connected to the tree (has parents in the data) dominates the partner who was inserted via marriage (has no parents).
+The "bloodline domination" rule naturally supports same-sex couples (e.g., Male/Male or Female/Female) without requiring special casing. If both partners share the same gender, the Lineage mode's gender preference yields a tie. The tie is broken by the topological connection: the **dominant** partner (connected to the tree by bloodline, has parents in the data) dominates the partner who was inserted via marriage (has no parents).
 - **In Paternal mode**: A bloodline Male dominates an inserted Male partner. The inserted Male partner will be correctly recognized as a secondary partner.
 - **In Maternal mode**: A bloodline Female dominates an inserted Female partner identically.
 Both C# and JS layout engines share this exact logic to keep rendering consistent.
@@ -350,9 +323,9 @@ Both C# and JS layout engines share this exact logic to keep rendering consisten
 
 ### Toggle Controls
 
-Lineage mode is toggled from the **user menu** under **Tree lineage**:
+Lineage mode is toggled from the **user menu** under **Lineage**:
 ```
-Tree lineage
+Lineage
 [Paternal] [Maternal]
 ```
 

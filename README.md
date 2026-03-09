@@ -2,20 +2,9 @@
 
 ASP.NET Core MVC app skeleton. Solution and project live under `src/`. Uses central package management ([Directory.Packages.props](Directory.Packages.props)), Serilog, and GMO OpenTelemetry packages from the org NuGet feed.
 
-## 📚 Documentation
+## Documentation
 
-For detailed documentation on features, testing, and setup, see the **[docs/](docs/)** directory:
-
-- **[docs/README.md](docs/README.md)** - Complete documentation overview and new user guide
-- **[docs/tree-layout-orientation.md](docs/tree-layout-orientation.md)** - Core feature documentation (visual ranks, orientations, lineage modes)
-- **[docs/database-setup.md](docs/database-setup.md)** - Database configuration and seed data
-- **[docs/testing-environment.md](docs/testing-environment.md)** - Test environment setup and validation
-- **[docs/ui-testing-approach.md](docs/ui-testing-approach.md)** - UI testing strategy and implementation
-
-**Quick Start for Development:**
-1. Follow local setup below
-2. See [docs/README.md](docs/README.md#-new-user-guide) for complete feature understanding
-3. Use [docs/testing-environment.md](docs/testing-environment.md) for test data setup
+For features, testing, and setup see **[docs/](docs/)**: [docs/README.md](docs/README.md) (overview and new user guide), [tree-layout-orientation.md](docs/tree-layout-orientation.md) (visual ranks, orientations, lineage), [database-setup.md](docs/database-setup.md), [testing-environment.md](docs/testing-environment.md), [ui-testing-approach.md](docs/ui-testing-approach.md). Quick start: local setup below, then [docs/README.md](docs/README.md#new-user-guide) and [testing-environment.md](docs/testing-environment.md) for test data.
 
 ## Local setup
 
