@@ -52,12 +52,12 @@ After building and running `.\scripts\run-coverage.ps1`, re-open `coverage/combi
 
 ---
 
-## Remaining gaps (vs dev diff) after new tests
+## Remaining gaps after new tests
 
-- **AccountController**: SignIn GET (Google Challenge) and **ExternalLoginCallback** (full flow) – not exercised by tests; would require mocked external auth.
-- **AuthenticationExtensions**: Branch where environment is not Testing (fallback auth policy) – tests run in Testing.
-- **AppDbContextFactory**: 0% – design-time only; typically excluded from coverage.
-- **HomeController**: Not part of NewUser diff in the same way; any missing coverage is pre-existing.
+- **AccountController**: SignIn GET, ExternalLoginCallback – need mocked external auth.
+- **AuthenticationExtensions**: Non-Testing fallback branch not hit (tests run in Testing).
+- **AppDbContextFactory**: Design-time only; typically excluded.
+- **HomeController**: Pre-existing gaps, not part of NewUser diff.
 
 ---
 

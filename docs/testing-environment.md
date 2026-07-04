@@ -1,16 +1,14 @@
 # Testing Environment Setup
 
-This document covers the complete testing environment setup for the Family Tree application, including database seeding, test accounts, and MCP server configuration.
+Database seeding, test accounts, and MCP configuration for the Family Tree application.
 
 ---
 
 ## Overview
 
-The testing environment requires:
-1. **Database setup** with seeded family data
-2. **Test account configuration** for authentication
-3. **MCP server setup** for database operations
-4. **Test data validation** for reliable test execution
+- **Database** with seeded family data
+- **Test account** for authentication
+- **MCP server** (optional) for database operations
 
 ---
 
@@ -44,9 +42,9 @@ brew install postgresql                   # macOS
 
 - **PostgreSQL database**: Must be already configured and running
 - **Database connection**: Check your local `appsettings.json` for connection details (file is git ignored)
-- **⚠️ IMPORTANT**: Seed data must be loaded for meaningful UI validation
+- **IMPORTANT**: Seed data must be loaded for meaningful UI validation.
 
-**⚠️ CRITICAL**: The UI validation requires the complete 16-person family tree from the seed script. Without the seeded data, you'll only see "Me" (1 person) and cannot validate:
+**CRITICAL**: UI validation requires the complete 16-person family tree from the seed script. Without it you only see "Me" and cannot validate:
 - Visual rank positioning (0, 0.5, 1, 1.5, 2)
 - Half-rank spouse positioning
 - Multi-generation layout
@@ -99,27 +97,13 @@ GRANT ALL PRIVILEGES ON DATABASE Family_Test TO test_user;
 
 ### 2. Run Seed Script
 
-**Current Limitations:**
-- MCP server is not configured by default
-- Direct psql requires database credentials (appsettings.json is git ignored)
-- Need an alternative approach for seed data
+Direct psql requires credentials (see [database-setup.md](database-setup.md)); appsettings.json is git ignored. Check if seed data exists, or use the application UI / MCP for data. To check state:
 
-**Recommended Approach:**
-1. **Check if seed data already exists** in the database
-2. **Use application endpoints** if available for data management
-3. **Configure MCP server** for database operations (advanced)
-
-**Check Current Database State:**
 ```bash
-# Try to connect with common defaults (may fail without credentials)
 psql -h localhost -p 5432 -U family -d family -c "SELECT COUNT(*) FROM \"FamilyMembers\" WHERE \"FamilyTreeId\" = 9;" 2>/dev/null || echo "Database connection failed - check credentials"
 ```
 
-**Alternative: Manual Data Entry**
-If seed script cannot be executed, you can:
-1. Create family members manually through the UI
-2. Use the application's data management features
-3. Configure database access for seed script execution
+If you cannot run the seed script, create members via the UI or configure database access.
 
 ### 3. Verify Seed Data
 
@@ -461,7 +445,9 @@ psql -h localhost -U family -d family -c "SELECT \"Name\", \"Generation\" FROM \
 
 ## Automation Scripts
 
-### 1. Complete Setup Script
+Example scripts (can be placed in `scripts/`). Update connection details to match your appsettings.
+
+### 1. Setup Script
 
 Create `scripts/setup-test-environment.sh`:
 
@@ -478,7 +464,7 @@ DB_NAME="family"
 
 # Run seed script
 echo "Running seed script..."
-psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -f tst/GMO.Family.Web.UiTests/Data/seed_3gen.sql
+psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -f tst/GMO.Family.Web.UiTests/Data/seed_trees.sql
 
 # Verify setup
 echo "Verifying setup..."
@@ -499,27 +485,27 @@ echo "Validating Family Tree test environment..."
 
 # Check database connectivity
 if psql -h localhost -p 5432 -U family -d family -c "SELECT 1;" > /dev/null 2>&1; then
-    echo "✅ Database connection: OK"
+    echo "Database connection: OK"
 else
-    echo "❌ Database connection: FAILED"
+    echo "Database connection: FAILED"
     exit 1
 fi
 
 # Check test data
 member_count=$(psql -h localhost -p 5432 -U family -d family -t -c "SELECT COUNT(*) FROM \"FamilyMembers\" WHERE \"FamilyTreeId\" = 9;")
 if [ "$member_count" -eq "16" ]; then
-    echo "✅ Family members data: OK ($member_count members)"
+    echo "Family members data: OK ($member_count members)"
 else
-    echo "❌ Family members data: FAILED (expected 16, got $member_count)"
+    echo "Family members data: FAILED (expected 16, got $member_count)"
     exit 1
 fi
 
 # Check relationships
 relationship_count=$(psql -h localhost -p 5432 -U family -d family -t -c "SELECT COUNT(*) FROM \"FamilyRelationships\" WHERE \"FamilyTreeId\" = 9;")
 if [ "$relationship_count" -eq "15" ]; then
-    echo "✅ Family relationships: OK ($relationship_count relationships)"
+    echo "Family relationships: OK ($relationship_count relationships)"
 else
-    echo "❌ Family relationships: FAILED (expected 15, got $relationship_count)"
+    echo "Family relationships: FAILED (expected 15, got $relationship_count)"
     exit 1
 fi
 

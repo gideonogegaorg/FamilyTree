@@ -44,12 +44,12 @@ Open **coverage/combined/index.html** for the full report.
 
 ---
 
-## Summary: what to add if you want higher coverage
+## Summary: what to add for higher coverage
 
-1. **HomeController** – Integration tests: GET `/` (or `/Home`), GET `/Home/Privacy`, and optionally GET error page (or trigger error path).
-2. **Error view / ErrorViewModel** – Covered indirectly by (1) if you add an error-page test.
-3. **AccountController** – **SignIn (GET)** and **ExternalLoginCallback** – only if you introduce mocked external auth or a test-only provider.
-4. **AppDbContextFactory** – Usually excluded from coverage (design-time only).
-5. **Migration Down()** – Typically not tested (rollback is a manual/ops concern).
+1. **HomeController** – Integration tests for GET `/`, `/Home/Privacy`, and optionally the error page.
+2. **Error view / ErrorViewModel** – Covered indirectly by (1).
+3. **AccountController** – SignIn GET and ExternalLoginCallback only with mocked external auth.
+4. **AppDbContextFactory** – Usually excluded (design-time only).
+5. **Migration Down()** – Typically not tested (manual rollback).
 
-Everything else in the codebase is either well covered or only partially covered in branches (error paths, env-specific branches, or view branches).
+Everything else is well or partially covered (branches: error paths, env-specific, views).
