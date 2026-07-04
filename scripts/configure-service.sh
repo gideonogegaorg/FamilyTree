@@ -37,6 +37,13 @@ if [ "$EUID" -ne 0 ]; then
   exit 1
 fi
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -f "$SCRIPT_DIR/install-aspnetcore-runtime.sh" ]; then
+  bash "$SCRIPT_DIR/install-aspnetcore-runtime.sh"
+else
+  echo "Warning: install-aspnetcore-runtime.sh not found next to this script; skipping runtime install."
+fi
+
 echo "Starting provisioning for $DEPLOY_DOMAIN on port $PORT (cert domain: $CERT_DOMAIN, is_production: $IS_PRODUCTION)..."
 
 # ==============================================================================
