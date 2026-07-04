@@ -56,7 +56,7 @@ The pipeline generates `appsettings.json` from the template with real secrets on
 The deploy job uses GitHub **Environments** (`main` and `dev`). For each environment, configure:
 
 - **SERVICE_NAME** (variable): systemd service to restart (e.g. `family` for main, `family-dev` for dev).
-- **PORT** (variable): local port for the app (e.g. `5002`, `5003`).
+- **PORT** (variable): local port for the app (`5002` for main, `5003` for dev).
 - **DEPLOY_DOMAIN** (secret): used for deploy paths and Let's Encrypt cert path (e.g. `example.com` → `/var/www/family.example.com` and `/etc/letsencrypt/live/example.com/`). Set in both **main** and **dev** (or at repository level).
 
 **Repository secrets** (required for CI on private repos; org secrets are not available to private repos on some plans):
@@ -96,7 +96,7 @@ Use the provisioning script (run on the EC2 instance, e.g. from the deploy direc
 
 ```bash
 sudo ./scripts/configure-service.sh <subdomain> <port> <service_name> [cert_domain]
-# Example (dev): sudo ./scripts/configure-service.sh family-dev.example.com 5002 family-dev example.com
+# Example (dev): sudo ./scripts/configure-service.sh family-dev.example.com 5003 family-dev example.com
 # Then: sudo systemctl restart family-dev
 ```
 
