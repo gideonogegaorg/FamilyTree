@@ -1,3 +1,4 @@
+using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
@@ -9,6 +10,9 @@ using Microsoft.Playwright;
 using Xunit;
 
 namespace GMO.Family.Web.UiTests;
+
+/// <summary>Typed bounding box for layout assertions; populated from Playwright BoundingBoxAsync.</summary>
+internal readonly record struct BoxBounds(float X, float Y, float Width, float Height);
 
 [Collection("AppFixture Collection")]
 public class LayoutOrientationTests : IAsyncLifetime
@@ -28,98 +32,213 @@ public class LayoutOrientationTests : IAsyncLifetime
     {
         _playwright = await Playwright.CreateAsync();
         _browser = await _playwright.Chromium.LaunchAsync(new BrowserTypeLaunchOptions { Headless = true });
-        _context = await _browser.NewContextAsync();
+        _context = await _browser.NewContextAsync(new() { ViewportSize = new() { Width = 1280, Height = 720 } });
         _page = await _context.NewPageAsync();
     }
 
     public async Task DisposeAsync()
     {
-        await _browser.CloseAsync();
-        _playwright.Dispose();
+        if (_browser != null)
+        {
+            await _browser.CloseAsync();
+            _playwright?.Dispose();
+        }
     }
 
     private async Task AuthenticateAsync()
     {
-        // Hit the dummy endpoint to issue the auth cookie
         await _page.GotoAsync(_fixture.ServerAddress + "/TestAuth/SignIn");
+    }
+
+    private async Task GotoTreeAndWaitForGraphAsync()
+    {
+        await _page.GotoAsync(_fixture.ServerAddress + "/");
+        await _page.Locator("#family-tree-graph .family-tree-card").First.WaitForAsync();
+    }
+
+    private async Task ClickUserMenuButtonAndWaitForReloadAsync(string buttonText)
+    {
+        await _page.ClickAsync("#userMenuDropdown");
+        await _page.Locator($"button:has-text('{buttonText}')").WaitForAsync();
+        await _page.Locator($"button:has-text('{buttonText}')").ClickAsync();
+        await _page.WaitForURLAsync(_fixture.ServerAddress + "/");
+        await _page.Locator("#family-tree-graph .family-tree-card").First.WaitForAsync();
+    }
+
+    private async Task EnsureOrientationAsync(string orientation)
+    {
+        var graph = _page.Locator("#family-tree-graph");
+        var classValue = await graph.GetAttributeAsync("class");
+        var isHorizontal = orientation == "Horizontal";
+        if ((classValue?.Contains("ft-orientation-horizontal") == true) != isHorizontal)
+            await ClickUserMenuButtonAndWaitForReloadAsync(orientation);
+    }
+
+    private async Task CaptureScreenshotOnFailureAsync(string name = "debug_screenshot")
+    {
+        var screenshotPath = Path.Combine("..", "..", "..", "..", "..", "working", $"{name}.png");
+        var dir = Path.GetDirectoryName(screenshotPath);
+        if (string.IsNullOrEmpty(dir) || !Directory.Exists(dir))
+            screenshotPath = $"{name}.png";
+        await _page.ScreenshotAsync(new() { Path = screenshotPath });
+    }
+
+    private async Task EnsureLineageModeAsync(LineageMode mode)
+    {
+        var expected = mode == LineageMode.Maternal ? "Maternal" : "Paternal";
+        var graph = _page.Locator("#family-tree-graph");
+        var current = await graph.GetAttributeAsync("data-lineage-mode") ?? "Paternal";
+        // "1" is a legacy data-lineage-mode value meaning Maternal; skip reload if already correct
+        var alreadyMaternal = current == "Maternal" || current == "1";
+        if (expected == "Maternal" ? !alreadyMaternal : current != "Paternal")
+            await ClickUserMenuButtonAndWaitForReloadAsync(expected);
+    }
+
+    /// <summary>Opens user menu, clicks the "Switch Family Tree" button with the given name, waits for redirect to Home.</summary>
+    private async Task SwitchToTreeByNameAsync(string treeName)
+    {
+        await _page.Locator("#userMenuDropdown").WaitForAsync(new() { State = WaitForSelectorState.Visible });
+        await _page.Locator("#userMenuDropdown").ClickAsync();
+        await _page.Locator(".dropdown-menu").WaitForAsync(new() { State = WaitForSelectorState.Visible });
+        await _page.Locator(".dropdown-menu button.dropdown-item").Filter(new() { HasText = treeName }).ClickAsync();
+        await _page.WaitForURLAsync(_fixture.ServerAddress + "/");
+    }
+
+    private async Task PrepareForSameSexTestAsync(LineageMode mode)
+    {
+        await AuthenticateAsync();
+        await GotoTreeAndWaitForGraphAsync();
+        await EnsureLineageModeAsync(mode);
+    }
+
+    [Fact]
+    public async Task FamilyTree_EmptyTree_HitsNoContainerEarlyExit()
+    {
+        await AuthenticateAsync();
+        await GotoTreeAndWaitForGraphAsync();
+        await SwitchToTreeByNameAsync("Empty Tree");
+        await _page.Locator("text=Your family tree is empty.").WaitForAsync();
+        Assert.True(await _page.Locator("text=Add first person").IsVisibleAsync());
+    }
+
+    [Fact]
+    public async Task FamilyTree_SingleMemberTree_RendersNoFamiliesBranch()
+    {
+        await AuthenticateAsync();
+        await GotoTreeAndWaitForGraphAsync();
+        await SwitchToTreeByNameAsync("Single Member Tree");
+        await _page.Locator("#family-tree-graph .family-tree-card").First.WaitForAsync();
+        var cardCount = await _page.Locator("#family-tree-graph .family-tree-card").CountAsync();
+        Assert.Equal(1, cardCount);
+        await _page.Locator("text=Lone Member").WaitForAsync();
+    }
+
+    /// <summary>Names in paternal visual rank order (0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5).</summary>
+    private static readonly string[] LargeTreeSpotCheckNamesPaternal = { "Gen0A", "Gen0B", "Gen1a", "Gen1n", "Gen2a", "Gen2l", "Gen3a", "Gen3n", "Gen4a", "Gen4k", "Gen5a" };
+    /// <summary>Names in maternal visual rank order (female primary at each gen).</summary>
+    private static readonly string[] LargeTreeSpotCheckNamesMaternal = { "Gen0B", "Gen0A", "Gen1n", "Gen1a", "Gen2l", "Gen2a", "Gen3a", "Gen3n", "Gen4k", "Gen4a", "Gen5a" };
+
+    [Theory]
+    [InlineData("Vertical", "Paternal")]
+    [InlineData("Vertical", "Maternal")]
+    [InlineData("Horizontal", "Paternal")]
+    [InlineData("Horizontal", "Maternal")]
+    public async Task FamilyTree_LargeTree_SpotCheckAllFourCombos(string orientation, string lineageModeStr)
+    {
+        var lineageMode = lineageModeStr == "Maternal" ? LineageMode.Maternal : LineageMode.Paternal;
+        var flowAxis = orientation == "Horizontal" ? "X" : "Y";
+        var namesInRankOrder = lineageModeStr == "Maternal" ? LargeTreeSpotCheckNamesMaternal : LargeTreeSpotCheckNamesPaternal;
+
+        await AuthenticateAsync();
+        await GotoTreeAndWaitForGraphAsync();
+        await SwitchToTreeByNameAsync("Large Tree (6 Gen)");
+        await _page.Locator("#family-tree-graph .family-tree-card").First.WaitForAsync();
+        await EnsureOrientationAsync(orientation);
+        await EnsureLineageModeAsync(lineageMode);
+
+        var rankAndCoords = new List<(double rank, float flowCoord)>();
+        foreach (var name in namesInRankOrder)
+        {
+            var locator = await GetCardByExactNameMainAsync(name);
+            Assert.NotNull(locator);
+            await locator.ScrollIntoViewIfNeededAsync();
+            var rankStr = await locator.GetAttributeAsync("data-visual-rank");
+            Assert.True(!string.IsNullOrEmpty(rankStr), $"Large tree spot-check: {name} should have data-visual-rank");
+            Assert.True(double.TryParse(rankStr, out var rankVal), $"Large tree spot-check: {name} data-visual-rank should be numeric");
+            var box = await locator.BoundingBoxAsync();
+            Assert.NotNull(box);
+            var flowCoord = GetCoord(new BoxBounds(box.X, box.Y, box.Width, box.Height), flowAxis);
+            rankAndCoords.Add((rankVal, flowCoord));
+        }
+
+        var hasHalfRank = rankAndCoords.Any(x => Math.Abs(x.rank - Math.Round(x.rank)) > 0.01);
+        Assert.True(hasHalfRank,
+            $"Large tree {orientation} {lineageModeStr}: expected at least one half-rank; ranks: [{string.Join(", ", rankAndCoords.Select(x => x.rank))}]");
+
+        var flowCoords = rankAndCoords.Select(x => x.flowCoord).ToList();
+        Assert.True(flowCoords[0] != flowCoords[^1],
+            $"Large tree {orientation} {lineageModeStr}: root and leaf should differ on flow axis {flowAxis}; got {flowCoords[0]} vs {flowCoords[^1]}");
+
+        // Optional: strict rank-band ordering (group by rank, assert leading edge of rank k < rank k+1). Left commented; enable when layout is stable in full suite.
+        // var rankGroups = rankAndCoords.GroupBy(x => x.rank).ToList();
+        // var sortedRanks = rankGroups.Select(g => g.Key).OrderBy(x => x).ToList();
+        // for (var i = 0; i < sortedRanks.Count - 1; i++)
+        // {
+        //     var currentFlow = rankGroups.First(g => g.Key == sortedRanks[i]).Min(x => x.flowCoord);
+        //     var nextFlow = rankGroups.First(g => g.Key == sortedRanks[i + 1]).Min(x => x.flowCoord);
+        //     Assert.True(currentFlow < nextFlow, $"Large tree {orientation} {lineageModeStr}: rank {sortedRanks[i]} ({currentFlow}) should be before rank {sortedRanks[i + 1]} ({nextFlow}) on flow axis {flowAxis}");
+        // }
     }
 
     [Fact]
     public async Task LayoutOrientation_CanToggleBetweenHorizontalAndVertical()
     {
         await AuthenticateAsync();
-
-        // 1. Go to the root page (Family Tree)
-        await _page.GotoAsync(_fixture.ServerAddress + "/");
-
-        // Ensure the graph is loaded by waiting for at least one node to be injected by JS
-        var graphNode = _page.Locator("#family-tree-graph .family-tree-card").First;
         try
         {
-            await graphNode.WaitForAsync(new LocatorWaitForOptions { State = WaitForSelectorState.Attached, Timeout = 5000 });
+            await GotoTreeAndWaitForGraphAsync();
         }
         catch
         {
-            var screenshotPath = System.IO.Path.Combine("..", "..", "..", "..", "..", "working", "debug_screenshot.png");
-            if (!System.IO.Directory.Exists(System.IO.Path.GetDirectoryName(screenshotPath)))
-            {
-                screenshotPath = "debug_screenshot.png";
-            }
-            await _page.ScreenshotAsync(new() { Path = screenshotPath });
+            await CaptureScreenshotOnFailureAsync();
             throw;
         }
 
-        var graph = _page.Locator("#family-tree-graph");
-
-        // 2. Check initial orientation - it could be either Horizontal or Vertical
-        // We'll verify the orientation toggle functionality regardless of the initial state
-        var classValue = await graph.GetAttributeAsync("class");
-        var isInitiallyHorizontal = classValue?.Contains("ft-orientation-horizontal") == true;
-
-        // Store initial state for verification
-        var initialState = isInitiallyHorizontal;
-
-        // 3. Open user menu and click "Vertical"
-        await _page.ClickAsync("#userMenuDropdown");
-
-        // Wait for user menu to appear and click Vertical form button
-        var verticalBtn = _page.Locator("button:has-text('Vertical')");
-        await verticalBtn.WaitForAsync();
-        await verticalBtn.ClickAsync();
-
-        // 4. Page should reload (or redirect back), wait for graph again
-        await _page.WaitForURLAsync(_fixture.ServerAddress + "/");
-        graph = _page.Locator("#family-tree-graph");
-        await graph.WaitForAsync();
-
-        // Verify it is now Vertical (class removed)
-        classValue = await graph.GetAttributeAsync("class");
+        await ClickUserMenuButtonAndWaitForReloadAsync("Vertical");
+        var classValue = await _page.Locator("#family-tree-graph").GetAttributeAsync("class");
         Assert.DoesNotContain("ft-orientation-horizontal", classValue);
 
-        // 5. Open user menu and click "Horizontal" again
-        await _page.ClickAsync("#userMenuDropdown");
-        var horizontalBtn = _page.Locator("button:has-text('Horizontal')");
-        await horizontalBtn.WaitForAsync();
-        await horizontalBtn.ClickAsync();
-
-        // 6. Page should reload
-        await _page.WaitForURLAsync(_fixture.ServerAddress + "/");
-        graph = _page.Locator("#family-tree-graph");
-        await graph.WaitForAsync();
-
-        // Verify it is Horizontal again
-        classValue = await graph.GetAttributeAsync("class");
+        await ClickUserMenuButtonAndWaitForReloadAsync("Horizontal");
+        classValue = await _page.Locator("#family-tree-graph").GetAttributeAsync("class");
         Assert.Contains("ft-orientation-horizontal", classValue);
     }
 
     private ILocator GetCardByExactName(string name)
     {
-        // Exact text matching so e.g. "Maternal Grandma" does not match "Maternal Grandma Wife 1"
         var exactText = new Regex($"^{Regex.Escape(name)}$", RegexOptions.Multiline);
         return _page.Locator(".family-tree-card").Filter(new() { Has = _page.GetByText(exactText) }).First;
     }
 
-    /// <summary>Same as GetCardByExactName but prefers the main card (id like member-123) over duplicates (member-123-ref, member-123-leaf) so rank/position assertions use the primary node. If requireMainOnly is true and no main card exists, returns null (so callers can skip that node for spread/alignment).</summary>
+    /// <summary>Gets card by name, scrolls into view, asserts data-visual-rank equals expectedRank. Returns the card for further use (e.g. BoundingBoxAsync).</summary>
+    private async Task<ILocator> AssertVisualRankAsync(string name, string expectedRank, bool requireMainOnly = false)
+    {
+        ILocator card;
+        if (requireMainOnly)
+        {
+            var main = await GetCardByExactNameMainAsync(name, requireMainOnly: true);
+            Assert.NotNull(main);
+            card = main;
+        }
+        else
+        {
+            card = GetCardByExactName(name);
+        }
+        await card.ScrollIntoViewIfNeededAsync();
+        Assert.Equal(expectedRank, await card.GetAttributeAsync("data-visual-rank"));
+        return card;
+    }
+
+    /// <summary>Same as GetCardByExactName but prefers the main card (id like member-123) over duplicates (member-123-ref, member-123-leaf) so rank/position assertions use the main node. If requireMainOnly is true and no main card exists, returns null (so callers can skip that node for spread/alignment).</summary>
     private async Task<ILocator?> GetCardByExactNameMainAsync(string name, bool requireMainOnly = false)
     {
         var exactText = new Regex($"^{Regex.Escape(name)}$", RegexOptions.Multiline);
@@ -136,23 +255,22 @@ public class LayoutOrientationTests : IAsyncLifetime
         return requireMainOnly ? null : all.First;
     }
 
-    private async Task<List<object>> GetBoxesAsync(string[] names)
+    private async Task<List<BoxBounds>> GetBoxesAsync(string[] names)
     {
-        var boxes = new List<object>();
+        var boxes = new List<BoxBounds>();
         foreach (var name in names)
         {
             var locator = await GetCardByExactNameMainAsync(name);
             Assert.NotNull(locator);
-
-            // Scroll to make sure the element is visible
             await locator.ScrollIntoViewIfNeededAsync();
-
             var box = await locator.BoundingBoxAsync();
-            Assert.NotNull(box); // ensure visible and found
-            boxes.Add(box);
+            Assert.NotNull(box);
+            boxes.Add(new BoxBounds(box.X, box.Y, box.Width, box.Height));
         }
         return boxes;
     }
+
+    private static float GetCoord(BoxBounds box, string axis) => axis == "X" ? box.X : box.Y;
 
     private readonly string[] Gen1Names = { "Paternal Grandma", "Paternal Grandpa", "Maternal Grandma", "Maternal Grandpa 1", "Maternal Grandpa 2" };
     private readonly string[] Gen15Names = { "Paternal Grandma Wife", "Maternal Grandma Wife 1", "Maternal Grandma Wife 2" }; // Half-rank spouses for gen1
@@ -160,209 +278,117 @@ public class LayoutOrientationTests : IAsyncLifetime
     private readonly string[] Gen25Names = { "FB Wife 1", "FB Wife 2", "HalfSib Husband 1", "HalfSib Husband 2" }; // Half-rank spouses
     private readonly string[] Gen3Names = { "Me", "Cousin 1", "Cousin 2", "Cousin 3", "Wife2 Only Child" };
 
-    // Paternal vs Maternal specific test data
+    // Paternal vs Maternal primary-side test data
     private readonly string[] PaternalPrimaryNames = { "Paternal Grandpa", "Father", "Fathers Brother", "Mothers HalfSib" };
     private readonly string[] MaternalPrimaryNames = { "Maternal Grandma", "Maternal Grandpa 1", "Maternal Grandpa 2", "Mother" };
     private readonly string[] PaternalHalfRankNames = { "FB Wife 1", "FB Wife 2", "HalfSib Husband 1", "HalfSib Husband 2" };
     private readonly string[] MaternalHalfRankNames = { "Wife2 Only Child", "Maternal Grandma Wife 1", "Maternal Grandma Wife 2" };
 
-    [Fact]
-    public async Task VerticalLayout_PositionsEveryNodeAndRank()
+    // Tolerances from working/layout_tolerance_measurements.txt (MCP browser or scripts/MeasureLayoutTolerances): Vertical Gen1≤142 Gen3≤12, Horizontal Gen1≤186
+    [Theory]
+    [InlineData("Vertical", "Y", "X", 150f, 10f, false, null)]
+    [InlineData("Horizontal", "X", "Y", 200f, 50f, true, null)]
+    [InlineData("Vertical", "Y", "X", 50f, 50f, false, "Paternal")]
+    [InlineData("Horizontal", "X", "Y", 50f, 50f, true, "Paternal")]
+    [InlineData("Vertical", "Y", "X", 150f, 10f, false, "Maternal")]
+    [InlineData("Horizontal", "X", "Y", 200f, 50f, true, "Maternal")]
+    public async Task LayoutOrientation_PositionsEveryNodeAndRank(string orientation, string alignmentAxis, string spreadAxis, float tolerance, float minSpread, bool testHalfRank, string? lineageModeStr)
     {
-        await AuthenticateAsync();
-        await TestLayoutOrientation("Vertical", "Y", "X", tolerance: 150f);
-    }
-
-    [Fact]
-    public async Task HorizontalLayout_PositionsEveryNodeAndRank()
-    {
-        await TestLayoutOrientation("Horizontal", "X", "Y", 50, 50, true);
-    }
-
-    [Fact]
-    public async Task VerticalLayout_Paternal_PositionsEveryNodeAndRank()
-    {
-        await TestLayoutOrientation("Vertical", "Y", "X", 50, 50, false, LineageMode.Paternal);
-    }
-
-    [Fact]
-    public async Task HorizontalLayout_Paternal_PositionsEveryNodeAndRank()
-    {
-        await TestLayoutOrientation("Horizontal", "X", "Y", 50, 50, true, LineageMode.Paternal);
-    }
-
-    [Fact]
-    public async Task VerticalLayout_Maternal_PositionsEveryNodeAndRank()
-    {
-        await AuthenticateAsync();
-        await TestLayoutOrientation("Vertical", "Y", "X", tolerance: 150f, lineageMode: LineageMode.Maternal);
-    }
-
-    [Fact]
-    public async Task HorizontalLayout_Maternal_PositionsEveryNodeAndRank()
-    {
-        await TestLayoutOrientation("Horizontal", "X", "Y", 50, 50, true, LineageMode.Maternal);
-    }
-
-    private async Task TestLayoutOrientation(string orientation, string alignmentAxis, string spreadAxis, float tolerance, float minSpread, bool testHalfRank)
-    {
-        await TestLayoutOrientation(orientation, alignmentAxis, spreadAxis, tolerance, minSpread, testHalfRank, null);
+        var lineageMode = lineageModeStr == "Paternal" ? LineageMode.Paternal : lineageModeStr == "Maternal" ? LineageMode.Maternal : (LineageMode?)null;
+        await TestLayoutOrientation(orientation, alignmentAxis, spreadAxis, tolerance, minSpread, testHalfRank, lineageMode);
     }
 
     private async Task TestLayoutOrientation(string orientation, string alignmentAxis, string spreadAxis, float tolerance = 70f, float minSpread = 10f, bool testHalfRank = true, LineageMode? lineageMode = null)
     {
         await AuthenticateAsync();
-
-        // Go to tree page and ensure correct orientation
-        await _page.GotoAsync(_fixture.ServerAddress + "/");
-        await _page.Locator("#family-tree-graph .family-tree-card").First.WaitForAsync();
-
-        // Ensure we're in the correct orientation
-        var graph = _page.Locator("#family-tree-graph");
-        var classValue = await graph.GetAttributeAsync("class");
-        var isHorizontal = orientation == "Horizontal";
-
-        if (classValue?.Contains("ft-orientation-horizontal") == true != isHorizontal)
+        try
         {
-            // Switch to correct orientation if needed
-            await _page.ClickAsync("#userMenuDropdown");
-            var orientationBtn = _page.Locator($"button:has-text('{orientation}')");
-            await orientationBtn.WaitForAsync();
-            await orientationBtn.ClickAsync();
-            await _page.WaitForURLAsync(_fixture.ServerAddress + "/");
-            await _page.Locator("#family-tree-graph .family-tree-card").First.WaitForAsync();
+            await GotoTreeAndWaitForGraphAsync();
         }
-
-        // Ensure we're in the correct lineage mode if specified
+        catch
+        {
+            await CaptureScreenshotOnFailureAsync("layout_test_graph_load");
+            throw;
+        }
+        await EnsureOrientationAsync(orientation);
         if (lineageMode.HasValue)
-        {
-            var currentLineageMode = await graph.GetAttributeAsync("data-lineage-mode") ?? "Paternal";
-            var expectedLineageStr = lineageMode == LineageMode.Maternal ? "Maternal" : "Paternal";
+            await EnsureLineageModeAsync(lineageMode.Value);
 
-            if (currentLineageMode != expectedLineageStr && (currentLineageMode != "1" || expectedLineageStr != "Maternal"))
-            {
-                await _page.ClickAsync("#userMenuDropdown");
-                var lineageBtn = _page.Locator($"button:has-text('{expectedLineageStr}')");
-                await lineageBtn.WaitForAsync();
-                await lineageBtn.ClickAsync();
-                await _page.WaitForURLAsync(_fixture.ServerAddress + "/");
-                await _page.Locator("#family-tree-graph .family-tree-card").First.WaitForAsync();
-            }
-        }
+        var isHorizontal = orientation == "Horizontal";
 
         var gen1Boxes = await GetBoxesAsync(Gen1Names);
         var gen2Boxes = await GetBoxesAsync(Gen2Names);
         var gen3Boxes = await GetBoxesAsync(Gen3Names);
+        var gen25Boxes = testHalfRank ? await GetBoxesAsync(Gen25Names) : null;
 
         // Verify alignment (same coordinate for the same visual rank)
         // Group nodes by their actual visual-rank data attribute and test alignment within each group
         if (lineageMode.HasValue)
         {
-            // Get all nodes and group them by visual rank
-            var allNodeBoxes = new List<(object box, string name, double rank)>();
+            var allNodeBoxes = new List<(BoxBounds box, string name, double rank)>();
 
-            // Collect all nodes with their visual ranks (only main cards so ref/duplicate cards at same position are not counted for spread)
             foreach (var name in Gen1Names.Concat(Gen2Names).Concat(Gen3Names))
             {
                 var locator = await GetCardByExactNameMainAsync(name, requireMainOnly: true);
                 if (locator == null) continue;
                 await locator.ScrollIntoViewIfNeededAsync();
                 var box = await locator.BoundingBoxAsync();
-                if (box != null)
-                {
-                    var rankAttr = await locator.GetAttributeAsync("data-visual-rank");
-                    if (double.TryParse(rankAttr, out var rank))
-                    {
-                        allNodeBoxes.Add((box, name, rank));
-                    }
-                }
+                if (box != null && double.TryParse(await locator.GetAttributeAsync("data-visual-rank"), out var rank))
+                    allNodeBoxes.Add((new BoxBounds(box.X, box.Y, box.Width, box.Height), name, rank));
             }
 
-            // Group by visual rank and test alignment within each group
             var rankGroups = allNodeBoxes.GroupBy(x => x.rank).ToList();
             foreach (var group in rankGroups)
             {
-                var groupBoxes = group.Select(x => x.box).ToList();
-                var rank = group.Key;
-                var generation = $"Rank{rank}";
-                AssertAlignment(groupBoxes, generation, alignmentAxis, tolerance);
+                AssertAlignment(group.Select(x => x.box).ToList(), $"Rank{group.Key}", alignmentAxis, tolerance);
             }
 
-            // Verify visual rank ordering (ranks should be in ascending order)
             var sortedRanks = rankGroups.Select(g => g.Key).OrderBy(x => x).ToList();
             for (int i = 0; i < sortedRanks.Count - 1; i++)
             {
                 var currentRank = sortedRanks[i];
                 var nextRank = sortedRanks[i + 1];
-                var currentRankBoxes = rankGroups.First(g => g.Key == currentRank).Select(x => x.box).First();
-                var nextRankBoxes = rankGroups.First(g => g.Key == nextRank).Select(x => x.box).First();
-
-                dynamic currentBox = currentRankBoxes;
-                dynamic nextBox = nextRankBoxes;
+                var currentBox = rankGroups.First(g => g.Key == currentRank).Select(x => x.box).First();
+                var nextBox = rankGroups.First(g => g.Key == nextRank).Select(x => x.box).First();
 
                 if (isHorizontal)
-                {
                     Assert.True(currentBox.X < nextBox.X, $"Rank{currentRank} ({currentBox.X}) should be left of Rank{nextRank} ({nextBox.X})");
-                }
                 else
-                {
                     Assert.True(currentBox.Y < nextBox.Y, $"Rank{currentRank} ({currentBox.Y}) should be above Rank{nextRank} ({nextBox.Y})");
-                }
             }
 
-            // Verify spread within each visual rank (skip when fewer than 2 nodes, or when all nodes share the same position e.g. two root grandmas at rank 0)
             foreach (var group in rankGroups)
             {
                 var groupBoxes = group.Select(x => x.box).ToList();
                 if (groupBoxes.Count < 2) continue;
-                float minX = float.MaxValue, maxX = float.MinValue, minY = float.MaxValue, maxY = float.MinValue;
-                foreach (var box in groupBoxes)
-                {
-                    dynamic d = box;
-                    minX = Math.Min(minX, (float)d.X); maxX = Math.Max(maxX, (float)d.X);
-                    minY = Math.Min(minY, (float)d.Y); maxY = Math.Max(maxY, (float)d.Y);
-                }
+                float minX = groupBoxes.Min(b => b.X), maxX = groupBoxes.Max(b => b.X);
+                float minY = groupBoxes.Min(b => b.Y), maxY = groupBoxes.Max(b => b.Y);
                 if (maxX - minX < minSpread && maxY - minY < minSpread) continue;
-                var rank = group.Key;
-                AssertSpread(groupBoxes, $"Rank{rank}", spreadAxis, minSpread);
+                AssertSpread(groupBoxes, $"Rank{group.Key}", spreadAxis, minSpread);
             }
 
-            // Verify half-rank spouses are positioned between ranks (horizontal only)
-            if (testHalfRank)
+            if (testHalfRank && gen25Boxes != null && gen25Boxes.Count > 0)
             {
-                var gen25Boxes = await GetBoxesAsync(Gen25Names);
-                if (gen25Boxes.Count > 0)
+                var gen2Ranks = allNodeBoxes.Where(x => Gen2Names.Contains(x.name)).Select(x => x.rank).Distinct().ToList();
+                var gen3Ranks = allNodeBoxes.Where(x => Gen3Names.Contains(x.name)).Select(x => x.rank).Distinct().ToList();
+
+                if (gen2Ranks.Any() && gen3Ranks.Any())
                 {
-                    // Find the rank of Gen2 and Gen3 to verify half-rank positioning
-                    var gen2Ranks = allNodeBoxes.Where(x => Gen2Names.Contains(x.name)).Select(x => x.rank).Distinct().ToList();
-                    var gen3Ranks = allNodeBoxes.Where(x => Gen3Names.Contains(x.name)).Select(x => x.rank).Distinct().ToList();
+                    var maxGen2Rank = gen2Ranks.Max();
+                    var minGen3Rank = gen3Ranks.Min();
 
-                    if (gen2Ranks.Any() && gen3Ranks.Any())
+                    foreach (var halfRankBox in gen25Boxes)
                     {
-                        var maxGen2Rank = gen2Ranks.Max();
-                        var minGen3Rank = gen3Ranks.Min();
-
-                        foreach (var halfRankBox in gen25Boxes)
+                        if (isHorizontal)
                         {
-                            dynamic box = halfRankBox;
-
-                            if (isHorizontal)
-                            {
-                                Assert.True(maxGen2Rank < minGen3Rank, "Gen2 ranks should be less than Gen3 ranks");
-                                // Half-rank should be positioned between the max Gen2 rank and min Gen3 rank
-                                // This is already verified by the rank ordering test above
-                            }
-                            else
-                            {
-                                // For vertical, verify Y positioning between ranks
-                                var gen2Box = allNodeBoxes.Where(x => x.rank == maxGen2Rank).Select(x => x.box).First();
-                                var gen3Box = allNodeBoxes.Where(x => x.rank == minGen3Rank).Select(x => x.box).First();
-                                dynamic gen2BoxDyn = gen2Box;
-                                dynamic gen3BoxDyn = gen3Box;
-
-                                Assert.True(gen2BoxDyn.Y < box.Y, $"Gen2 ({gen2BoxDyn.Y}) should be above half-rank ({box.Y})");
-                                Assert.True(box.Y < gen3BoxDyn.Y, $"Half-rank ({box.Y}) should be above Gen3 ({gen3BoxDyn.Y})");
-                            }
+                            Assert.True(maxGen2Rank < minGen3Rank, "Gen2 ranks should be less than Gen3 ranks");
+                        }
+                        else
+                        {
+                            var gen2Box = allNodeBoxes.Where(x => x.rank == maxGen2Rank).Select(x => x.box).First();
+                            var gen3Box = allNodeBoxes.Where(x => x.rank == minGen3Rank).Select(x => x.box).First();
+                            Assert.True(gen2Box.Y < halfRankBox.Y, $"Gen2 ({gen2Box.Y}) should be above half-rank ({halfRankBox.Y})");
+                            Assert.True(halfRankBox.Y < gen3Box.Y, $"Half-rank ({halfRankBox.Y}) should be above Gen3 ({gen3Box.Y})");
                         }
                     }
                 }
@@ -376,23 +402,7 @@ public class LayoutOrientationTests : IAsyncLifetime
             AssertAlignment(gen3Boxes, "Gen3", alignmentAxis, tolerance);
         }
 
-        // Verify generation ordering
-        dynamic firstGen1Box = gen1Boxes[0];
-        dynamic firstGen2Box = gen2Boxes[0];
-        dynamic firstGen3Box = gen3Boxes[0];
-
-        if (isHorizontal)
-        {
-            // Left to right ordering for horizontal
-            Assert.True(firstGen1Box.X < firstGen2Box.X, $"Gen1 ({firstGen1Box.X}) should be left of Gen2 ({firstGen2Box.X})");
-            Assert.True(firstGen2Box.X < firstGen3Box.X, $"Gen2 ({firstGen2Box.X}) should be left of Gen3 ({firstGen3Box.X})");
-        }
-        else
-        {
-            // Top to bottom ordering for vertical
-            Assert.True(firstGen1Box.Y < firstGen2Box.Y, $"Gen1 ({firstGen1Box.Y}) should be above Gen2 ({firstGen2Box.Y})");
-            Assert.True(firstGen2Box.Y < firstGen3Box.Y, $"Gen2 ({firstGen2Box.Y}) should be above Gen3 ({firstGen3Box.Y})");
-        }
+        AssertGenerationOrdering(gen1Boxes[0], gen2Boxes[0], gen3Boxes[0], isHorizontal);
 
         // Verify spread within generation
         AssertSpread(gen1Boxes, "Gen1", spreadAxis, minSpread);
@@ -400,8 +410,7 @@ public class LayoutOrientationTests : IAsyncLifetime
         // Verify half-rank spouses are positioned between generations (horizontal only)
         if (testHalfRank)
         {
-            var gen25Boxes = await GetBoxesAsync(Gen25Names);
-            if (gen25Boxes.Count > 0)
+            if (gen25Boxes != null && gen25Boxes.Count > 0)
             {
                 AssertAlignment(gen25Boxes, "Gen2.5", alignmentAxis, tolerance);
             }
@@ -412,307 +421,150 @@ public class LayoutOrientationTests : IAsyncLifetime
             }
             else
             {
-                var gen15Boxes = await GetBoxesAsync(Gen15Names); // Assuming Gen15Names exists and GetBoxesAsync is the correct method
+                var gen15Boxes = await GetBoxesAsync(Gen15Names);
                 AssertAlignment(gen15Boxes, "Gen1.5", alignmentAxis, tolerance);
             }
-
-            if (gen25Boxes.Count > 0)
+            if (gen25Boxes != null && gen25Boxes.Count > 0)
             {
-                dynamic firstGen25Box = gen25Boxes[0];
-
-                // Half-rank should be positioned between Gen2 and Gen3
+                var firstGen25Box = gen25Boxes[0];
                 if (isHorizontal)
                 {
-                    Assert.True(firstGen2Box.X < firstGen25Box.X, $"Gen2 ({firstGen2Box.X}) should be left of Gen25 ({firstGen25Box.X})");
-                    Assert.True(firstGen25Box.X < firstGen3Box.X, $"Gen25 ({firstGen25Box.X}) should be left of Gen3 ({firstGen3Box.X})");
+                    Assert.True(gen2Boxes[0].X < firstGen25Box.X, $"Gen2 ({gen2Boxes[0].X}) should be left of Gen25 ({firstGen25Box.X})");
+                    Assert.True(firstGen25Box.X < gen3Boxes[0].X, $"Gen25 ({firstGen25Box.X}) should be left of Gen3 ({gen3Boxes[0].X})");
                 }
                 else
                 {
-                    Assert.True(firstGen2Box.Y < firstGen25Box.Y, $"Gen2 ({firstGen2Box.Y}) should be above Gen25 ({firstGen25Box.Y})");
-                    Assert.True(firstGen25Box.Y < firstGen3Box.Y, $"Gen25 ({firstGen25Box.Y}) should be above Gen3 ({firstGen3Box.Y})");
+                    Assert.True(gen2Boxes[0].Y < firstGen25Box.Y, $"Gen2 ({gen2Boxes[0].Y}) should be above Gen25 ({firstGen25Box.Y})");
+                    Assert.True(firstGen25Box.Y < gen3Boxes[0].Y, $"Gen25 ({firstGen25Box.Y}) should be above Gen3 ({gen3Boxes[0].Y})");
                 }
             }
         }
     }
 
-    private void AssertAlignment(List<object> boxes, string generation, string axis, float tolerance)
+    private static void AssertGenerationOrdering(BoxBounds firstGen1, BoxBounds firstGen2, BoxBounds firstGen3, bool isHorizontal)
     {
-        if (boxes.Count <= 1) return; // Skip alignment check for single nodes
-
-        // Get the position values for all boxes in this group
-        var values = new List<float>();
-        foreach (var box in boxes)
+        if (isHorizontal)
         {
-            dynamic dynamicBox = box;
-            float value = axis == "X" ? dynamicBox.X : dynamicBox.Y;
-            values.Add(value);
+            Assert.True(firstGen1.X < firstGen2.X, $"Gen1 ({firstGen1.X}) should be left of Gen2 ({firstGen2.X})");
+            Assert.True(firstGen2.X < firstGen3.X, $"Gen2 ({firstGen2.X}) should be left of Gen3 ({firstGen3.X})");
         }
+        else
+        {
+            Assert.True(firstGen1.Y < firstGen2.Y, $"Gen1 ({firstGen1.Y}) should be above Gen2 ({firstGen2.Y})");
+            Assert.True(firstGen2.Y < firstGen3.Y, $"Gen2 ({firstGen2.Y}) should be above Gen3 ({firstGen3.Y})");
+        }
+    }
 
-        // Check that all values are roughly the same (within tolerance)
-        values.Sort();
-        float min = values[0];
-        float max = values[values.Count - 1];
-
+    private static void AssertAlignment(List<BoxBounds> boxes, string generation, string axis, float tolerance)
+    {
+        if (boxes.Count <= 1) return;
+        var values = boxes.Select(b => GetCoord(b, axis)).OrderBy(v => v).ToList();
+        float min = values[0], max = values[^1];
         Assert.True(max - min <= tolerance,
             $"{generation} {axis} positions vary too much: range [{min}, {max}] (max difference: {max - min}, tolerance: {tolerance})");
     }
 
-    private void AssertSpread(List<object> boxes, string generation, string axis, float minSpread)
+    private static void AssertSpread(List<BoxBounds> boxes, string generation, string axis, float minSpread)
     {
         if (boxes.Count <= 1) return;
-
-        float minX = float.MaxValue;
-        float maxX = float.MinValue;
-        float minY = float.MaxValue;
-        float maxY = float.MinValue;
-
-        foreach (var box in boxes)
-        {
-            dynamic dynamicBox = box;
-            float x = dynamicBox.X;
-            float y = dynamicBox.Y;
-            minX = Math.Min(minX, x);
-            maxX = Math.Max(maxX, x);
-            minY = Math.Min(minY, y);
-            maxY = Math.Max(maxY, y);
-        }
-
-        // If boxes are spread out in either X or Y, they don't visually overlap.
-        bool spreadX = (maxX > minX + minSpread);
-        bool spreadY = (maxY > minY + minSpread);
-
-        Assert.True(spreadX || spreadY, $"{generation} should be spread apart: X range [{minX}, {maxX}], Y range [{minY}, {maxY}]");
+        float minX = boxes.Min(b => b.X), maxX = boxes.Max(b => b.X);
+        float minY = boxes.Min(b => b.Y), maxY = boxes.Max(b => b.Y);
+        Assert.True(maxX > minX + minSpread || maxY > minY + minSpread,
+            $"{generation} should be spread apart: X range [{minX}, {maxX}], Y range [{minY}, {maxY}]");
     }
 
     [Fact]
     public async Task TreeLineageMode_CanToggleBetweenPaternalAndMaternal()
     {
         await AuthenticateAsync();
+        await GotoTreeAndWaitForGraphAsync();
 
-        // 1. Go to the root page (Family Tree)
-        await _page.GotoAsync(_fixture.ServerAddress + "/");
-        await _page.Locator("#family-tree-graph .family-tree-card").First.WaitForAsync();
-
-        // 2. Check initial lineage mode - it could be either Paternal or Maternal
         var paternalBtn = _page.Locator("button:has-text('Paternal')");
-        var maternalBtn = _page.Locator("button:has-text('Maternal')");
-
         var isInitiallyPaternal = (await paternalBtn.GetAttributeAsync("class"))?.Contains("btn-primary") == true;
 
-        // 3. Open user menu and click the opposite lineage mode
-        await _page.ClickAsync("#userMenuDropdown");
+        await ClickUserMenuButtonAndWaitForReloadAsync(isInitiallyPaternal ? "Maternal" : "Paternal");
 
+        paternalBtn = _page.Locator("button:has-text('Paternal')");
+        var maternalBtn = _page.Locator("button:has-text('Maternal')");
         if (isInitiallyPaternal)
         {
-            // Switch to Maternal
-            await maternalBtn.WaitForAsync();
-            await maternalBtn.ClickAsync();
+            Assert.True((await maternalBtn.GetAttributeAsync("class"))?.Contains("btn-primary") == true);
+            Assert.False((await paternalBtn.GetAttributeAsync("class"))?.Contains("btn-primary") == true);
         }
         else
         {
-            // Switch to Paternal
-            await paternalBtn.WaitForAsync();
-            await paternalBtn.ClickAsync();
+            Assert.True((await paternalBtn.GetAttributeAsync("class"))?.Contains("btn-primary") == true);
+            Assert.False((await maternalBtn.GetAttributeAsync("class"))?.Contains("btn-primary") == true);
         }
 
-        // 4. Page should reload, wait for graph again
-        await _page.WaitForURLAsync(_fixture.ServerAddress + "/");
-        await _page.Locator("#family-tree-graph .family-tree-card").First.WaitForAsync();
+        await ClickUserMenuButtonAndWaitForReloadAsync(isInitiallyPaternal ? "Paternal" : "Maternal");
 
-        // 5. Verify the mode switched
-        if (isInitiallyPaternal)
-        {
-            // Should now be Maternal
-            var maternalClass = await maternalBtn.GetAttributeAsync("class");
-            var paternalClass = await paternalBtn.GetAttributeAsync("class");
-            Assert.True(maternalClass?.Contains("btn-primary") == true, "Should be in Maternal mode");
-            Assert.False(paternalClass?.Contains("btn-primary") == true, "Should not be in Paternal mode");
-        }
-        else
-        {
-            // Should now be Paternal
-            var maternalClass = await maternalBtn.GetAttributeAsync("class");
-            var paternalClass = await paternalBtn.GetAttributeAsync("class");
-            Assert.True(paternalClass?.Contains("btn-primary") == true, "Should be in Paternal mode");
-            Assert.False(maternalClass?.Contains("btn-primary") == true, "Should not be in Maternal mode");
-        }
+        paternalBtn = _page.Locator("button:has-text('Paternal')");
+        maternalBtn = _page.Locator("button:has-text('Maternal')");
+        Assert.True((await (isInitiallyPaternal ? paternalBtn : maternalBtn).GetAttributeAsync("class"))?.Contains("btn-primary") == true);
+    }
 
-        // 6. Switch back to original mode
-        await _page.ClickAsync("#userMenuDropdown");
+    private async Task AssertPrimarySideAndHalfRankAsync(LineageMode mode, string[] halfRankNames, bool assertHalfRankBetweenGen2AndGen3)
+    {
+        await AuthenticateAsync();
+        await GotoTreeAndWaitForGraphAsync();
+        await EnsureLineageModeAsync(mode);
 
-        if (isInitiallyPaternal)
-        {
-            // Switch to Paternal
-            await paternalBtn.WaitForAsync();
-            await paternalBtn.ClickAsync();
-        }
-        else
-        {
-            // Switch to Maternal
-            await maternalBtn.WaitForAsync();
-            await maternalBtn.ClickAsync();
-        }
+        var paternalBoxes = await GetBoxesAsync(PaternalPrimaryNames);
+        var maternalBoxes = await GetBoxesAsync(MaternalPrimaryNames);
+        Assert.Equal(PaternalPrimaryNames.Length, paternalBoxes.Count);
+        Assert.Equal(MaternalPrimaryNames.Length, maternalBoxes.Count);
 
-        // 7. Page should reload
-        await _page.WaitForURLAsync(_fixture.ServerAddress + "/");
-        await _page.Locator("#family-tree-graph .family-tree-card").First.WaitForAsync();
+        var halfRankBoxes = await GetBoxesAsync(halfRankNames);
+        Assert.Equal(halfRankNames.Length, halfRankBoxes.Count);
 
-        // 8. Verify back to original mode
-        if (isInitiallyPaternal)
+        if (halfRankBoxes.Count > 0)
         {
-            var paternalClass = await paternalBtn.GetAttributeAsync("class");
-            Assert.True(paternalClass?.Contains("btn-primary") == true, "Should be back in Paternal mode");
-        }
-        else
-        {
-            var maternalClass = await maternalBtn.GetAttributeAsync("class");
-            Assert.True(maternalClass?.Contains("btn-primary") == true, "Should be back in Maternal mode");
+            var gen2Boxes = await GetBoxesAsync(Gen2Names);
+            var gen3Boxes = await GetBoxesAsync(Gen3Names);
+            var firstGen2Box = gen2Boxes[0];
+            var firstGen3Box = gen3Boxes[0];
+            var firstHalfRankBox = halfRankBoxes[0];
+
+            var classValue = await _page.Locator("#family-tree-graph").GetAttributeAsync("class");
+            var isHorizontal = classValue?.Contains("ft-orientation-horizontal") == true;
+            var (gen2Coord, halfRankCoord, gen3Coord) = isHorizontal
+                ? (firstGen2Box.X, firstHalfRankBox.X, firstGen3Box.X)
+                : (firstGen2Box.Y, firstHalfRankBox.Y, firstGen3Box.Y);
+            var axisName = isHorizontal ? "X" : "Y";
+            var direction = isHorizontal ? "left of" : "above";
+
+            Assert.True(gen2Coord < halfRankCoord,
+                $"Gen2 ({axisName}={gen2Coord}) should be {direction} half-rank ({axisName}={halfRankCoord})");
+            if (assertHalfRankBetweenGen2AndGen3)
+                Assert.True(halfRankCoord < gen3Coord,
+                    $"Half-rank ({axisName}={halfRankCoord}) should be {direction} Gen3 ({axisName}={gen3Coord})");
+            else
+                Assert.True(halfRankCoord > 0, $"Half-rank should have valid {axisName} coordinate ({halfRankCoord})");
         }
     }
 
     [Fact]
     public async Task PaternalMode_PrimarySideIsPaternalLineage()
     {
-        await AuthenticateAsync();
-
-        // Go to tree page and ensure Paternal mode
-        await _page.GotoAsync(_fixture.ServerAddress + "/");
-        await _page.Locator("#family-tree-graph .family-tree-card").First.WaitForAsync();
-
-        // Ensure we're in Paternal mode
-        var paternalBtn = _page.Locator("button:has-text('Paternal')");
-        var isPaternal = (await paternalBtn.GetAttributeAsync("class"))?.Contains("btn-primary") == true;
-
-        if (!isPaternal)
-        {
-            await _page.ClickAsync("#userMenuDropdown");
-            await paternalBtn.WaitForAsync();
-            await paternalBtn.ClickAsync();
-            await _page.WaitForURLAsync(_fixture.ServerAddress + "/");
-            await _page.Locator("#family-tree-graph .family-tree-card").First.WaitForAsync();
-        }
-
-        // Verify that paternal primary members are present and positioned
-        var paternalBoxes = await GetBoxesAsync(PaternalPrimaryNames);
-        var maternalBoxes = await GetBoxesAsync(MaternalPrimaryNames);
-
-        // All expected members should be found
-        Assert.Equal(PaternalPrimaryNames.Length, paternalBoxes.Count);
-        Assert.Equal(MaternalPrimaryNames.Length, maternalBoxes.Count);
-
-        // Verify half-rank spouses (Father's Brother's wives) get half-rank positioning
-        var paternalHalfRankBoxes = await GetBoxesAsync(PaternalHalfRankNames);
-        Assert.Equal(PaternalHalfRankNames.Length, paternalHalfRankBoxes.Count);
-
-        // In Paternal mode, FB Wife 1/2 should be positioned between Gen2 and Gen3
-        if (paternalHalfRankBoxes.Count > 0)
-        {
-            var gen2Boxes = await GetBoxesAsync(Gen2Names);
-            var gen3Boxes = await GetBoxesAsync(Gen3Names);
-
-            dynamic firstGen2Box = gen2Boxes[0];
-            dynamic firstGen3Box = gen3Boxes[0];
-            dynamic firstHalfRankBox = paternalHalfRankBoxes[0];
-
-            // Half-rank should be between generations (Y coordinate)
-            Assert.True(firstGen2Box.Y < firstHalfRankBox.Y,
-                $"Gen2 ({firstGen2Box.Y}) should be above half-rank ({firstHalfRankBox.Y})");
-            Assert.True(firstHalfRankBox.Y < firstGen3Box.Y,
-                $"Half-rank ({firstHalfRankBox.Y}) should be above Gen3 ({firstGen3Box.Y})");
-        }
+        await AssertPrimarySideAndHalfRankAsync(LineageMode.Paternal, PaternalHalfRankNames, assertHalfRankBetweenGen2AndGen3: true);
     }
 
     [Fact]
     public async Task MaternalMode_PrimarySideIsMaternalLineage()
     {
-        await AuthenticateAsync();
-
-        // Go to tree page and ensure Maternal mode
-        await _page.GotoAsync(_fixture.ServerAddress + "/");
-        await _page.Locator("#family-tree-graph .family-tree-card").First.WaitForAsync();
-
-        // Ensure we're in Maternal mode
-        var maternalBtn = _page.Locator("button:has-text('Maternal')");
-        var isMaternal = (await maternalBtn.GetAttributeAsync("class"))?.Contains("btn-primary") == true;
-
-        if (!isMaternal)
-        {
-            await _page.ClickAsync("#userMenuDropdown");
-            await maternalBtn.WaitForAsync();
-            await maternalBtn.ClickAsync();
-            await _page.WaitForURLAsync(_fixture.ServerAddress + "/");
-            await _page.Locator("#family-tree-graph .family-tree-card").First.WaitForAsync();
-        }
-
-        // Verify that maternal primary members are present and positioned
-        var paternalBoxes = await GetBoxesAsync(PaternalPrimaryNames);
-        var maternalBoxes = await GetBoxesAsync(MaternalPrimaryNames);
-
-        // All expected members should be found
-        Assert.Equal(PaternalPrimaryNames.Length, paternalBoxes.Count);
-        Assert.Equal(MaternalPrimaryNames.Length, maternalBoxes.Count);
-
-        // Verify half-rank spouses (Maternal Grandpa 2's wife) get half-rank positioning
-        var maternalHalfRankBoxes = await GetBoxesAsync(MaternalHalfRankNames);
-        Assert.Equal(MaternalHalfRankNames.Length, maternalHalfRankBoxes.Count);
-
-        // In Maternal mode, Wife2 Only Child should be positioned between Gen2 and Gen3
-        if (maternalHalfRankBoxes.Count > 0)
-        {
-            var gen2Boxes = await GetBoxesAsync(Gen2Names);
-            var gen3Boxes = await GetBoxesAsync(Gen3Names);
-
-            dynamic firstGen2Box = gen2Boxes[0];
-            dynamic firstGen3Box = gen3Boxes[0];
-            dynamic firstHalfRankBox = maternalHalfRankBoxes[0];
-
-            // Half-rank should be between generations (Y coordinate)
-            Assert.True(firstGen2Box.Y < firstHalfRankBox.Y,
-                $"Gen2 ({firstGen2Box.Y}) should be above half-rank ({firstHalfRankBox.Y})");
-            // Note: In Maternal mode, half-rank positioning differs from Paternal mode
-            Assert.True(firstHalfRankBox.Y > 0, $"Half-rank should have valid Y coordinate ({firstHalfRankBox.Y})");
-        }
+        await AssertPrimarySideAndHalfRankAsync(LineageMode.Maternal, MaternalHalfRankNames, assertHalfRankBetweenGen2AndGen3: false);
     }
 
     [Fact]
     public async Task SameSexCouples_PaternalMode_BloodlineDominates_GetsHalfRank()
     {
-        await AuthenticateAsync();
+        await PrepareForSameSexTestAsync(LineageMode.Paternal);
 
-        // Go to tree page and ensure Paternal mode
-        await _page.GotoAsync(_fixture.ServerAddress + "/");
-        await _page.Locator("#family-tree-graph .family-tree-card").First.WaitForAsync();
+        var anchorCard = await AssertVisualRankAsync("Mothers HalfSib", "1");
+        var husband1Card = await AssertVisualRankAsync("HalfSib Husband 1", "1.5");
+        await AssertVisualRankAsync("HalfSib Husband 2", "1.5");
 
-        var paternalBtn = _page.Locator("button:has-text('Paternal')");
-        var isPaternal = (await paternalBtn.GetAttributeAsync("class"))?.Contains("btn-primary") == true;
-
-        if (!isPaternal)
-        {
-            await _page.ClickAsync("#userMenuDropdown");
-            await paternalBtn.WaitForAsync();
-            await paternalBtn.ClickAsync();
-            await _page.WaitForURLAsync(_fixture.ServerAddress + "/");
-            await _page.Locator("#family-tree-graph .family-tree-card").First.WaitForAsync();
-        }
-
-        // Verify bloodline anchor (Mothers HalfSib) is rank 1.0 (has parents)
-        var anchorCard = GetCardByExactName("Mothers HalfSib");
-        await anchorCard.ScrollIntoViewIfNeededAsync();
-        var anchorRank = await anchorCard.GetAttributeAsync("data-visual-rank");
-        Assert.Equal("1", anchorRank);
-
-        // Verify inserted same-sex partners got half-ranks (1.5) due to being dominated by bloodline
-        var husband1Card = GetCardByExactName("HalfSib Husband 1");
-        await husband1Card.ScrollIntoViewIfNeededAsync();
-        var husband1Rank = await husband1Card.GetAttributeAsync("data-visual-rank");
-        Assert.Equal("1.5", husband1Rank);
-
-        var husband2Card = GetCardByExactName("HalfSib Husband 2");
-        await husband2Card.ScrollIntoViewIfNeededAsync();
-        var husband2Rank = await husband2Card.GetAttributeAsync("data-visual-rank");
-        Assert.Equal("1.5", husband2Rank);
-
-        // Verify UI positioning: Husbands (1.5) should be grouped together and rendered after the anchor (1.0)
         var anchorBox = await anchorCard.BoundingBoxAsync();
         var husband1Box = await husband1Card.BoundingBoxAsync();
 
@@ -735,109 +587,28 @@ public class LayoutOrientationTests : IAsyncLifetime
     [Fact]
     public async Task SameSexCouples_MaternalMode_NonPrimary_KeepsIntegerRank()
     {
-        await AuthenticateAsync();
+        await PrepareForSameSexTestAsync(LineageMode.Maternal);
 
-        // Go to tree page and switch to Maternal mode
-        await _page.GotoAsync(_fixture.ServerAddress + "/");
-        await _page.Locator("#family-tree-graph .family-tree-card").First.WaitForAsync();
-
-        var maternalBtn = _page.Locator("button:has-text('Maternal')");
-        var isMaternal = (await maternalBtn.GetAttributeAsync("class"))?.Contains("btn-primary") == true;
-
-        if (!isMaternal)
-        {
-            await _page.ClickAsync("#userMenuDropdown");
-            await maternalBtn.WaitForAsync();
-            await maternalBtn.ClickAsync();
-            await _page.WaitForURLAsync(_fixture.ServerAddress + "/");
-            await _page.Locator("#family-tree-graph .family-tree-card").First.WaitForAsync();
-        }
-
-        // Verify bloodline anchor (Mothers HalfSib) is rank 1.0
-        var anchorCard = GetCardByExactName("Mothers HalfSib");
-        await anchorCard.ScrollIntoViewIfNeededAsync();
-        var anchorRank = await anchorCard.GetAttributeAsync("data-visual-rank");
-        Assert.Equal("1", anchorRank);
-
-        // Verify inserted same-sex partners kept integer ranks (1.5) due to anchor not being primary gender in Maternal mode
-        var husband1Card = GetCardByExactName("HalfSib Husband 1");
-        await husband1Card.ScrollIntoViewIfNeededAsync();
-        var husband1Rank = await husband1Card.GetAttributeAsync("data-visual-rank");
-        Assert.Equal("1.5", husband1Rank);
+        await AssertVisualRankAsync("Mothers HalfSib", "1");
+        await AssertVisualRankAsync("HalfSib Husband 1", "1.5");
     }
 
     [Fact]
     public async Task SameSexCouples_PaternalMode_SinglePartner_KeepsIntegerRank()
     {
-        await AuthenticateAsync();
+        await PrepareForSameSexTestAsync(LineageMode.Paternal);
 
-        // Go to tree page and ensure Paternal mode
-        await _page.GotoAsync(_fixture.ServerAddress + "/");
-        await _page.Locator("#family-tree-graph .family-tree-card").First.WaitForAsync();
-
-        var paternalBtn = _page.Locator("button:has-text('Paternal')");
-        var isPaternal = (await paternalBtn.GetAttributeAsync("class"))?.Contains("btn-primary") == true;
-
-        if (!isPaternal)
-        {
-            await _page.ClickAsync("#userMenuDropdown");
-            await paternalBtn.WaitForAsync();
-            await paternalBtn.ClickAsync();
-            await _page.WaitForURLAsync(_fixture.ServerAddress + "/");
-            await _page.Locator("#family-tree-graph .family-tree-card").First.WaitForAsync();
-        }
-
-        // Verify bloodline anchor (Paternal Grandma) is rank 0.0 (as she is a secondary partner to Grandpa in Paternal mode, but she is the anchor for her own single partner relationship)
-        var anchorCard = await GetCardByExactNameMainAsync("Paternal Grandma");
-        Assert.NotNull(anchorCard);
-        await anchorCard.ScrollIntoViewIfNeededAsync();
-        var anchorRank = await anchorCard.GetAttributeAsync("data-visual-rank");
-        Assert.Equal("0", anchorRank);
-
-        // Verify inserted same-sex partner kept integer rank (0) due to single-partner relationship anchoring to 0
-        var wifeCard = GetCardByExactName("Paternal Grandma Wife");
-        await wifeCard.ScrollIntoViewIfNeededAsync();
-        var wifeRank = await wifeCard.GetAttributeAsync("data-visual-rank");
-        Assert.Equal("0", wifeRank);
+        await AssertVisualRankAsync("Paternal Grandma", "0", requireMainOnly: true);
+        await AssertVisualRankAsync("Paternal Grandma Wife", "0");
     }
 
     [Fact]
     public async Task SameSexCouples_MaternalMode_BloodlineDominates_GetsHalfRank()
     {
-        await AuthenticateAsync();
+        await PrepareForSameSexTestAsync(LineageMode.Maternal);
 
-        // Go to tree page and switch to Maternal mode
-        await _page.GotoAsync(_fixture.ServerAddress + "/");
-        await _page.Locator("#family-tree-graph .family-tree-card").First.WaitForAsync();
-
-        var maternalBtn = _page.Locator("button:has-text('Maternal')");
-        var isMaternal = (await maternalBtn.GetAttributeAsync("class"))?.Contains("btn-primary") == true;
-
-        if (!isMaternal)
-        {
-            await _page.ClickAsync("#userMenuDropdown");
-            await maternalBtn.WaitForAsync();
-            await maternalBtn.ClickAsync();
-            await _page.WaitForURLAsync(_fixture.ServerAddress + "/");
-            await _page.Locator("#family-tree-graph .family-tree-card").First.WaitForAsync();
-        }
-
-        // Verify bloodline anchor (Maternal Grandma) is rank 0.0
-        var anchorCard = await GetCardByExactNameMainAsync("Maternal Grandma");
-        Assert.NotNull(anchorCard);
-        await anchorCard.ScrollIntoViewIfNeededAsync();
-        var anchorRank = await anchorCard.GetAttributeAsync("data-visual-rank");
-        Assert.Equal("0", anchorRank);
-
-        // Verify inserted same-sex partners kept integer rank (0) due to being at generation 0 with no parents (dominates tie defaults to false)
-        var wife1Card = GetCardByExactName("Maternal Grandma Wife 1");
-        await wife1Card.ScrollIntoViewIfNeededAsync();
-        var wife1Rank = await wife1Card.GetAttributeAsync("data-visual-rank");
-        Assert.Equal("0", wife1Rank);
-
-        var wife2Card = GetCardByExactName("Maternal Grandma Wife 2");
-        await wife2Card.ScrollIntoViewIfNeededAsync();
-        var wife2Rank = await wife2Card.GetAttributeAsync("data-visual-rank");
-        Assert.Equal("0", wife2Rank);
+        await AssertVisualRankAsync("Maternal Grandma", "0", requireMainOnly: true);
+        await AssertVisualRankAsync("Maternal Grandma Wife 1", "0");
+        await AssertVisualRankAsync("Maternal Grandma Wife 2", "0");
     }
 }
