@@ -7,6 +7,12 @@ Infrastructure required to host a .NET subdomain on the EC2 instance. Hostnames 
 1. **DNS**: An A record for the subdomain pointing to the EC2 Elastic IP (e.g. `family-dev.example.com` → your IP).
 2. **SSL certificates**: Let's Encrypt certs in place for your domain (see [Let's Encrypt setup](#lets-encrypt-setup) below).
 3. **Port**: An unused local port for the .NET app (`5002` for main/`family`, `5003` for `family-dev`).
+4. **ASP.NET Core Runtime 10**: Publish is framework-dependent, so the host needs `Microsoft.AspNetCore.App` 10.x (`/usr/bin/dotnet`). The pipeline runs [scripts/install-aspnetcore-runtime.sh](../scripts/install-aspnetcore-runtime.sh) on every deploy (idempotent `apt` install of `aspnetcore-runtime-10.0`). Manual provisioning via `configure-service.sh` runs the same script. To install by hand:
+
+```bash
+sudo ./scripts/install-aspnetcore-runtime.sh
+# or: sudo apt-get update && sudo apt-get install -y aspnetcore-runtime-10.0
+```
 
 ---
 
@@ -102,7 +108,7 @@ sudo ./scripts/configure-service.sh family-dev.example.com 5003 family-dev examp
 
 This creates the web directory, systemd unit, and Nginx config (HTTP→HTTPS and proxy to the app). The unit runs the app from `$WEB_ROOT/site` and loads env vars from `$WEB_ROOT/.env` if present (optional).
 
-**Pipeline behaviour:** The GitHub Actions deploy job generates `appsettings.json` on the runner, runs `dotnet publish` into `./site`, then SCPs `site/*` and `scripts/configure-service.sh` to the server. It runs **configure-service.sh** only when that script has changed or the systemd service file is missing; otherwise it copies the site output into `$DEPLOY_PATH/site`, ensures `$DEPLOY_PATH/logs` and `$DEPLOY_PATH/uploads` exist, and restarts the service. User uploads (e.g. profile photos) are stored under `$DEPLOY_PATH/uploads` and served at `/uploads`. The **service_name** and **port** must match the `SERVICE_NAME` and `PORT` variables for that environment. For manual deploy, generate `appsettings.json` (e.g. from the template), publish into `./site`, then:
+**Pipeline behaviour:** The GitHub Actions deploy job generates `appsettings.json` on the runner, runs `dotnet publish` into `./site`, then SCPs `site/*`, `scripts/configure-service.sh`, and `scripts/install-aspnetcore-runtime.sh` to the server. It always runs **install-aspnetcore-runtime.sh** (ensures ASP.NET Core 10), then runs **configure-service.sh** only when that script has changed or the systemd service file is missing; otherwise it copies the site output into `$DEPLOY_PATH/site`, ensures `$DEPLOY_PATH/logs` and `$DEPLOY_PATH/uploads` exist, and restarts the service. User uploads (e.g. profile photos) are stored under `$DEPLOY_PATH/uploads` and served at `/uploads`. The **service_name** and **port** must match the `SERVICE_NAME` and `PORT` variables for that environment. For manual deploy, generate `appsettings.json` (e.g. from the template), publish into `./site`, then:
 
 ```bash
 sudo systemctl restart family-dev

@@ -282,7 +282,7 @@ jobs:
           host: ${{ secrets.REMOTE_HOST }}
           username: ubuntu
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: "site/*,scripts/configure-service.sh"
+          source: "site/*,scripts/configure-service.sh,scripts/install-aspnetcore-runtime.sh"
           target: "/tmp/family-deploy-${{ github.run_id }}"
 
       - name: Deploy to EC2 via SSH
@@ -305,6 +305,8 @@ jobs:
             IS_PRODUCTION='${{ env.IS_PRODUCTION }}'
             STAGING="/tmp/family-deploy-${{ github.run_id }}"
             trap 'rm -rf "$STAGING"' EXIT
+            echo "[Deploy] Ensuring ASP.NET Core Runtime 10..."
+            sudo bash "$STAGING/scripts/install-aspnetcore-runtime.sh"
             echo "[Deploy] Ensuring directory..."
             sudo mkdir -p "$DEPLOY_PATH/site" "$DEPLOY_PATH/logs" "$DEPLOY_PATH/uploads"
             sudo chown -R ubuntu:www-data "$DEPLOY_PATH"
