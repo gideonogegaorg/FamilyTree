@@ -259,8 +259,8 @@ jobs:
     needs: [build, tag]
     environment: ${{ github.ref_name }}
     env:
-      DEPLOY_PATH: ${{ github.ref == format('refs/heads/{0}', env.PRODUCTION_BRANCH) && format('/var/www/family.{0}', secrets.DEPLOY_DOMAIN) || github.ref == format('refs/heads/{0}', env.DEVELOPMENT_BRANCH) && format('/var/www/family-dev.{0}', secrets.DEPLOY_DOMAIN) || '' }}
-      FULL_HOSTNAME: ${{ github.ref == format('refs/heads/{0}', env.PRODUCTION_BRANCH) && format('family.{0}', secrets.DEPLOY_DOMAIN) || github.ref == format('refs/heads/{0}', env.DEVELOPMENT_BRANCH) && format('family-dev.{0}', secrets.DEPLOY_DOMAIN) || '' }}
+      DEPLOY_PATH: ${{ github.ref == 'refs/heads/prod' && format('/var/www/family.{0}', secrets.DEPLOY_DOMAIN) || github.ref == 'refs/heads/dev' && format('/var/www/family-dev.{0}', secrets.DEPLOY_DOMAIN) || '' }}
+      FULL_HOSTNAME: ${{ github.ref == 'refs/heads/prod' && format('family.{0}', secrets.DEPLOY_DOMAIN) || github.ref == 'refs/heads/dev' && format('family-dev.{0}', secrets.DEPLOY_DOMAIN) || '' }}
       BRANCH: ${{ github.ref_name }}
       ASSEMBLY_VERSION: ${{ needs.build.outputs.assembly_version }}
       DLL_VERSION: ${{ needs.build.outputs.dll_version }}
