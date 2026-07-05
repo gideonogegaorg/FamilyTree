@@ -144,6 +144,9 @@ jobs:
           SONAR_PR_BASE: ${{ github.base_ref }}
           SONAR_BRANCH: ${{ github.ref_name }}
           SONAR_PROJECT_VERSION: ${{ env.DLL_VERSION }}
+          SONAR_ORGANIZATION: ${{ github.repository_owner }}
+          SONAR_PROJECT_KEY: ${{ github.repository_owner }}_${{ github.event.repository.name }}
+          SONAR_PROJECT_NAME: ${{ github.event.repository.name }}
         run: |
           EXCLUSIONS="**/Migrations/**,**/AppDbContextFactory.cs,**/wwwroot/lib/**,**/wwwroot/js/**,**/.github/**,**/bin/**,**/obj/**,**/coverage/**"
           COVERAGE_EXCLUSIONS="**/*.cshtml,**/*.cshtml.css,**/Views/**,**/wwwroot/**,**/S3PhotoStorageService.cs,**/Controllers/FamilyMemberController.cs"
@@ -152,7 +155,7 @@ jobs:
           # was analyzed as a short-lived branch and sonar.qualitygate.wait failed at scanner end.
           if [ "$SONAR_EVENT_NAME" = "push" ] && [ "$SONAR_BRANCH" = "main" ]; then
             if curl -sf -X POST -u "${SONAR_TOKEN}:" \
-              "https://sonarcloud.io/api/project_branches/set_main?project=gideonogegaorg_FamilyTree&branch=main"; then
+              "https://sonarcloud.io/api/project_branches/set_main?project=${SONAR_PROJECT_KEY}&branch=main"; then
               echo "SonarCloud main branch aligned to GitHub main"
             else
               echo "::warning::Could not set SonarCloud main branch (SONAR_TOKEN may lack Administer Project). Skipping quality gate wait for this run."
@@ -160,9 +163,9 @@ jobs:
             fi
           fi
           begin_args=(
-            /k:gideonogegaorg_FamilyTree
-            /o:gideonogegaorg
-            /n:GMO.FamilyTree
+            "/k:${SONAR_PROJECT_KEY}"
+            "/o:${SONAR_ORGANIZATION}"
+            "/n:${SONAR_PROJECT_NAME}"
             "/v:$SONAR_PROJECT_VERSION"
             "/d:sonar.projectBaseDir=$GITHUB_WORKSPACE"
             "/d:sonar.token=$SONAR_TOKEN"
