@@ -1,14 +1,14 @@
 name: Build and Deploy
 
-env:
-  PRODUCTION_BRANCH: prod
-  DEVELOPMENT_BRANCH: dev
-
 on:
   push:
     branches: [prod, dev]
   pull_request:
     branches: [prod, dev]
+
+env:
+  PRODUCTION_BRANCH: prod
+  DEVELOPMENT_BRANCH: dev
 
 jobs:
   lint:
