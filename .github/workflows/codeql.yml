@@ -16,6 +16,9 @@ jobs:
       actions: read
       contents: read
       security-events: write
+    env:
+      GITHUB_USERNAME: ${{ secrets.GH_USER }}
+      GITHUB_PAT: ${{ secrets.GH_CLASSIC_PAT }}
 
     steps:
       - name: Checkout
@@ -36,13 +39,12 @@ jobs:
         run: bash scripts/generate-appsettings.sh
 
       - name: Configure NuGet auth for GMO feed
-        env:
-          GITHUB_USERNAME: ${{ secrets.GH_USER }}
-          GITHUB_PAT: ${{ secrets.GH_CLASSIC_PAT }}
         run: dotnet nuget update source GMO --username "$GITHUB_USERNAME" --password "$GITHUB_PAT" --store-password-in-clear-text
 
-      - name: Autobuild
-        uses: github/codeql-action/autobuild@v3
+      - name: Build for CodeQL
+        run: |
+          dotnet restore GMO.FamilyTree.sln
+          dotnet build GMO.FamilyTree.sln --no-restore
 
       - name: Perform CodeQL Analysis
         uses: github/codeql-action/analyze@v3

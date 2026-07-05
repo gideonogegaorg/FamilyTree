@@ -60,6 +60,7 @@ jobs:
     env:
       GITHUB_USERNAME: ${{ secrets.GH_USER }}
       GITHUB_PAT: ${{ secrets.GH_CLASSIC_PAT }}
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
     outputs:
       assembly_version: ${{ steps.setversion.outputs.assembly_version }}
       dll_version: ${{ steps.setversion.outputs.dll_version }}
@@ -110,11 +111,12 @@ jobs:
         run: bash scripts/generate-appsettings.sh
 
       - name: Install SonarScanner
+        if: env.SONAR_TOKEN != ''
         run: dotnet tool install --global dotnet-sonarscanner
 
       - name: SonarCloud begin
+        if: env.SONAR_TOKEN != ''
         env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           ARGS="/k:gideonogegaorg_FamilyTree /o:gideonogegaorg /d:sonar.token=$SONAR_TOKEN /d:sonar.host.url=https://sonarcloud.io"
@@ -211,8 +213,7 @@ jobs:
         run: bash scripts/enforce-coverage-threshold.sh coverage/combined/Cobertura.xml 80
 
       - name: SonarCloud end
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        if: env.SONAR_TOKEN != ''
         run: dotnet sonarscanner end /d:sonar.token=$SONAR_TOKEN
 
       - name: Upload coverage results
