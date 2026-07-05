@@ -147,6 +147,18 @@ jobs:
         run: |
           EXCLUSIONS="**/Migrations/**,**/AppDbContextFactory.cs,**/wwwroot/lib/**,**/wwwroot/js/**,**/.github/**,**/bin/**,**/obj/**,**/coverage/**"
           COVERAGE_EXCLUSIONS="**/*.cshtml,**/*.cshtml.css,**/Views/**,**/wwwroot/**,**/S3PhotoStorageService.cs,**/Controllers/FamilyMemberController.cs"
+          QG_WAIT="true"
+          # SonarCloud marks the first analyzed branch as "main". Early CI ran on dev, so GitHub main
+          # was analyzed as a short-lived branch and sonar.qualitygate.wait failed at scanner end.
+          if [ "$SONAR_EVENT_NAME" = "push" ] && [ "$SONAR_BRANCH" = "main" ]; then
+            if curl -sf -X POST -u "${SONAR_TOKEN}:" \
+              "https://sonarcloud.io/api/project_branches/set_main?project=gideonogegaorg_FamilyTree&branch=main"; then
+              echo "SonarCloud main branch aligned to GitHub main"
+            else
+              echo "::warning::Could not set SonarCloud main branch (SONAR_TOKEN may lack Administer Project). Skipping quality gate wait for this run."
+              QG_WAIT="false"
+            fi
+          fi
           begin_args=(
             /k:gideonogegaorg_FamilyTree
             /o:gideonogegaorg
@@ -155,7 +167,7 @@ jobs:
             "/d:sonar.projectBaseDir=$GITHUB_WORKSPACE"
             "/d:sonar.token=$SONAR_TOKEN"
             "/d:sonar.host.url=https://sonarcloud.io"
-            "/d:sonar.qualitygate.wait=true"
+            "/d:sonar.qualitygate.wait=$QG_WAIT"
             "/d:sonar.cs.opencover.reportsPaths=coverage/**/coverage.opencover.xml,**/TestResults/**/coverage.opencover.xml"
             "/d:sonar.exclusions=$EXCLUSIONS"
             "/d:sonar.coverage.exclusions=$COVERAGE_EXCLUSIONS"
