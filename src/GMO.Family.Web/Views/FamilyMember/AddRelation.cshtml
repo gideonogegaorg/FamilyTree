@@ -9,7 +9,7 @@
     };
     ViewData["Title"] = label;
 }
-<h1>@label</h1>
+<h1 class="ft-page-title">@label</h1>
 <form asp-action="AddRelation" method="post">
     <div asp-validation-summary="ModelOnly" class="text-danger"></div>
     <input type="hidden" asp-for="ContextMemberId" />
@@ -33,8 +33,10 @@
         <input asp-for="SetAsMe" class="form-check-input" />
         <label asp-for="SetAsMe" class="form-check-label">This is me (link to my account)</label>
     </div>
-    <button type="submit" class="btn btn-primary">Add</button>
-    <a asp-controller="Home" asp-action="Index" class="btn btn-link">Cancel</a>
+    <div class="ft-form-actions">
+        <button type="submit" class="btn btn-primary">Add</button>
+        <a asp-controller="Home" asp-action="Index" class="ft-link">Cancel</a>
+    </div>
 </form>
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />

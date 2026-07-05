@@ -370,14 +370,13 @@ psql -h localhost -p 5432 -U family -d family -c "SELECT COUNT(*) FROM \"FamilyM
 # Start application
 dotnet run --project src/GMO.Family.Web
 
-# Test application health
-curl http://localhost:5000/health
-
-# Test test authentication
-curl -X POST http://localhost:5000/TestAuth/SignIn
+# Test application health (dev URL from launchSettings.json)
+curl http://localhost:5229/
 ```
 
 ### 3. UI Test Validation
+
+**Test hosting (not the dev port):** Integration tests use in-process **TestServer** (`WebAppFixture`) — no TCP port, no conflict with `dotnet run` on 5229 except when rebuilding locks `GMO.Family.Web.exe`. UI tests (`AppFixture`) bind Kestrel to a **random ephemeral port** for Playwright; they also do not use 5229.
 
 ```bash
 # Run UI tests to validate environment

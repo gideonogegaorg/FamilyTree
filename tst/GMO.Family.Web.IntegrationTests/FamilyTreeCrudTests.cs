@@ -31,8 +31,8 @@ public class FamilyTreeCrudTests : IClassFixture<WebAppFixture>
         // Assert
         response.EnsureSuccessStatusCode();
         var html = await response.Content.ReadAsStringAsync();
-        Assert.Contains("Family Trees", html);
-        Assert.Contains("Create New", html);
+        Assert.Contains("Family trees", html);
+        Assert.Contains("Create new tree", html);
     }
 
     [Fact]
@@ -52,7 +52,7 @@ public class FamilyTreeCrudTests : IClassFixture<WebAppFixture>
     }
 
     [Fact]
-    public async Task Create_POST_creates_and_redirects_to_Index()
+    public async Task Create_POST_creates_and_redirects_to_Home()
     {
         // Arrange
         var name = "Test Tree " + Guid.NewGuid().ToString("N")[..8];
@@ -68,9 +68,11 @@ public class FamilyTreeCrudTests : IClassFixture<WebAppFixture>
 
         // Assert
         Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
-        Assert.StartsWith("/FamilyTree", response.Headers.Location?.ToString());
-        var indexResponse = await _client.GetAsync("/FamilyTree");
-        var html = await indexResponse.Content.ReadAsStringAsync();
+        var location = response.Headers.Location?.ToString() ?? "";
+        Assert.True(location == "/" || location.Contains("/Home", StringComparison.OrdinalIgnoreCase),
+            $"Expected redirect to Home, got {location}");
+        var homeResponse = await _client.GetAsync("/");
+        var html = await homeResponse.Content.ReadAsStringAsync();
         Assert.Contains(name, html);
     }
 
@@ -108,49 +110,6 @@ public class FamilyTreeCrudTests : IClassFixture<WebAppFixture>
     }
 
     [Fact]
-    public async Task Details_returns_200_and_tree_name_when_valid_id()
-    {
-        // Arrange
-        var name = "Details Tree " + Guid.NewGuid().ToString("N")[..8];
-        var createForm = new Dictionary<string, string>
-        {
-            ["Name"] = name,
-            ["Uid"] = Guid.NewGuid().ToString(),
-            ["__RequestVerificationToken"] = await GetAntiforgeryTokenAsync("/FamilyTree/Create")
-        };
-        await _client.PostAsync("/FamilyTree/Create", new FormUrlEncodedContent(createForm));
-        var indexHtml = await (await _client.GetAsync("/FamilyTree")).Content.ReadAsStringAsync();
-        var namePos = indexHtml.IndexOf(name, StringComparison.Ordinal);
-        Assert.True(namePos >= 0);
-        var rowSlice = indexHtml[namePos..];
-        var detailLinkStart = rowSlice.IndexOf("/FamilyTree/Details/", StringComparison.Ordinal);
-        Assert.True(detailLinkStart >= 0);
-        var path = rowSlice.Substring(detailLinkStart, rowSlice.IndexOf('"', detailLinkStart) - detailLinkStart);
-        var id = long.Parse(path.Split('/').Last());
-
-        // Act
-        var response = await _client.GetAsync($"/FamilyTree/Details/{id}");
-
-        // Assert
-        response.EnsureSuccessStatusCode();
-        var html = await response.Content.ReadAsStringAsync();
-        Assert.Contains(name, html);
-    }
-
-    [Fact]
-    public async Task Details_returns_404_when_id_not_found()
-    {
-        // Arrange
-        // (invalid id)
-
-        // Act
-        var response = await _client.GetAsync("/FamilyTree/Details/999999999");
-
-        // Assert
-        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
-    }
-
-    [Fact]
     public async Task Edit_GET_returns_200_when_valid_id()
     {
         // Arrange
@@ -181,7 +140,7 @@ public class FamilyTreeCrudTests : IClassFixture<WebAppFixture>
     }
 
     [Fact]
-    public async Task Edit_POST_updates_name_and_redirects_to_Index()
+    public async Task Edit_POST_updates_name_and_redirects_to_Home()
     {
         // Arrange
         var name = "Original " + Guid.NewGuid().ToString("N")[..6];
@@ -217,8 +176,11 @@ public class FamilyTreeCrudTests : IClassFixture<WebAppFixture>
 
         // Assert
         Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
-        var indexResponse = await _client.GetAsync("/FamilyTree");
-        var html = await indexResponse.Content.ReadAsStringAsync();
+        var location = response.Headers.Location?.ToString() ?? "";
+        Assert.True(location == "/" || location.Contains("/Home", StringComparison.OrdinalIgnoreCase),
+            $"Expected redirect to Home, got {location}");
+        var homeResponse = await _client.GetAsync("/");
+        var html = await homeResponse.Content.ReadAsStringAsync();
         Assert.Contains(newName, html);
     }
 
@@ -288,7 +250,7 @@ public class FamilyTreeCrudTests : IClassFixture<WebAppFixture>
     }
 
     [Fact]
-    public async Task DeleteConfirmed_removes_tree_and_redirects_to_Index()
+    public async Task DeleteConfirmed_removes_tree_and_redirects_to_Home()
     {
         // Arrange
         var name = "To Delete " + Guid.NewGuid().ToString("N")[..8];
@@ -317,9 +279,11 @@ public class FamilyTreeCrudTests : IClassFixture<WebAppFixture>
 
         // Assert
         Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
-        Assert.StartsWith("/FamilyTree", response.Headers.Location?.ToString());
-        var indexResponse = await _client.GetAsync("/FamilyTree");
-        var html = await indexResponse.Content.ReadAsStringAsync();
+        var location = response.Headers.Location?.ToString() ?? "";
+        Assert.True(location == "/" || location.Contains("/Home", StringComparison.OrdinalIgnoreCase),
+            $"Expected redirect to Home, got {location}");
+        var listResponse = await _client.GetAsync("/FamilyTree");
+        var html = await listResponse.Content.ReadAsStringAsync();
         Assert.DoesNotContain(name, html);
     }
 

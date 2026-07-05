@@ -1,6 +1,6 @@
 # Tree Layout Orientation: Horizontal vs Vertical
 
-The family tree supports two display orientations, toggled from the **user menu** under **Tree layout**.
+The family tree supports two display orientations, toggled from the **tree toolbar** on the home page under **Layout**.
 
 ---
 
@@ -229,16 +229,20 @@ Each node receives a `data-visual-rank` attribute that the UI tests read to veri
 
 ---
 
-## User Menu Toggle
+## Tree Toolbar Controls
 
-The toggle is rendered in the user dropdown menu ([`UserMenu/Default.cshtml`](../src/GMO.Family.Web/Views/Shared/Components/UserMenu/Default.cshtml)):
+Layout and lineage toggles live on the home page toolbar ([`TreeToolbar/Default.cshtml`](../src/GMO.Family.Web/Views/Shared/Components/TreeToolbar/Default.cshtml)), not in the user menu. The user menu is limited to profile photo, email, and sign out.
+
+### Layout orientation
 
 ```
-Tree layout
+Layout
 [Horizontal] [Vertical]
 ```
 
 Each button submits a `POST` to `AccountController.SetTreeViewOrientation` with `orientation=0` (Horizontal) or `orientation=1` (Vertical). The page reloads with the new layout applied.
+
+The toolbar also includes a **tree picker** (switch, rename ✎, delete, create +) and **Jump to you** when the current user is linked to a member. Deleting the last tree creates a fresh empty **Default** tree automatically.
 
 ---
 
@@ -323,7 +327,7 @@ Both C# and JS layout engines share this exact logic to keep rendering consisten
 
 ### Toggle Controls
 
-Lineage mode is toggled from the **user menu** under **Lineage**:
+Lineage mode is toggled from the **tree toolbar** under **Lineage**:
 ```
 Lineage
 [Paternal] [Maternal]

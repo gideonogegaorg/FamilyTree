@@ -56,11 +56,14 @@ public class LayoutOrientationTests : IAsyncLifetime
         await _page.Locator("#family-tree-graph .family-tree-card").First.WaitForAsync();
     }
 
-    private async Task ClickUserMenuButtonAndWaitForReloadAsync(string buttonText)
+    private ILocator ToolbarPill(string text) =>
+        _page.Locator(".ft-subbar .ft-pills button").Filter(new() { HasText = text });
+
+    private async Task ClickToolbarPillAndWaitForReloadAsync(string buttonText)
     {
-        await _page.ClickAsync("#userMenuDropdown");
-        await _page.Locator($"button:has-text('{buttonText}')").WaitForAsync();
-        await _page.Locator($"button:has-text('{buttonText}')").ClickAsync();
+        var btn = ToolbarPill(buttonText);
+        await btn.WaitForAsync();
+        await btn.ClickAsync();
         await _page.WaitForURLAsync(_fixture.ServerAddress + "/");
         await _page.Locator("#family-tree-graph .family-tree-card").First.WaitForAsync();
     }
@@ -68,10 +71,9 @@ public class LayoutOrientationTests : IAsyncLifetime
     private async Task EnsureOrientationAsync(string orientation)
     {
         var graph = _page.Locator("#family-tree-graph");
-        var classValue = await graph.GetAttributeAsync("class");
-        var isHorizontal = orientation == "Horizontal";
-        if ((classValue?.Contains("ft-orientation-horizontal") == true) != isHorizontal)
-            await ClickUserMenuButtonAndWaitForReloadAsync(orientation);
+        var current = await graph.GetAttributeAsync("data-orientation") ?? "Vertical";
+        if (current != orientation)
+            await ClickToolbarPillAndWaitForReloadAsync(orientation);
     }
 
     private async Task CaptureScreenshotOnFailureAsync(string name = "debug_screenshot")
@@ -91,16 +93,15 @@ public class LayoutOrientationTests : IAsyncLifetime
         // "1" is a legacy data-lineage-mode value meaning Maternal; skip reload if already correct
         var alreadyMaternal = current == "Maternal" || current == "1";
         if (expected == "Maternal" ? !alreadyMaternal : current != "Paternal")
-            await ClickUserMenuButtonAndWaitForReloadAsync(expected);
+            await ClickToolbarPillAndWaitForReloadAsync(expected);
     }
 
-    /// <summary>Opens user menu, clicks the "Switch Family Tree" button with the given name, waits for redirect to Home.</summary>
+    /// <summary>Opens tree picker in toolbar and selects the tree with the given name.</summary>
     private async Task SwitchToTreeByNameAsync(string treeName)
     {
-        await _page.Locator("#userMenuDropdown").WaitForAsync(new() { State = WaitForSelectorState.Visible });
-        await _page.Locator("#userMenuDropdown").ClickAsync();
-        await _page.Locator(".dropdown-menu").WaitForAsync(new() { State = WaitForSelectorState.Visible });
-        await _page.Locator(".dropdown-menu button.dropdown-item").Filter(new() { HasText = treeName }).ClickAsync();
+        await _page.Locator(".ft-tree-picker-btn").ClickAsync();
+        await _page.Locator(".ft-tree-picker-menu").WaitForAsync(new() { State = WaitForSelectorState.Visible });
+        await _page.Locator(".ft-tree-picker-item").Filter(new() { HasText = treeName }).ClickAsync();
         await _page.WaitForURLAsync(_fixture.ServerAddress + "/");
     }
 
@@ -117,7 +118,7 @@ public class LayoutOrientationTests : IAsyncLifetime
         await AuthenticateAsync();
         await GotoTreeAndWaitForGraphAsync();
         await SwitchToTreeByNameAsync("Empty Tree");
-        await _page.Locator("text=Your family tree is empty.").WaitForAsync();
+        await _page.Locator("text=Your family tree is empty").WaitForAsync();
         Assert.True(await _page.Locator("text=Add first person").IsVisibleAsync());
     }
 
@@ -204,11 +205,11 @@ public class LayoutOrientationTests : IAsyncLifetime
             throw;
         }
 
-        await ClickUserMenuButtonAndWaitForReloadAsync("Vertical");
+        await ClickToolbarPillAndWaitForReloadAsync("Vertical");
         var classValue = await _page.Locator("#family-tree-graph").GetAttributeAsync("class");
         Assert.DoesNotContain("ft-orientation-horizontal", classValue);
 
-        await ClickUserMenuButtonAndWaitForReloadAsync("Horizontal");
+        await ClickToolbarPillAndWaitForReloadAsync("Horizontal");
         classValue = await _page.Locator("#family-tree-graph").GetAttributeAsync("class");
         Assert.Contains("ft-orientation-horizontal", classValue);
     }
@@ -479,29 +480,29 @@ public class LayoutOrientationTests : IAsyncLifetime
         await AuthenticateAsync();
         await GotoTreeAndWaitForGraphAsync();
 
-        var paternalBtn = _page.Locator("button:has-text('Paternal')");
-        var isInitiallyPaternal = (await paternalBtn.GetAttributeAsync("class"))?.Contains("btn-primary") == true;
+        var paternalBtn = ToolbarPill("Paternal");
+        var isInitiallyPaternal = (await paternalBtn.GetAttributeAsync("class"))?.Contains("active") == true;
 
-        await ClickUserMenuButtonAndWaitForReloadAsync(isInitiallyPaternal ? "Maternal" : "Paternal");
+        await ClickToolbarPillAndWaitForReloadAsync(isInitiallyPaternal ? "Maternal" : "Paternal");
 
-        paternalBtn = _page.Locator("button:has-text('Paternal')");
-        var maternalBtn = _page.Locator("button:has-text('Maternal')");
+        paternalBtn = ToolbarPill("Paternal");
+        var maternalBtn = ToolbarPill("Maternal");
         if (isInitiallyPaternal)
         {
-            Assert.True((await maternalBtn.GetAttributeAsync("class"))?.Contains("btn-primary") == true);
-            Assert.False((await paternalBtn.GetAttributeAsync("class"))?.Contains("btn-primary") == true);
+            Assert.True((await maternalBtn.GetAttributeAsync("class"))?.Contains("active") == true);
+            Assert.False((await paternalBtn.GetAttributeAsync("class"))?.Contains("active") == true);
         }
         else
         {
-            Assert.True((await paternalBtn.GetAttributeAsync("class"))?.Contains("btn-primary") == true);
-            Assert.False((await maternalBtn.GetAttributeAsync("class"))?.Contains("btn-primary") == true);
+            Assert.True((await paternalBtn.GetAttributeAsync("class"))?.Contains("active") == true);
+            Assert.False((await maternalBtn.GetAttributeAsync("class"))?.Contains("active") == true);
         }
 
-        await ClickUserMenuButtonAndWaitForReloadAsync(isInitiallyPaternal ? "Paternal" : "Maternal");
+        await ClickToolbarPillAndWaitForReloadAsync(isInitiallyPaternal ? "Paternal" : "Maternal");
 
-        paternalBtn = _page.Locator("button:has-text('Paternal')");
-        maternalBtn = _page.Locator("button:has-text('Maternal')");
-        Assert.True((await (isInitiallyPaternal ? paternalBtn : maternalBtn).GetAttributeAsync("class"))?.Contains("btn-primary") == true);
+        paternalBtn = ToolbarPill("Paternal");
+        maternalBtn = ToolbarPill("Maternal");
+        Assert.True((await (isInitiallyPaternal ? paternalBtn : maternalBtn).GetAttributeAsync("class"))?.Contains("active") == true);
     }
 
     private async Task AssertPrimarySideAndHalfRankAsync(LineageMode mode, string[] halfRankNames, bool assertHalfRankBetweenGen2AndGen3)
@@ -610,5 +611,117 @@ public class LayoutOrientationTests : IAsyncLifetime
         await AssertVisualRankAsync("Maternal Grandma", "0", requireMainOnly: true);
         await AssertVisualRankAsync("Maternal Grandma Wife 1", "0");
         await AssertVisualRankAsync("Maternal Grandma Wife 2", "0");
+    }
+
+    [Fact]
+    public async Task ColumnLayout_VerticalPaternal_HalfSibHusbandsAlignUnderMothersHalfSib()
+    {
+        await AuthenticateAsync();
+        await GotoTreeAndWaitForGraphAsync();
+        await EnsureOrientationAsync("Vertical");
+        await EnsureLineageModeAsync(LineageMode.Paternal);
+
+        var anchor = await GetCardByExactNameMainAsync("Mothers HalfSib");
+        var husband1 = await GetCardByExactNameMainAsync("HalfSib Husband 1");
+        var husband2 = await GetCardByExactNameMainAsync("HalfSib Husband 2");
+        Assert.NotNull(anchor);
+        Assert.NotNull(husband1);
+        Assert.NotNull(husband2);
+
+        var anchorBox = await anchor.BoundingBoxAsync();
+        var h1Box = await husband1.BoundingBoxAsync();
+        var h2Box = await husband2.BoundingBoxAsync();
+        Assert.NotNull(anchorBox);
+        Assert.NotNull(h1Box);
+        Assert.NotNull(h2Box);
+
+        var midHusbandsX = (h1Box.X + h2Box.X) / 2f;
+        Assert.True(Math.Abs(midHusbandsX - anchorBox.X) <= 80f,
+            $"HalfSib husbands (mid X={midHusbandsX}) should align under Mothers HalfSib (X={anchorBox.X})");
+
+        var partnerUnits = husband1.Locator("xpath=ancestor::div[contains(@class,'ft-partner-units')][1]");
+        Assert.True(await partnerUnits.CountAsync() > 0,
+            "Half-rank spouses should render inside nested partner-unit columns");
+    }
+
+    [Fact]
+    public async Task ColumnLayout_VerticalPaternal_Cousin1SharesColumnWithFBWife1()
+    {
+        await AuthenticateAsync();
+        await GotoTreeAndWaitForGraphAsync();
+        await EnsureOrientationAsync("Vertical");
+        await EnsureLineageModeAsync(LineageMode.Paternal);
+
+        var cousin1 = await GetCardByExactNameMainAsync("Cousin 1");
+        var fbWife1 = await GetCardByExactNameMainAsync("FB Wife 1");
+        Assert.NotNull(cousin1);
+        Assert.NotNull(fbWife1);
+
+        var partnerUnit = fbWife1.Locator("xpath=ancestor::div[contains(@class,'ft-partner-unit')][1]");
+        Assert.True(await partnerUnit.Locator(".family-tree-card").Filter(new() { Has = _page.GetByText("Cousin 1", new() { Exact = true }) }).CountAsync() > 0,
+            "Cousin 1 should render under FB Wife 1's partner-unit column");
+    }
+
+    [Fact]
+    public async Task ColumnLayout_VerticalPaternal_MeBetweenParents()
+    {
+        await AuthenticateAsync();
+        await GotoTreeAndWaitForGraphAsync();
+        await EnsureOrientationAsync("Vertical");
+        await EnsureLineageModeAsync(LineageMode.Paternal);
+
+        var father = await GetCardByExactNameMainAsync("Father");
+        var me = await GetCardByExactNameMainAsync("Me");
+        var mother = await GetCardByExactNameMainAsync("Mother");
+        Assert.NotNull(father);
+        Assert.NotNull(me);
+        Assert.NotNull(mother);
+
+        var fatherBox = await father.BoundingBoxAsync();
+        var meBox = await me.BoundingBoxAsync();
+        var motherBox = await mother.BoundingBoxAsync();
+        Assert.NotNull(fatherBox);
+        Assert.NotNull(meBox);
+        Assert.NotNull(motherBox);
+
+        Assert.True(fatherBox.X < meBox.X && meBox.X < motherBox.X,
+            $"Me (X={meBox.X}) should sit between Father (X={fatherBox.X}) and Mother (X={motherBox.X})");
+    }
+
+    [Fact]
+    public async Task ColumnLayout_VerticalPaternal_Wife2OnlyChild_IsIslandColumn()
+    {
+        await AuthenticateAsync();
+        await GotoTreeAndWaitForGraphAsync();
+        await EnsureOrientationAsync("Vertical");
+        await EnsureLineageModeAsync(LineageMode.Paternal);
+
+        var wife2Only = await GetCardByExactNameMainAsync("Wife2 Only Child");
+        var cousin3 = await GetCardByExactNameMainAsync("Cousin 3");
+        Assert.NotNull(wife2Only);
+        Assert.NotNull(cousin3);
+
+        var wife2Box = await wife2Only.BoundingBoxAsync();
+        var cousin3Box = await cousin3.BoundingBoxAsync();
+        Assert.NotNull(wife2Box);
+        Assert.NotNull(cousin3Box);
+
+        Assert.True(Math.Abs(wife2Box.X - cousin3Box.X) > 50f,
+            $"Wife2 Only Child island (X={wife2Box.X}) should not share column with Cousin 3 (X={cousin3Box.X})");
+        Assert.True(wife2Box.X > cousin3Box.X,
+            $"Wife2 Only Child island (X={wife2Box.X}) should be to the right of Cousin 3 (X={cousin3Box.X})");
+    }
+
+    [Fact]
+    public async Task TreeToolbar_ShowsLayoutAndLineagePills()
+    {
+        await AuthenticateAsync();
+        await GotoTreeAndWaitForGraphAsync();
+
+        await _page.Locator(".ft-subbar .ft-pills button", new() { HasText = "Vertical" }).WaitForAsync();
+        await _page.Locator(".ft-subbar .ft-pills button", new() { HasText = "Horizontal" }).WaitForAsync();
+        await _page.Locator(".ft-subbar .ft-pills button", new() { HasText = "Paternal" }).WaitForAsync();
+        await _page.Locator(".ft-subbar .ft-pills button", new() { HasText = "Maternal" }).WaitForAsync();
+        await _page.Locator(".ft-tree-picker-btn").WaitForAsync();
     }
 }

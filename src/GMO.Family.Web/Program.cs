@@ -111,6 +111,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 builder.Services.AddControllersWithViews();
 builder.Services.AddScoped<IEmailSender, LoggingEmailSender>();
 builder.Services.AddScoped<ICurrentFamilyTreeService, CurrentFamilyTreeService>();
+builder.Services.AddScoped<IFamilyTreeDeletionService, FamilyTreeDeletionService>();
 builder.Services.AddScoped<ITreeViewOrientationService, TreeViewOrientationService>();
 builder.Services.AddScoped<ILineageModeService, LineageModeService>();
 builder.Services.AddScoped<IDefaultFamilyTreeService, DefaultFamilyTreeService>();

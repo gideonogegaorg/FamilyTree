@@ -2,17 +2,17 @@
 @{
     ViewData["Title"] = Model.ActionLabel;
 }
-<h1>@Model.ActionLabel</h1>
-<p class="lead">Link an existing person in this tree as @Model.ActionLabel.ToLower() of <strong>@Model.ContextMemberName</strong>.</p>
+<h1 class="ft-page-title">@Model.ActionLabel</h1>
+<p class="ft-page-lead">Link an existing person as @Model.ActionLabel.ToLower() of <strong>@Model.ContextMemberName</strong>.</p>
 
 @if (Model.Candidates.Count == 0)
 {
-    <p class="text-muted">No one else in this tree can be linked (everyone is already linked, or the limit of two parents is reached).</p>
-    <a asp-controller="Home" asp-action="Index" class="btn btn-secondary">Back to tree</a>
+    <p class="text-muted">No one else in this tree can be linked.</p>
+    <a asp-controller="Home" asp-action="Index" class="btn btn-outline-secondary">Back to tree</a>
 }
 else
 {
-    <form asp-action="LinkExisting" method="post" class="row g-2">
+    <form asp-action="LinkExisting" method="post">
         <div asp-validation-summary="ModelOnly" class="text-danger"></div>
         <input type="hidden" asp-for="ContextMemberId" />
         <input type="hidden" asp-for="FamilyTreeId" />
@@ -20,7 +20,7 @@ else
         <input type="hidden" asp-for="IsChild" />
         <input type="hidden" asp-for="ContextMemberName" />
         <input type="hidden" asp-for="ActionLabel" />
-        <div class="col-12">
+        <div class="mb-3">
             <label class="form-label">Select person to link</label>
             <select asp-for="ExistingMemberId" class="form-select">
                 <option value="">-- Choose --</option>
@@ -31,9 +31,9 @@ else
             </select>
             <span asp-validation-for="ExistingMemberId" class="text-danger"></span>
         </div>
-        <div class="col-12">
+        <div class="ft-form-actions">
             <button type="submit" class="btn btn-primary">Link</button>
-            <a asp-controller="Home" asp-action="Index" class="btn btn-link">Cancel</a>
+            <a asp-controller="Home" asp-action="Index" class="ft-link">Cancel</a>
         </div>
     </form>
 }

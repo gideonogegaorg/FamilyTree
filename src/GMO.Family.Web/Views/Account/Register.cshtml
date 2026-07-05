@@ -5,35 +5,33 @@
     var returnUrl = ViewData["ReturnUrl"] as string ?? "/";
 }
 
-<div class="card login-card mx-auto bg-white p-4">
-    <div class="card-body p-0">
-        <h1 class="h4 mb-4 fw-bold text-dark">Family Tree</h1>
-        <h2 class="h5 mb-4 text-secondary">Create a free account</h2>
+<div class="ft-auth-card mx-auto">
+    <h1 class="ft-page-title">Family Tree</h1>
+    <p class="ft-auth-subtitle">Create a free account</p>
 
-        <form asp-action="Register" method="post" asp-route-returnUrl="@returnUrl">
-            <div asp-validation-summary="ModelOnly" class="text-danger mb-2" role="alert"></div>
-            <div class="mb-3">
-                <label asp-for="Email" class="form-label"></label>
-                <input asp-for="Email" class="form-control" autocomplete="username" />
-                <span asp-validation-for="Email" class="text-danger"></span>
-            </div>
-            <div class="mb-3">
-                <label asp-for="Password" class="form-label"></label>
-                <input asp-for="Password" class="form-control" autocomplete="new-password" />
-                <span asp-validation-for="Password" class="text-danger"></span>
-            </div>
-            <div class="mb-3">
-                <label asp-for="ConfirmPassword" class="form-label"></label>
-                <input asp-for="ConfirmPassword" class="form-control" autocomplete="new-password" />
-                <span asp-validation-for="ConfirmPassword" class="text-danger"></span>
-            </div>
-            <button type="submit" class="btn btn-dark w-100 mb-2">Register</button>
-        </form>
+    <form asp-action="Register" method="post" asp-route-returnUrl="@returnUrl">
+        <div asp-validation-summary="ModelOnly" class="text-danger mb-2" role="alert"></div>
+        <div class="mb-3">
+            <label asp-for="Email" class="form-label"></label>
+            <input asp-for="Email" class="form-control" autocomplete="username" />
+            <span asp-validation-for="Email" class="text-danger"></span>
+        </div>
+        <div class="mb-3">
+            <label asp-for="Password" class="form-label"></label>
+            <input asp-for="Password" class="form-control" autocomplete="new-password" />
+            <span asp-validation-for="Password" class="text-danger"></span>
+        </div>
+        <div class="mb-3">
+            <label asp-for="ConfirmPassword" class="form-label"></label>
+            <input asp-for="ConfirmPassword" class="form-control" autocomplete="new-password" />
+            <span asp-validation-for="ConfirmPassword" class="text-danger"></span>
+        </div>
+        <button type="submit" class="btn btn-primary w-100 mb-2">Register</button>
+    </form>
 
-        <p class="mb-0 text-center small">
-            <a asp-action="Login" asp-route-returnUrl="@returnUrl" class="text-primary text-decoration-none">Already have an account? Log in</a>
-        </p>
-    </div>
+    <p class="mb-0 text-center small">
+        <a asp-action="Login" asp-route-returnUrl="@returnUrl">Already have an account? Log in</a>
+    </p>
 </div>
 
 @section Scripts {

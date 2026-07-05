@@ -102,12 +102,15 @@ public sealed class AccountControllerFixture
         AppDbContext db,
         IExternalLoginInfoProvider externalLoginInfo,
         IUrlHelper? urlHelper = null,
-        IDefaultFamilyTreeService? defaultFamilyTreeService = null)
+        IDefaultFamilyTreeService? defaultFamilyTreeService = null,
+        IFamilyTreeDeletionService? familyTreeDeletion = null,
+        string? userId = null)
     {
         var currentTree = new CurrentFamilyTreeServiceMock().Object;
         var treeViewOrientation = new Mock<ITreeViewOrientationService>().Object;
         var lineageMode = new Mock<ILineageModeService>().Object;
         var defaultTree = defaultFamilyTreeService ?? new DefaultFamilyTreeServiceMock().Object;
+        var familyTreeDeletionService = familyTreeDeletion ?? new Mock<IFamilyTreeDeletionService>().Object;
         var env = new WebHostEnvironmentMock().Object;
         var paths = _fixture.Create<PathsOptions>();
         var urlHelperToUse = urlHelper ?? new UrlHelperMock().Object;
@@ -125,6 +128,7 @@ public sealed class AccountControllerFixture
             treeViewOrientation,
             lineageMode,
             defaultTree,
+            familyTreeDeletionService,
             env,
             Microsoft.Extensions.Options.Options.Create(paths),
             externalLoginInfo);
@@ -133,10 +137,13 @@ public sealed class AccountControllerFixture
         services.AddSingleton<IUrlHelperFactory>(new TestUrlHelperFactory(urlHelperToUse));
         services.AddSingleton<IAuthenticationService>(new NoOpAuthService());
         var requestServices = services.BuildServiceProvider();
-        controller.ControllerContext = new ControllerContext
+        var httpContext = new DefaultHttpContext { RequestServices = requestServices };
+        if (userId != null)
         {
-            HttpContext = new DefaultHttpContext { RequestServices = requestServices }
-        };
+            var identity = new ClaimsIdentity([new Claim(ClaimTypes.NameIdentifier, userId)], "test");
+            httpContext.User = new ClaimsPrincipal(identity);
+        }
+        controller.ControllerContext = new ControllerContext { HttpContext = httpContext };
         return controller;
     }
 
