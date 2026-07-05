@@ -192,7 +192,8 @@ jobs:
           dotnet tool run reportgenerator -- \
             "-reports:$REPORTS" \
             "-targetdir:../coverage/combined" \
-            "-reporttypes:Html;Cobertura"
+            "-reporttypes:Html;Cobertura" \
+            "-assemblyfilters:+GMO.FamilyTree.Web"
           echo "HTML report in coverage/combined/index.html"
 
       - name: Enforce coverage threshold

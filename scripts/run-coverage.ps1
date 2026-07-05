@@ -25,7 +25,7 @@ $targetDir = (Join-Path $root "coverage\combined").Replace("\", "/")
 Write-Host "Merging $($coberturaFiles.Count) coverage report(s) into coverage/combined..."
 Set-Location (Join-Path $root "src")
 dotnet tool restore
-dotnet tool run reportgenerator -- "-reports:$reports" "-targetdir:$targetDir" "-reporttypes:Html;Cobertura"
+dotnet tool run reportgenerator -- "-reports:$reports" "-targetdir:$targetDir" "-reporttypes:Html;Cobertura" "-assemblyfilters:+GMO.FamilyTree.Web"
 Set-Location $root
 
 Write-Host "Done. Open coverage/combined/index.html for the report. Merged Cobertura: coverage/combined/Cobertura.xml"
