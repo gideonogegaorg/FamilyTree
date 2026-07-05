@@ -61,6 +61,21 @@ Pushes to `prod` and `dev` trigger GitHub Actions to build, publish, and deploy 
 - **prod** → `https://family.<DEPLOY_DOMAIN>`
 - **dev** → `https://family-dev.<DEPLOY_DOMAIN>`
 
+### Branch workflow checklist
+
+`dev` is the default integration branch; `prod` is production (the former `main` branch).
+
+**Release (dev → prod):**
+
+- [ ] Feature PRs merge into `dev` and CI is green
+- [ ] Open **dev → prod** when ready to release; wait for prod deploy and `/health` on the live site
+
+**After prod changes (prod → dev back-merge):**
+
+- [ ] Confirm prod deploy succeeded
+- [ ] Open **prod → dev** so hotfixes and release commits are not lost on the default branch
+- [ ] Merge after CI passes before starting the next feature branch from `dev`
+
 The pipeline generates `appsettings.json` from the template on the **GitHub Actions runner** (using Environment secrets), publishes it into the site output, and copies that to EC2 via SCP. **Nothing with real credentials is ever committed to git** — only `appsettings.json.template` (with `^^PLACEHOLDERS^^`) is in the public repo; generated `appsettings.json` is gitignored and exists only on the runner during CI and on the private EC2 host after deploy. Logs and user uploads live outside the app folder: the pipeline ensures `$DEPLOY_PATH/logs` and `$DEPLOY_PATH/uploads` exist and configures the app to use them.
 
 The deploy job uses GitHub **Environments** (`prod` and `dev`). For each environment, configure:
