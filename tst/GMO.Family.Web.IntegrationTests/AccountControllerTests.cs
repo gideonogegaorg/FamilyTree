@@ -352,7 +352,7 @@ public class AccountControllerTests : IClassFixture<WebAppFixture>
     }
 
     [Fact]
-    public async Task UploadPhoto_GET_returns_200_when_authenticated()
+    public async Task UploadPhoto_GET_redirects_to_home_when_authenticated()
     {
         // Arrange
         // (_client is signed in)
@@ -361,46 +361,56 @@ public class AccountControllerTests : IClassFixture<WebAppFixture>
         var response = await _client.GetAsync("/Account/UploadPhoto");
 
         // Assert
-        response.EnsureSuccessStatusCode();
-        var html = await response.Content.ReadAsStringAsync();
-        Assert.Contains("Upload", html);
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        var location = response.Headers.Location?.ToString() ?? "";
+        Assert.True(location == "/" || location.Contains("/Home", StringComparison.OrdinalIgnoreCase),
+            $"Expected redirect to home, got: {location}");
     }
 
     [Fact]
-    public async Task UploadPhoto_POST_without_file_redirects_with_error()
+    public async Task UploadPhoto_POST_without_file_returns_json_error()
     {
         // Arrange
-        var token = await GetAntiforgeryTokenAsync(_client, "/Account/UploadPhoto");
-        var form = new Dictionary<string, string> { ["__RequestVerificationToken"] = token };
+        var token = await GetAntiforgeryTokenAsync(_client, "/");
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/Account/UploadPhoto");
+        request.Headers.Add("Accept", "application/json");
+        request.Headers.Add("X-Requested-With", "XMLHttpRequest");
+        request.Content = new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["__RequestVerificationToken"] = token
+        });
 
         // Act
-        var response = await _client.PostAsync("/Account/UploadPhoto", new FormUrlEncodedContent(form));
+        var response = await _client.SendAsync(request);
 
         // Assert
-        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
-        var redirectResponse = await _client.GetAsync(response.Headers.Location);
-        var html = await redirectResponse.Content.ReadAsStringAsync();
-        Assert.Contains("Please select an image file", html);
+        response.EnsureSuccessStatusCode();
+        var json = await response.Content.ReadAsStringAsync();
+        Assert.Contains("Please select an image file", json);
     }
 
     [Fact]
-    public async Task UploadPhoto_POST_with_valid_image_redirects_with_success()
+    public async Task UploadPhoto_POST_with_valid_image_returns_json_success()
     {
         // Arrange: minimal PNG (1x1)
         var pngBytes = new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x02, 0x00, 0x00, 0x00, 0x90, 0x77, 0x53, 0xDE, 0x00, 0x00, 0x00, 0x0C, 0x49, 0x44, 0x41, 0x54, 0x08, 0xD7, 0x63, 0xF8, 0xFF, 0xFF, 0x3F, 0x00, 0x05, 0xFE, 0x02, 0xFE, 0xDC, 0xCC, 0x59, 0xE7, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82 };
-        var token = await GetAntiforgeryTokenAsync(_client, "/Account/UploadPhoto");
+        var token = await GetAntiforgeryTokenAsync(_client, "/");
         using var content = new MultipartFormDataContent();
         content.Add(new StringContent(token), "__RequestVerificationToken");
         content.Add(new ByteArrayContent(pngBytes), "photo", "photo.png");
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/Account/UploadPhoto");
+        request.Headers.Add("Accept", "application/json");
+        request.Headers.Add("X-Requested-With", "XMLHttpRequest");
+        request.Content = content;
 
         // Act
-        var response = await _client.PostAsync("/Account/UploadPhoto", content);
+        var response = await _client.SendAsync(request);
 
         // Assert
-        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
-        var redirectResponse = await _client.GetAsync(response.Headers.Location);
-        var html = await redirectResponse.Content.ReadAsStringAsync();
-        Assert.Contains("Profile picture updated", html);
+        response.EnsureSuccessStatusCode();
+        var json = await response.Content.ReadAsStringAsync();
+        Assert.Contains("\"success\":true", json);
+        Assert.Contains("/photos/profiles/me", json);
     }
 
     [Fact]
@@ -441,6 +451,13 @@ public class AccountControllerTests : IClassFixture<WebAppFixture>
     private static async Task<string> GetAntiforgeryTokenAsync(HttpClient client, string pageUrl)
     {
         var getResponse = await client.GetAsync(pageUrl);
+        for (var i = 0; i < 5 && getResponse.StatusCode == HttpStatusCode.Redirect; i++)
+        {
+            var location = getResponse.Headers.Location;
+            if (location == null) break;
+            var nextUrl = location.IsAbsoluteUri ? location.PathAndQuery : location.ToString();
+            getResponse = await client.GetAsync(nextUrl);
+        }
         getResponse.EnsureSuccessStatusCode();
         var html = await getResponse.Content.ReadAsStringAsync();
         return GetAntiforgeryTokenFromHtml(html);

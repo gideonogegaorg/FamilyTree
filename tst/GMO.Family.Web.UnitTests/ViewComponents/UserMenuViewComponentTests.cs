@@ -36,7 +36,7 @@ public class UserMenuViewComponentTests
         db.UserProfiles.Add(new UserProfile
         {
             UserId = "user-1",
-            PhotoUrl = "/photos/me.jpg"
+            PhotoKey = "profiles/user-1.jpg"
         });
         await db.SaveChangesAsync();
 
@@ -48,7 +48,7 @@ public class UserMenuViewComponentTests
         var model = GetModel(await component.InvokeAsync());
 
         Assert.Equal("test@example.com", model.Email);
-        Assert.Equal("/photos/me.jpg", model.PhotoUrl);
+        Assert.Equal("/photos/profiles/me", model.PhotoUrl);
     }
 
     [Fact]

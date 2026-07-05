@@ -21,14 +21,16 @@ public class HomeController : Controller
     private readonly ICurrentFamilyTreeService _currentTree;
     private readonly ITreeViewOrientationService _treeViewOrientation;
     private readonly ILineageModeService _lineageMode;
+    private readonly ITreeCardViewModeService _treeCardViewMode;
     private readonly IOptionsMonitor<GoogleAuthOptions> _googleAuth;
 
-    public HomeController(AppDbContext db, ICurrentFamilyTreeService currentTree, ITreeViewOrientationService treeViewOrientation, ILineageModeService lineageMode, IOptionsMonitor<GoogleAuthOptions> googleAuth)
+    public HomeController(AppDbContext db, ICurrentFamilyTreeService currentTree, ITreeViewOrientationService treeViewOrientation, ILineageModeService lineageMode, ITreeCardViewModeService treeCardViewMode, IOptionsMonitor<GoogleAuthOptions> googleAuth)
     {
         _db = db;
         _currentTree = currentTree;
         _treeViewOrientation = treeViewOrientation;
         _lineageMode = lineageMode;
+        _treeCardViewMode = treeCardViewMode;
         _googleAuth = googleAuth;
     }
 
@@ -85,7 +87,8 @@ public class HomeController : Controller
             ChildIds = c.ChildIds,
             PartnerIds = c.PartnerIds,
             c.BirthOrder,
-            c.IsMale
+            c.IsMale,
+            HasPhoto = memberDict.TryGetValue(c.Id, out var mem) && !string.IsNullOrEmpty(mem.PhotoKey)
         }), jsonOpts);
 
         var edgesJson = JsonSerializer.Serialize(rels.Select(r => new
@@ -102,6 +105,7 @@ public class HomeController : Controller
         }), jsonOpts);
 
         var orientation = await _treeViewOrientation.GetOrientationAsync(cancellationToken);
+        var cardViewMode = await _treeCardViewMode.GetAsync(cancellationToken);
 
         var model = new FamilyTreeGraphViewModel
         {
@@ -111,6 +115,7 @@ public class HomeController : Controller
             FocusMemberId = focusMemberId,
             TreeViewOrientation = orientation,
             LineageMode = lineageMode,
+            TreeCardViewMode = cardViewMode,
             Members = cards,
             NodesJson = nodesJson,
             EdgesJson = edgesJson

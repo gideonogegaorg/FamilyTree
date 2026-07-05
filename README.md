@@ -8,6 +8,14 @@ For features, testing, and setup see **[docs/](docs/)**: [docs/README.md](docs/R
 
 ## Local setup
 
+Start dependencies (PostgreSQL + MinIO S3):
+
+```bash
+docker compose up -d
+```
+
+MinIO serves the same bucket name as production (`gideonogega-internal`) at **http://localhost:9000** (console: **http://localhost:9001**, `minioadmin` / `minioadmin`). Object keys use prefix `family/local/` — matching prod layout with a local environment segment.
+
 `appsettings.json` is **gitignored** and generated from [appsettings.json.template](src/GMO.Family.Web/appsettings.json.template). To set up for local dev:
 
 ```bash
@@ -41,6 +49,8 @@ Restore requires authentication to the GMO GitHub Packages feed when using `GMO.
 ```bash
 dotnet run --project src/GMO.Family.Web
 ```
+
+With `docker compose up -d` running, launch profiles default to **Local** filesystem storage under `Paths:UploadsPath` (see [launchSettings.json](src/GMO.Family.Web/Properties/launchSettings.json)). To exercise S3 parity with MinIO, set `Photos__Provider=S3` (MinIO at `http://localhost:9000`, bucket `gideonogega-internal`, prefix `family/local/`).
 
 Then open https://localhost:7295 (HTTPS) or http://localhost:5229 (HTTP) from [launchSettings](src/GMO.Family.Web/Properties/launchSettings.json), or the URL shown in the console.
 

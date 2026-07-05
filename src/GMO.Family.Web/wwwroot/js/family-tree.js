@@ -43,7 +43,8 @@
             visualRank: n.visualRank != null ? parseFloat(n.visualRank) : 0,
             parentIds: (n.parentIds || []).map(toId),
             childIds: (n.childIds || []).map(toId),
-            partnerIds: (n.partnerIds || []).map(toId)
+            partnerIds: (n.partnerIds || []).map(toId),
+            hasPhoto: !!n.hasPhoto
         };
     });
 
@@ -215,10 +216,20 @@
         var content = document.createElement('div');
         content.className = 'family-tree-card-content';
 
-        var avatar = document.createElement('div');
-        avatar.className = 'family-tree-card-avatar';
-        avatar.setAttribute('aria-hidden', 'true');
-        avatar.textContent = initials(node.label);
+        var avatar = document.createElement('button');
+        avatar.type = 'button';
+        avatar.className = 'family-tree-card-avatar member-photo-trigger';
+        avatar.setAttribute('aria-label', 'Add or change picture for ' + node.label);
+        avatar.title = 'Add or change picture';
+        if (node.hasPhoto) {
+            var img = document.createElement('img');
+            img.src = '/photos/members/' + node.id;
+            img.alt = '';
+            img.className = 'family-tree-card-photo';
+            avatar.appendChild(img);
+        } else {
+            avatar.textContent = initials(node.label);
+        }
 
         var text = document.createElement('div');
         text.className = 'family-tree-card-text';
@@ -257,6 +268,69 @@
         card.appendChild(trigger);
         return card;
     }
+
+    function memberPhotoUrl(memberId) {
+        return '/photos/members/' + toId(memberId) + '?t=' + Date.now();
+    }
+
+    function findMemberCards(memberId) {
+        var id = toId(memberId);
+        var cards = [];
+        container.querySelectorAll('.family-tree-card').forEach(function (card) {
+            if (toId(card.getAttribute('data-member-id')) === id) cards.push(card);
+        });
+        container.querySelectorAll('.family-tree-card[id="member-' + id + '"], .family-tree-card[id^="member-' + id + '-"]').forEach(function (card) {
+            if (cards.indexOf(card) < 0) cards.push(card);
+        });
+        return cards;
+    }
+
+    function setCardAvatar(avatar, hasPhoto, memberId) {
+        if (!avatar) return;
+        var node = nodeById[toId(memberId)];
+        avatar.innerHTML = '';
+        if (hasPhoto) {
+            var img = document.createElement('img');
+            img.src = memberPhotoUrl(memberId);
+            img.alt = '';
+            img.className = 'family-tree-card-photo';
+            avatar.appendChild(img);
+        } else {
+            avatar.textContent = node ? initials(node.label) : '?';
+        }
+    }
+
+    function updateMemberPhoto(memberId, hasPhoto, sourceCard) {
+        var id = toId(memberId);
+        if (nodeById[id]) nodeById[id].hasPhoto = !!hasPhoto;
+
+        var cards = findMemberCards(id);
+        if (sourceCard && cards.indexOf(sourceCard) < 0) cards.push(sourceCard);
+
+        cards.forEach(function (card) {
+            setCardAvatar(card.querySelector('.family-tree-card-avatar'), hasPhoto, id);
+        });
+    }
+
+    function updateMemberEditPhotoPreview(form, memberId, hasPhoto) {
+        if (!form) return;
+        var wrap = form.querySelector('.member-photo-preview-wrap');
+        var preview = form.querySelector('.member-edit-photo-preview');
+        var removeBtn = form.querySelector('.member-photo-remove-btn');
+        if (!wrap || !preview) return;
+        if (hasPhoto) {
+            preview.src = memberPhotoUrl(memberId);
+            wrap.classList.remove('d-none');
+            if (removeBtn) removeBtn.classList.remove('d-none');
+        } else {
+            wrap.classList.add('d-none');
+            if (removeBtn) removeBtn.classList.add('d-none');
+        }
+    }
+
+    window.FamilyTreePhotos = {
+        updateMemberPhoto: updateMemberPhoto
+    };
 
     function computeDepthById() {
         var depthById = {};
@@ -879,6 +953,7 @@
     function openPopupForCard(cardEl) {
         var memberId = cardEl.getAttribute('data-member-id');
         if (!memberId) return;
+        popup._sourceCard = cardEl;
         var rect = cardEl.getBoundingClientRect();
         popup.innerHTML = '<div class="text-muted small p-2">Loading\u2026</div>';
         popup.style.display = '';
@@ -902,6 +977,23 @@
     }
 
     container.addEventListener('click', function (e) {
+        var avatar = e.target.closest('.member-photo-trigger');
+        if (avatar) {
+            e.preventDefault();
+            e.stopPropagation();
+            var card = avatar.closest('.family-tree-card');
+            if (!card || !window.MemberPhoto) return;
+            var memberId = card.getAttribute('data-member-id');
+            var node = nodeById[toId(memberId)];
+            window.MemberPhoto.open({
+                memberId: memberId,
+                label: node ? node.label : card.getAttribute('aria-label') || '',
+                hasPhoto: node ? !!node.hasPhoto : !!avatar.querySelector('.family-tree-card-photo'),
+                sourceCard: card
+            });
+            return;
+        }
+
         var trigger = e.target.closest('.member-action-trigger');
         var card = e.target.closest('.family-tree-card');
         if (trigger) {
@@ -1035,6 +1127,37 @@
     function initEditPanel(menu) {
         var form = menu.querySelector('.cascading-edit-form');
         if (!form) return;
+
+        var photoInput = form.querySelector('.member-photo-input');
+        var removeBtn = form.querySelector('.member-photo-remove-btn');
+        var memberId = form.getAttribute('data-member-id');
+
+        if (photoInput) {
+            photoInput.addEventListener('change', function () {
+                if (!photoInput.files || photoInput.files.length === 0) return;
+                var upload = window.PhotoUpload && window.PhotoUpload.uploadMemberPhoto;
+                if (!upload) return;
+
+                upload(memberId, photoInput.files[0], { sourceCard: popup._sourceCard })
+                    .then(function () {
+                        updateMemberEditPhotoPreview(form, memberId, true);
+                        photoInput.value = '';
+                    })
+                    .catch(function (err) { alert(err.message || 'Failed to upload photo.'); });
+            });
+        }
+
+        if (removeBtn) {
+            removeBtn.addEventListener('click', function () {
+                var remove = window.PhotoUpload && window.PhotoUpload.removeMemberPhoto;
+                if (!remove) return;
+
+                remove(memberId, { sourceCard: popup._sourceCard })
+                    .then(function () { updateMemberEditPhotoPreview(form, memberId, false); })
+                    .catch(function (err) { alert(err.message || 'Failed to remove photo.'); });
+            });
+        }
+
         form.addEventListener('submit', function (e) {
             e.preventDefault();
             fetch('/FamilyMember/EditMember', { method: 'POST', body: new URLSearchParams(new FormData(form)) })
