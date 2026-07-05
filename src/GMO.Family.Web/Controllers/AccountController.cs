@@ -26,6 +26,7 @@ public class AccountController : Controller
     private readonly ITreeViewOrientationService _treeViewOrientation;
     private readonly ILineageModeService _lineageMode;
     private readonly IDefaultFamilyTreeService _defaultFamilyTree;
+    private readonly IFamilyTreeDeletionService _familyTreeDeletion;
     private readonly IWebHostEnvironment _env;
     private readonly PathsOptions _paths;
     private readonly IExternalLoginInfoProvider _externalLoginInfo;
@@ -40,6 +41,7 @@ public class AccountController : Controller
         ITreeViewOrientationService treeViewOrientation,
         ILineageModeService lineageMode,
         IDefaultFamilyTreeService defaultFamilyTree,
+        IFamilyTreeDeletionService familyTreeDeletion,
         IWebHostEnvironment env,
         IOptions<PathsOptions> paths,
         IExternalLoginInfoProvider externalLoginInfo)
@@ -53,6 +55,7 @@ public class AccountController : Controller
         _treeViewOrientation = treeViewOrientation;
         _lineageMode = lineageMode;
         _defaultFamilyTree = defaultFamilyTree;
+        _familyTreeDeletion = familyTreeDeletion;
         _env = env;
         _paths = paths.Value;
         _externalLoginInfo = externalLoginInfo;
@@ -359,6 +362,19 @@ public class AccountController : Controller
             : TreeViewOrientation.Horizontal;
         await _treeViewOrientation.SetOrientationAsync(value, cancellationToken);
         return RedirectToAction("Index", "Home");
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> DeleteFamilyTree(long id, CancellationToken cancellationToken)
+    {
+        var userId = _userManager.GetUserId(User);
+        if (userId == null) return NotFound();
+
+        var result = await _familyTreeDeletion.DeleteAsync(userId, id, cancellationToken);
+        return result == FamilyTreeDeleteResult.NotFound
+            ? NotFound()
+            : RedirectToAction("Index", "Home");
     }
 
     [HttpPost]

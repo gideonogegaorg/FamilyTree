@@ -4,24 +4,15 @@
     var container = document.getElementById('family-tree-graph');
     if (!container) return;
 
-    // Match server enums: TreeViewOrientation (Horizontal, Vertical), LineageMode (Paternal, Maternal)
-    var ORIENTATION_HORIZONTAL = 'Horizontal';
-    var ORIENTATION_VERTICAL = 'Vertical';
-    var LINEAGE_PATERNAL = 'Paternal';
-    var LINEAGE_MATERNAL = 'Maternal';
-
-    var orientation = (container.getAttribute('data-orientation') || ORIENTATION_HORIZONTAL).toString();
-    if (orientation === ORIENTATION_HORIZONTAL) container.classList.add('ft-orientation-horizontal');
+    var orientation = (container.getAttribute('data-orientation') || 'Horizontal').toString();
+    if (orientation === 'Horizontal' || orientation === '0') container.classList.add('ft-orientation-horizontal');
 
     var rawNodes = JSON.parse(container.getAttribute('data-nodes') || '[]');
-    var focusMemberId = container.getAttribute('data-focus-member-id');
+    var rawEdges = JSON.parse(container.getAttribute('data-edges') || '[]');
 
-    var lineageMode = (container.getAttribute('data-lineage-mode') || LINEAGE_PATERNAL).toString();
-    var isPaternal = lineageMode !== LINEAGE_MATERNAL;
+    var lineageMode = (container.getAttribute('data-lineage-mode') || 'Paternal').toString();
+    var isPaternal = lineageMode !== '1' && lineageMode !== 'Maternal';
     function isPrimary(node) { return isPaternal ? node.isMale : !node.isMale; }
-
-    var BIRTH_ORDER_LAST = 9999;
-    var SPACER_ALIGN_DELAY_MS = 50;
 
     var depthById = null; // Will be set later
     function dominates(nodeA, nodeB) {
@@ -70,8 +61,8 @@
         Object.keys(groups).forEach(function (key) {
             groups[key].childIds.sort(function (a, b) {
                 var na = nodeById[a], nb = nodeById[b];
-                var oa = (na && na.birthOrder) || BIRTH_ORDER_LAST;
-                var ob = (nb && nb.birthOrder) || BIRTH_ORDER_LAST;
+                var oa = (na && na.birthOrder) || 9999;
+                var ob = (nb && nb.birthOrder) || 9999;
                 return (oa - ob) || (a - b);
             });
         });
@@ -176,30 +167,87 @@
         });
     }
 
+    function initials(name) {
+        var parts = name.split(/\s+/).filter(Boolean);
+        if (parts.length >= 2) {
+            return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+        }
+        return parts[0] ? parts[0].slice(0, 2).toUpperCase() : '?';
+    }
+
+    function birthYear(dob) {
+        if (!dob) return null;
+        var s = String(dob);
+        return s.length >= 4 ? s.substring(0, 4) : s;
+    }
+
+    function createSeeChildrenButton(scrollToElementId) {
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'ft-expand-down btn btn-sm btn-outline-secondary';
+        btn.setAttribute('aria-label', 'See children');
+        btn.textContent = '\u25BE children';
+        btn.addEventListener('click', function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            focusMemberCard(scrollToElementId);
+        });
+        return btn;
+    }
+
+    function focusMemberCard(elementId) {
+        if (window.FamilyTreeViewport) {
+            var memberId = elementId.replace(/^member-/, '');
+            if (window.FamilyTreeViewport.focusMember(memberId)) return;
+        }
+        var el = document.getElementById(elementId);
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
     function createCard(node, idSuffix) {
         var card = document.createElement('div');
         card.className = 'family-tree-card' + (node.isMe ? ' family-tree-card-me' : '');
         card.id = idSuffix ? 'member-' + node.id + '-' + idSuffix : 'member-' + node.id;
         card.setAttribute('data-member-id', node.id);
         card.setAttribute('data-visual-rank', node.visualRank);
-        var label = node.label;
-        if (node.dob) label += '\nDOB: ' + node.dob;
-        var lines = label.split('\n');
+        card.setAttribute('aria-label', node.label);
+
         var content = document.createElement('div');
         content.className = 'family-tree-card-content';
-        lines.forEach(function (line) {
-            var p = document.createElement('div');
-            p.className = 'family-tree-card-label';
-            p.textContent = line;
-            content.appendChild(p);
-        });
+
+        var avatar = document.createElement('div');
+        avatar.className = 'family-tree-card-avatar';
+        avatar.setAttribute('aria-hidden', 'true');
+        avatar.textContent = initials(node.label);
+
+        var text = document.createElement('div');
+        text.className = 'family-tree-card-text';
+
+        var nameEl = document.createElement('div');
+        nameEl.className = 'family-tree-card-name';
+        nameEl.textContent = node.label;
+        nameEl.title = node.label;
+        text.appendChild(nameEl);
+
+        var year = birthYear(node.dob);
+        if (year) {
+            var meta = document.createElement('div');
+            meta.className = 'family-tree-card-meta';
+            meta.textContent = 'b. ' + year;
+            text.appendChild(meta);
+        }
+
         if (node.isMe) {
             var meBadge = document.createElement('span');
-            meBadge.className = 'badge bg-primary family-tree-card-me-badge';
-            meBadge.textContent = 'me';
-            content.appendChild(meBadge);
+            meBadge.className = 'family-tree-card-you-badge';
+            meBadge.textContent = 'You';
+            text.appendChild(meBadge);
         }
+
+        content.appendChild(avatar);
+        content.appendChild(text);
         card.appendChild(content);
+
         var trigger = document.createElement('button');
         trigger.type = 'button';
         trigger.className = 'member-action-trigger btn btn-sm btn-link p-0';
@@ -238,238 +286,145 @@
         return depthById;
     }
 
-    function createSeeChildrenButton(scrollToMemberId) {
-        var btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'ft-expand-down btn btn-sm btn-outline-secondary mt-1';
-        btn.setAttribute('aria-label', 'See children');
-        btn.innerHTML = '\u25BC See children';
-        btn.addEventListener('click', function (e) {
-            e.stopPropagation();
-            var el = document.getElementById('member-' + scrollToMemberId);
-            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-        });
-        return btn;
-    }
+    var rendered = {};
 
     function createLeafJumpBranch(node, scrollToMemberId) {
         var branch = document.createElement('div');
         branch.className = 'ft-branch ft-branch-leaf';
         var card = createCard(node, 'leaf');
-        card.appendChild(createSeeChildrenButton(scrollToMemberId));
+        card.appendChild(createSeeChildrenButton('member-' + scrollToMemberId));
         branch.appendChild(card);
         return branch;
     }
 
-    depthById = computeDepthById();
-
-    function compareRootOrder(idA, idB) {
-        var primaryA = clusterHasPrimaryDescendant([idA]);
-        var primaryB = clusterHasPrimaryDescendant([idB]);
-        if (primaryA && !primaryB) return -1;
-        if (!primaryA && primaryB) return 1;
-        var nodeA = nodeById[idA], nodeB = nodeById[idB];
-        var priA = nodeA && isPrimary(nodeA);
-        var priB = nodeB && isPrimary(nodeB);
-        if (priA && !priB) return -1;
-        if (!priA && priB) return 1;
-        return idA - idB;
-    }
-
-    var allIds = rawNodes.map(function (n) { return toId(n.id); });
-    allIds.sort(function (a, b) {
-        var da = depthById[a] || 0;
-        var db = depthById[b] || 0;
-        if (db !== da) return db - da;
-        if (da === 0) return compareRootOrder(a, b);
-        var nodeA = nodeById[a], nodeB = nodeById[b];
-        if (nodeA && isPrimary(nodeA) && !(nodeB && isPrimary(nodeB))) return -1;
-        if (!(nodeA && isPrimary(nodeA)) && nodeB && isPrimary(nodeB)) return 1;
-        return a - b;
-    });
-
-    var branchCache = {};
-
-    function buildNoFamiliesBranch(node) {
-        var b = document.createElement('div');
-        b.className = 'ft-branch';
-        b.appendChild(createCard(node));
-        return b;
-    }
-
-    function buildPrimaryPartnerWithChildrenBranch(memberId, node, primaryPartnerId, ownFamilies) {
-        var branch = document.createElement('div');
-        branch.className = 'ft-branch';
-        var card = createCard(node);
-        card.appendChild(createSeeChildrenButton(primaryPartnerId));
-        var unit = document.createElement('div');
-        unit.className = 'ft-unit';
-        var parents = document.createElement('div');
-        parents.className = 'ft-parents';
-        parents.appendChild(card);
-        if (ownFamilies.length === 1) {
-            var fam = ownFamilies[0];
-            if (fam.partnerId && nodeById[fam.partnerId]) {
-                var cl = document.createElement('div');
-                cl.className = 'ft-couple-link';
-                parents.appendChild(cl);
-                var partnerHasOwnBranch = (fam.partnerId in branchCache) && branchCache[fam.partnerId] !== null;
-                parents.appendChild(createCard(nodeById[fam.partnerId], partnerHasOwnBranch ? 'ref' : undefined));
-            }
-            unit.appendChild(parents);
-            if ((fam.childIds || []).length > 0) {
-                var children = document.createElement('div');
-                children.className = 'ft-children';
-                (fam.childIds || []).forEach(function (cid) {
-                    var cb = buildBranchBottomUp(cid);
-                    if (cb) children.appendChild(cb);
+    function renderBranch(memberId) {
+        var node = nodeById[memberId];
+        if (!node) return null;
+        if (rendered[memberId]) {
+            var domPartnerId = null;
+            if (node.partnerIds.length) {
+                node.partnerIds.forEach(function (pid) {
+                    if (nodeById[pid] && dominates(nodeById[pid], node)) domPartnerId = pid;
                 });
-                if (children.childNodes.length > 0) unit.appendChild(children);
             }
-        } else {
-            unit.appendChild(parents);
-            var ownAllChildIds = [];
-            ownFamilies.forEach(function (fam) {
-                if (fam.partnerId && nodeById[fam.partnerId]) {
-                    var cl = document.createElement('div');
-                    cl.className = 'ft-couple-link';
-                    parents.appendChild(cl);
-                    var partnerHasOwnBranch = (fam.partnerId in branchCache) && branchCache[fam.partnerId] !== null;
-                    parents.appendChild(createCard(nodeById[fam.partnerId], partnerHasOwnBranch ? 'ref' : undefined));
-                }
-                (fam.childIds || []).forEach(function (cid) { ownAllChildIds.push(cid); });
-            });
-            if (ownAllChildIds.length > 0) {
-                var children = document.createElement('div');
-                children.className = 'ft-children';
-                ownAllChildIds.forEach(function (cid) {
-                    var cb = buildBranchBottomUp(cid);
-                    if (cb) children.appendChild(cb);
-                });
-                if (children.childNodes.length > 0) unit.appendChild(children);
-            }
+            if (domPartnerId) return createLeafJumpBranch(node, domPartnerId);
+            return null;
         }
-        branch.appendChild(unit);
-        return branch;
-    }
+        rendered[memberId] = true;
 
-    function buildSinglePartnerBranch(memberId, node, families) {
+        var families = getPartnerFamilies(memberId);
+
+        if (families.length === 0) {
+            var branch = document.createElement('div');
+            branch.className = 'ft-branch';
+            branch.appendChild(createCard(node));
+            return branch;
+        }
+
         var branch = document.createElement('div');
         branch.className = 'ft-branch';
-        var unit = document.createElement('div');
-        unit.className = 'ft-unit';
-        var parents = document.createElement('div');
-        parents.className = 'ft-parents';
-        parents.appendChild(createCard(node));
-        families.forEach(function (fam) {
+
+        if (families.length === 1) {
+            var fam = families[0];
+            var unit = document.createElement('div');
+            unit.className = 'ft-unit';
+
+            var parents = document.createElement('div');
+            parents.className = 'ft-parents';
+            parents.appendChild(createCard(node));
+
             if (fam.partnerId && nodeById[fam.partnerId]) {
                 var coupleLink = document.createElement('div');
                 coupleLink.className = 'ft-couple-link';
                 parents.appendChild(coupleLink);
                 parents.appendChild(createCard(nodeById[fam.partnerId]));
+                rendered[fam.partnerId] = true;
             }
-        });
-        unit.appendChild(parents);
-        var allChildIds = [];
-        families.forEach(function (fam) {
-            (fam.childIds || []).forEach(function (cid) { allChildIds.push(cid); });
-        });
-        if (allChildIds.length > 0) {
-            var children = document.createElement('div');
-            children.className = 'ft-children';
-            allChildIds.forEach(function (cid) {
-                var childBranch = buildBranchBottomUp(cid);
-                if (childBranch) children.appendChild(childBranch);
-            });
-            if (children.childNodes.length > 0) unit.appendChild(children);
-        }
-        branch.appendChild(unit);
-        return branch;
-    }
+            unit.appendChild(parents);
 
-    function buildMultiPartnerBranch(memberId, node, families) {
-        function hasBothParents(cid, partnerId) {
-            var c = nodeById[cid];
-            if (!c || !c.parentIds) return false;
-            return c.parentIds.indexOf(memberId) >= 0 && (partnerId == null || c.parentIds.indexOf(partnerId) >= 0);
-        }
-        function onlyThisParent(cid) {
-            var c = nodeById[cid];
-            return c && c.parentIds && c.parentIds.length === 1 && c.parentIds[0] === memberId;
-        }
-        var singleParentChildIds = [];
-        families.forEach(function (fam) {
-            (fam.childIds || []).forEach(function (cid) {
-                if (onlyThisParent(cid)) singleParentChildIds.push(cid);
-            });
-        });
-        families = families.map(function (fam) {
-            if (fam.partnerId != null) {
-                var filtered = (fam.childIds || []).filter(function (cid) {
-                    return hasBothParents(cid, fam.partnerId);
-                });
-                return { partnerId: fam.partnerId, childIds: filtered };
-            }
-            return { partnerId: fam.partnerId, childIds: singleParentChildIds };
-        });
-        if (singleParentChildIds.length > 0 && !families.some(function (f) { return f.partnerId == null; }))
-            families.push({ partnerId: null, childIds: singleParentChildIds });
-
-        var branch = document.createElement('div');
-        branch.className = 'ft-branch';
-        var unit = document.createElement('div');
-        unit.className = 'ft-unit';
-        var parents = document.createElement('div');
-        parents.className = 'ft-parents';
-        parents.appendChild(createCard(node));
-        unit.appendChild(parents);
-        var partnerUnits = document.createElement('div');
-        partnerUnits.className = 'ft-partner-units';
-        var sortedFamilies = families.slice().sort(function (a, b) {
-            var aHasPartner = a.partnerId != null ? 1 : 0;
-            var bHasPartner = b.partnerId != null ? 1 : 0;
-            return bHasPartner - aHasPartner;
-        });
-        sortedFamilies.forEach(function (fam) {
-            var partnerUnit = document.createElement('div');
-            partnerUnit.className = 'ft-partner-unit' + (fam.partnerId == null ? ' ft-partner-unit-single' : '');
-            if (fam.partnerId && nodeById[fam.partnerId]) {
-                var coupleLink = document.createElement('div');
-                coupleLink.className = 'ft-couple-link';
-                partnerUnit.appendChild(coupleLink);
-                var partnerHasOwnBranch = (fam.partnerId in branchCache) && branchCache[fam.partnerId] !== null;
-                partnerUnit.appendChild(createCard(nodeById[fam.partnerId], partnerHasOwnBranch ? 'ref' : undefined));
-            }
-            if ((fam.childIds || []).length > 0) {
+            if (fam.childIds.length > 0) {
                 var children = document.createElement('div');
                 children.className = 'ft-children';
                 fam.childIds.forEach(function (cid) {
-                    var childBranch = buildBranchBottomUp(cid);
+                    var childBranch = renderBranch(cid);
                     if (childBranch) children.appendChild(childBranch);
                 });
-                if (children.childNodes.length > 0) partnerUnit.appendChild(children);
+                if (children.childNodes.length > 0) unit.appendChild(children);
             }
-            if (partnerUnit.childNodes.length > 0) partnerUnits.appendChild(partnerUnit);
-        });
-        if (partnerUnits.childNodes.length > 0) unit.appendChild(partnerUnits);
-        branch.appendChild(unit);
+            branch.appendChild(unit);
+        } else {
+            branch.appendChild(createCard(node));
+
+            var stack = document.createElement('div');
+            stack.className = 'ft-member-families';
+
+            families.forEach(function (fam) {
+                var unit = document.createElement('div');
+                unit.className = 'ft-unit';
+
+                var parents = document.createElement('div');
+                parents.className = 'ft-parents';
+                if (fam.partnerId && nodeById[fam.partnerId]) {
+                    parents.appendChild(createCard(nodeById[fam.partnerId]));
+                    rendered[fam.partnerId] = true;
+                }
+                unit.appendChild(parents);
+
+                if (fam.childIds.length > 0) {
+                    var children = document.createElement('div');
+                    children.className = 'ft-children';
+                    fam.childIds.forEach(function (cid) {
+                        var childBranch = renderBranch(cid);
+                        if (childBranch) children.appendChild(childBranch);
+                    });
+                    if (children.childNodes.length > 0) unit.appendChild(children);
+                }
+                stack.appendChild(unit);
+            });
+            branch.appendChild(stack);
+        }
         return branch;
     }
 
+    depthById = computeDepthById();
+    var allIds = rawNodes.map(function (n) { return toId(n.id); });
+    allIds.sort(function (a, b) {
+        var da = depthById[a] || 0;
+        var db = depthById[b] || 0;
+        if (db !== da) return db - da;
+        var nodeA = nodeById[a], nodeB = nodeById[b];
+        if (da === 0) {
+            var primaryA = clusterHasPrimaryDescendant([a]);
+            var primaryB = clusterHasPrimaryDescendant([b]);
+            if (primaryA && !primaryB) return -1;
+            if (!primaryA && primaryB) return 1;
+        } else {
+            if (nodeA && isPrimary(nodeA) && !(nodeB && isPrimary(nodeB))) return -1;
+            if (!(nodeA && isPrimary(nodeA)) && nodeB && isPrimary(nodeB)) return 1;
+        }
+        return a - b;
+    });
+
+    var branchCache = {};
     function buildBranchBottomUp(memberId) {
         if (memberId in branchCache) return branchCache[memberId];
         var node = nodeById[memberId];
         if (!node) return null;
         var families = getPartnerFamilies(memberId);
         if (families.length === 0) {
-            branchCache[memberId] = buildNoFamiliesBranch(node);
-            return branchCache[memberId];
+            var b = document.createElement('div');
+            b.className = 'ft-branch';
+            b.appendChild(createCard(node));
+            branchCache[memberId] = b;
+            return b;
         }
         var primaryPartnerId = null;
-        families.forEach(function (f) {
-            if (!primaryPartnerId && f.partnerId && nodeById[f.partnerId] && dominates(nodeById[f.partnerId], node))
-                primaryPartnerId = f.partnerId;
-        });
+        if (families.length) {
+            families.forEach(function (f) {
+                if (!primaryPartnerId && f.partnerId && nodeById[f.partnerId] && dominates(nodeById[f.partnerId], node))
+                    primaryPartnerId = f.partnerId;
+            });
+        }
         if (primaryPartnerId) {
             var ownFamilies = families.filter(function (f) {
                 return f.partnerId !== primaryPartnerId;
@@ -477,23 +432,169 @@
             var hasOwnChildren = ownFamilies.some(function (f) {
                 return (f.childIds || []).length > 0;
             });
+
             if (!hasOwnChildren) {
-                if (depthById[memberId] === 0) {
+                var depth = depthById[memberId] || 0;
+                if (depth === 0) {
                     branchCache[memberId] = null;
                     return null;
                 }
-                branchCache[memberId] = createLeafJumpBranch(node, primaryPartnerId);
-                return branchCache[memberId];
+                var leafBranch = createLeafJumpBranch(node, primaryPartnerId);
+                branchCache[memberId] = leafBranch;
+                return leafBranch;
             }
-            branchCache[memberId] = buildPrimaryPartnerWithChildrenBranch(memberId, node, primaryPartnerId, ownFamilies);
-            return branchCache[memberId];
+
+            var branch = document.createElement('div');
+            branch.className = 'ft-branch';
+            var card = createCard(node);
+            card.appendChild(createSeeChildrenButton('member-' + primaryPartnerId));
+
+            var unit = document.createElement('div');
+            unit.className = 'ft-unit';
+            var parents = document.createElement('div');
+            parents.className = 'ft-parents';
+            parents.appendChild(card);
+
+            if (ownFamilies.length === 1) {
+                var fam = ownFamilies[0];
+                if (fam.partnerId && nodeById[fam.partnerId]) {
+                    var cl = document.createElement('div');
+                    cl.className = 'ft-couple-link';
+                    parents.appendChild(cl);
+                    var partnerHasOwnBranch = (fam.partnerId in branchCache) && branchCache[fam.partnerId] !== null;
+                    parents.appendChild(createCard(nodeById[fam.partnerId], partnerHasOwnBranch ? 'ref' : undefined));
+                }
+                unit.appendChild(parents);
+                if ((fam.childIds || []).length > 0) {
+                    var children = document.createElement('div');
+                    children.className = 'ft-children';
+                    (fam.childIds || []).forEach(function (cid) {
+                        var cb = buildBranchBottomUp(cid);
+                        if (cb) children.appendChild(cb);
+                    });
+                    if (children.childNodes.length > 0) unit.appendChild(children);
+                }
+            } else {
+                unit.appendChild(parents);
+                var ownAllChildIds = [];
+                ownFamilies.forEach(function (fam) {
+                    if (fam.partnerId && nodeById[fam.partnerId]) {
+                        var cl = document.createElement('div');
+                        cl.className = 'ft-couple-link';
+                        parents.appendChild(cl);
+                        var partnerHasOwnBranch = (fam.partnerId in branchCache) && branchCache[fam.partnerId] !== null;
+                        parents.appendChild(createCard(nodeById[fam.partnerId], partnerHasOwnBranch ? 'ref' : undefined));
+                    }
+                    (fam.childIds || []).forEach(function (cid) { ownAllChildIds.push(cid); });
+                });
+                if (ownAllChildIds.length > 0) {
+                    var children = document.createElement('div');
+                    children.className = 'ft-children';
+                    ownAllChildIds.forEach(function (cid) {
+                        var cb = buildBranchBottomUp(cid);
+                        if (cb) children.appendChild(cb);
+                    });
+                    if (children.childNodes.length > 0) unit.appendChild(children);
+                }
+            }
+            branch.appendChild(unit);
+            branchCache[memberId] = branch;
+            return branch;
         }
-        if (families.length > 1) {
-            branchCache[memberId] = buildMultiPartnerBranch(memberId, node, families);
+        var branch = document.createElement('div');
+        branch.className = 'ft-branch';
+        var unit = document.createElement('div');
+        unit.className = 'ft-unit';
+        var parents = document.createElement('div');
+        parents.className = 'ft-parents';
+        parents.appendChild(createCard(node));
+
+        var multiPartnerNode = families.length > 1;
+        if (multiPartnerNode) {
+            var singleParentChildIds = [];
+            function hasBothParents(cid, partnerId) {
+                var c = nodeById[cid];
+                if (!c || !c.parentIds) return false;
+                return c.parentIds.indexOf(memberId) >= 0 && (partnerId == null || c.parentIds.indexOf(partnerId) >= 0);
+            }
+            function onlyThisParent(cid) {
+                var c = nodeById[cid];
+                return c && c.parentIds && c.parentIds.length === 1 && c.parentIds[0] === memberId;
+            }
+            families.forEach(function (fam) {
+                (fam.childIds || []).forEach(function (cid) {
+                    if (onlyThisParent(cid)) singleParentChildIds.push(cid);
+                });
+            });
+            families = families.map(function (fam) {
+                if (fam.partnerId != null) {
+                    var filtered = (fam.childIds || []).filter(function (cid) {
+                        return hasBothParents(cid, fam.partnerId);
+                    });
+                    return { partnerId: fam.partnerId, childIds: filtered };
+                }
+                return { partnerId: fam.partnerId, childIds: singleParentChildIds };
+            });
+            if (singleParentChildIds.length > 0 && !families.some(function (f) { return f.partnerId == null; }))
+                families.push({ partnerId: null, childIds: singleParentChildIds });
+            unit.appendChild(parents);
+            var partnerUnits = document.createElement('div');
+            partnerUnits.className = 'ft-partner-units';
+            var sortedFamilies = families.slice().sort(function (a, b) {
+                var aHasPartner = a.partnerId != null ? 1 : 0;
+                var bHasPartner = b.partnerId != null ? 1 : 0;
+                return bHasPartner - aHasPartner;
+            });
+            sortedFamilies.forEach(function (fam) {
+                var partnerUnit = document.createElement('div');
+                partnerUnit.className = 'ft-partner-unit' + (fam.partnerId == null ? ' ft-partner-unit-single' : '');
+                if (fam.partnerId && nodeById[fam.partnerId]) {
+                    var coupleLink = document.createElement('div');
+                    coupleLink.className = 'ft-couple-link';
+                    partnerUnit.appendChild(coupleLink);
+                    var partnerHasOwnBranch = (fam.partnerId in branchCache) && branchCache[fam.partnerId] !== null;
+                    partnerUnit.appendChild(createCard(nodeById[fam.partnerId], partnerHasOwnBranch ? 'ref' : undefined));
+                }
+                if ((fam.childIds || []).length > 0) {
+                    var allChildIds = fam.childIds;
+                    var children = document.createElement('div');
+                    children.className = 'ft-children';
+                    allChildIds.forEach(function (cid) {
+                        var childBranch = buildBranchBottomUp(cid);
+                        if (childBranch) children.appendChild(childBranch);
+                    });
+                    if (children.childNodes.length > 0) partnerUnit.appendChild(children);
+                }
+                if (partnerUnit.childNodes.length > 0) partnerUnits.appendChild(partnerUnit);
+            });
+            if (partnerUnits.childNodes.length > 0) unit.appendChild(partnerUnits);
         } else {
-            branchCache[memberId] = buildSinglePartnerBranch(memberId, node, families);
+            families.forEach(function (fam) {
+                if (fam.partnerId && nodeById[fam.partnerId]) {
+                    var coupleLink = document.createElement('div');
+                    coupleLink.className = 'ft-couple-link';
+                    parents.appendChild(coupleLink);
+                    parents.appendChild(createCard(nodeById[fam.partnerId]));
+                }
+            });
+            unit.appendChild(parents);
+            var allChildIds = [];
+            families.forEach(function (fam) {
+                (fam.childIds || []).forEach(function (cid) { allChildIds.push(cid); });
+            });
+            if (allChildIds.length > 0) {
+                var children = document.createElement('div');
+                children.className = 'ft-children';
+                allChildIds.forEach(function (cid) {
+                    var childBranch = buildBranchBottomUp(cid);
+                    if (childBranch) children.appendChild(childBranch);
+                });
+                if (children.childNodes.length > 0) unit.appendChild(children);
+            }
         }
-        return branchCache[memberId];
+        branch.appendChild(unit);
+        branchCache[memberId] = branch;
+        return branch;
     }
 
     allIds.forEach(buildBranchBottomUp);
@@ -501,7 +602,17 @@
     var rootContainer = document.createElement('div');
     rootContainer.className = 'ft-roots';
     var rootIds = allIds.filter(function (id) { return (depthById[id] || 0) === 0; });
-    rootIds.sort(compareRootOrder);
+    rootIds.sort(function (a, b) {
+        var primaryA = clusterHasPrimaryDescendant([a]);
+        var primaryB = clusterHasPrimaryDescendant([b]);
+        if (primaryA && !primaryB) return -1;
+        if (!primaryA && primaryB) return 1;
+        var priA = nodeById[a] && isPrimary(nodeById[a]);
+        var priB = nodeById[b] && isPrimary(nodeById[b]);
+        if (priA && !priB) return -1;
+        if (!priA && priB) return 1;
+        return a - b;
+    });
     rootIds.forEach(function (rid) {
         var b = branchCache[rid];
         if (b) rootContainer.appendChild(b);
@@ -510,10 +621,99 @@
     var treeInner = document.createElement('div');
     treeInner.className = 'family-tree-inner';
     treeInner.appendChild(rootContainer);
-    container.appendChild(treeInner);
+
+    var stage = document.createElement('div');
+    stage.className = 'family-tree-stage';
+    var world = document.createElement('div');
+    world.className = 'family-tree-world';
+    world.appendChild(treeInner);
+    stage.appendChild(world);
+    container.appendChild(stage);
+
+    function initViewportPanZoom(stageEl, worldEl) {
+        var scale = 1;
+        var panX = 0;
+        var panY = 0;
+        var minScale = 0.35;
+        var maxScale = 2.5;
+        var dragging = false;
+        var lastX = 0;
+        var lastY = 0;
+
+        function applyTransform() {
+            worldEl.style.transform = 'translate(' + panX + 'px, ' + panY + 'px) scale(' + scale + ')';
+            worldEl.style.transformOrigin = '0 0';
+        }
+
+        function shouldPanStart(target) {
+            return !target.closest('.family-tree-card') &&
+                !target.closest('.member-action-trigger') &&
+                !target.closest('.ft-expand-down');
+        }
+
+        stageEl.addEventListener('wheel', function (e) {
+            e.preventDefault();
+            var rect = stageEl.getBoundingClientRect();
+            var mx = e.clientX - rect.left;
+            var my = e.clientY - rect.top;
+            var delta = e.deltaY > 0 ? 0.9 : 1.1;
+            var newScale = Math.min(maxScale, Math.max(minScale, scale * delta));
+            var ratio = newScale / scale;
+            panX = mx - (mx - panX) * ratio;
+            panY = my - (my - panY) * ratio;
+            scale = newScale;
+            applyTransform();
+        }, { passive: false });
+
+        stageEl.addEventListener('mousedown', function (e) {
+            if (e.button !== 0 || !shouldPanStart(e.target)) return;
+            dragging = true;
+            lastX = e.clientX;
+            lastY = e.clientY;
+            stageEl.classList.add('ft-panning');
+            e.preventDefault();
+        });
+        window.addEventListener('mousemove', function (e) {
+            if (!dragging) return;
+            panX += e.clientX - lastX;
+            panY += e.clientY - lastY;
+            lastX = e.clientX;
+            lastY = e.clientY;
+            applyTransform();
+        });
+        window.addEventListener('mouseup', function () {
+            dragging = false;
+            stageEl.classList.remove('ft-panning');
+        });
+
+        stageEl.addEventListener('dblclick', function (e) {
+            if (!shouldPanStart(e.target)) return;
+            scale = 1;
+            panX = 0;
+            panY = 0;
+            applyTransform();
+        });
+
+        function focusMember(memberId) {
+            var el = document.getElementById('member-' + memberId);
+            if (!el) return false;
+            var stageRect = stageEl.getBoundingClientRect();
+            var cardRect = el.getBoundingClientRect();
+            var cx = (cardRect.left + cardRect.width / 2 - stageRect.left - panX) / scale;
+            var cy = (cardRect.top + cardRect.height / 2 - stageRect.top - panY) / scale;
+            panX = stageRect.width / 2 - cx * scale;
+            panY = stageRect.height / 2 - cy * scale;
+            applyTransform();
+            return true;
+        }
+
+        return { focusMember: focusMember };
+    }
+
+    window.FamilyTreeViewport = initViewportPanZoom(stage, world);
 
     // Insert spacers for missing half-rank slots so same-rank members align.
-    // Vertical: ranks = rows → spacers add height. Horizontal: ranks = columns → spacers add width.
+    // Vertical: ranks = rows ΓåÆ spacers add height. Horizontal: ranks = columns ΓåÆ spacers add width.
     var isHorizontal = container.classList.contains('ft-orientation-horizontal');
     var rankDim = isHorizontal ? 'width' : 'height';
     var rankPos = isHorizontal ? 'left' : 'top';
@@ -624,15 +824,11 @@
 
             // Phase 2c: Re-align satellite root branches since Phase 2b spacers may have shifted target anchors
             alignRoots();
-        }, SPACER_ALIGN_DELAY_MS);
+
+        }, 50);
     })();
 
-    if (focusMemberId) {
-        var focusEl = document.getElementById('member-' + focusMemberId);
-        if (focusEl) focusEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    }
-
-    // Member action popup and cascading menu (Add/Edit/Remove, Link existing).
+    // --- Popup / cascading menu logic (unchanged) ---
 
     var popup = document.getElementById('member-action-popup');
     if (!popup) return;

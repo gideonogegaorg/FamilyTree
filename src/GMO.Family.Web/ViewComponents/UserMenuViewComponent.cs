@@ -9,16 +9,10 @@ namespace GMO.Family.Web.ViewComponents;
 public sealed class UserMenuViewComponent : ViewComponent
 {
     private readonly AppDbContext _db;
-    private readonly ICurrentFamilyTreeService _currentFamilyTree;
-    private readonly ITreeViewOrientationService _treeViewOrientation;
-    private readonly ILineageModeService _lineageMode;
 
-    public UserMenuViewComponent(AppDbContext db, ICurrentFamilyTreeService currentFamilyTree, ITreeViewOrientationService treeViewOrientation, ILineageModeService lineageMode)
+    public UserMenuViewComponent(AppDbContext db)
     {
         _db = db;
-        _currentFamilyTree = currentFamilyTree;
-        _treeViewOrientation = treeViewOrientation;
-        _lineageMode = lineageMode;
     }
 
     public async Task<IViewComponentResult> InvokeAsync()
@@ -29,26 +23,13 @@ public sealed class UserMenuViewComponent : ViewComponent
         var userId = UserClaimsPrincipal.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
         var email = User.Identity.Name ?? string.Empty;
 
-        var currentId = await _currentFamilyTree.GetCurrentFamilyTreeIdAsync();
-        var familyTrees = string.IsNullOrEmpty(userId)
-            ? new List<FamilyTree>()
-            : await _db.FamilyTrees.Where(x => x.OwnerId == userId).OrderBy(x => x.Name).ToListAsync();
-        var currentTree = currentId.HasValue ? familyTrees.FirstOrDefault(x => x.Id == currentId.Value) : null;
-
         var profile = userId != null ? await _db.UserProfiles.FindAsync(userId) : null;
         var photoUrl = profile?.PhotoUrl;
-
-        var orientation = await _treeViewOrientation.GetOrientationAsync();
-        var lineageMode = await _lineageMode.GetAsync();
 
         var model = new UserMenuViewModel
         {
             Email = email,
-            PhotoUrl = photoUrl,
-            CurrentFamilyTree = currentTree,
-            FamilyTrees = familyTrees,
-            TreeViewOrientation = orientation,
-            LineageMode = lineageMode
+            PhotoUrl = photoUrl
         };
         return View("Default", model);
     }
