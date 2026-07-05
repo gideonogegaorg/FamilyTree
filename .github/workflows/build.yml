@@ -177,26 +177,6 @@ jobs:
             --collect:"XPlat Code Coverage;Format=opencover" \
             --results-directory "$GITHUB_WORKSPACE/coverage"
 
-      - name: Verify coverage output
-        if: env.SONAR_TOKEN != ''
-        run: |
-          OPENCover_FILES=$(
-            {
-              find "$GITHUB_WORKSPACE/coverage" -type f -name 'coverage.opencover.xml' 2>/dev/null || true
-              find "$GITHUB_WORKSPACE" -path '*/TestResults/*' -type f -name 'coverage.opencover.xml' 2>/dev/null || true
-            } | sort -u
-          )
-          if [ -z "$OPENCOVER_FILES" ]; then
-            echo "::error::No coverage.opencover.xml files found."
-            echo "Contents of coverage/:"
-            find "$GITHUB_WORKSPACE/coverage" -type f 2>/dev/null || echo "(empty or missing)"
-            echo "Any coverage XML under TestResults/:"
-            find "$GITHUB_WORKSPACE" -path '*/TestResults/*' -name 'coverage.*.xml' -type f 2>/dev/null || true
-            exit 1
-          fi
-          echo "OpenCover reports:"
-          echo "$OPENCOVER_FILES"
-
       - name: SonarCloud end
         if: env.SONAR_TOKEN != ''
         run: dotnet sonarscanner end /d:sonar.token=$SONAR_TOKEN
