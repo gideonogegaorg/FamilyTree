@@ -110,30 +110,6 @@ jobs:
       - name: Generate appsettings.json for build
         run: bash scripts/generate-appsettings.sh
 
-      - name: Install SonarScanner
-        if: env.SONAR_TOKEN != ''
-        run: dotnet tool install --global dotnet-sonarscanner
-
-      - name: SonarCloud begin
-        if: env.SONAR_TOKEN != ''
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SONAR_EVENT_NAME: ${{ github.event_name }}
-          SONAR_PR_KEY: ${{ github.event.pull_request.number }}
-          SONAR_PR_BRANCH: ${{ github.head_ref }}
-          SONAR_PR_BASE: ${{ github.base_ref }}
-          SONAR_BRANCH: ${{ github.ref_name }}
-        run: |
-          ARGS="/k:gideonogegaorg_FamilyTree /o:gideonogegaorg /d:sonar.token=$SONAR_TOKEN /d:sonar.host.url=https://sonarcloud.io /d:sonar.qualitygate.wait=true /d:sonar.cs.opencover.reportsPaths=**/coverage.opencover.xml /d:sonar.exclusions=**/.github/**,**/wwwroot/js/**"
-          if [ "$SONAR_EVENT_NAME" = "pull_request" ]; then
-            ARGS="$ARGS /d:sonar.pullrequest.key=$SONAR_PR_KEY"
-            ARGS="$ARGS /d:sonar.pullrequest.branch=$SONAR_PR_BRANCH"
-            ARGS="$ARGS /d:sonar.pullrequest.base=$SONAR_PR_BASE"
-          else
-            ARGS="$ARGS /d:sonar.branch.name=$SONAR_BRANCH"
-          fi
-          dotnet sonarscanner begin $ARGS
-
       - name: Set version
         id: setversion
         env:
@@ -153,6 +129,31 @@ jobs:
           echo "DLL_VERSION=$DLL_VERSION" >> $GITHUB_ENV
           echo "assembly_version=$ASSEMBLY_VERSION" >> $GITHUB_OUTPUT
           echo "dll_version=$DLL_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Install SonarScanner
+        if: env.SONAR_TOKEN != ''
+        run: dotnet tool install --global dotnet-sonarscanner
+
+      - name: SonarCloud begin
+        if: env.SONAR_TOKEN != ''
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_EVENT_NAME: ${{ github.event_name }}
+          SONAR_PR_KEY: ${{ github.event.pull_request.number }}
+          SONAR_PR_BRANCH: ${{ github.head_ref }}
+          SONAR_PR_BASE: ${{ github.base_ref }}
+          SONAR_BRANCH: ${{ github.ref_name }}
+          SONAR_PROJECT_VERSION: ${{ env.DLL_VERSION }}
+        run: |
+          ARGS="/k:gideonogegaorg_FamilyTree /o:gideonogegaorg /v:$SONAR_PROJECT_VERSION /d:sonar.token=$SONAR_TOKEN /d:sonar.host.url=https://sonarcloud.io /d:sonar.qualitygate.wait=true /d:sonar.cs.opencover.reportsPaths=**/coverage.opencover.xml /d:sonar.exclusions=**/.github/**,**/wwwroot/js/**"
+          if [ "$SONAR_EVENT_NAME" = "pull_request" ]; then
+            ARGS="$ARGS /d:sonar.pullrequest.key=$SONAR_PR_KEY"
+            ARGS="$ARGS /d:sonar.pullrequest.branch=$SONAR_PR_BRANCH"
+            ARGS="$ARGS /d:sonar.pullrequest.base=$SONAR_PR_BASE"
+          else
+            ARGS="$ARGS /d:sonar.branch.name=$SONAR_BRANCH"
+          fi
+          dotnet sonarscanner begin $ARGS
 
       - name: Build
         run: |
