@@ -68,7 +68,7 @@ jobs:
     outputs:
       assembly_version: ${{ steps.setversion.outputs.assembly_version }}
       dll_version: ${{ steps.setversion.outputs.dll_version }}
-      setup_changed: ${{ steps.filter.outputs.setup }}
+      setup_changed: ${{ steps.filter.outputs.setup == 'true' && 'yes' || 'no' }}
     services:
       postgres:
         image: postgres:16-alpine
@@ -391,7 +391,7 @@ jobs:
             sudo chown -R ubuntu:www-data "$DEPLOY_PATH"
             SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
             NEEDS_SETUP=no
-            if [ "$SETUP_CHANGED" != "false" ] || [ ! -f "$SERVICE_FILE" ]; then
+            if [ "$SETUP_CHANGED" != "no" ] || [ ! -f "$SERVICE_FILE" ]; then
               NEEDS_SETUP=yes
             else
               DEPLOYED_DLL=""
