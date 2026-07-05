@@ -261,8 +261,7 @@ jobs:
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
     needs: [build, tag]
-    # Prod branch deploys use the "main" GitHub Environment until PG_* org secrets are scoped to "prod".
-    environment: ${{ github.ref == 'refs/heads/prod' && 'main' || github.ref_name }}
+    environment: ${{ github.ref_name }}
     env:
       DEPLOY_PATH: ${{ github.ref == 'refs/heads/prod' && format('/var/www/family.{0}', secrets.DEPLOY_DOMAIN) || github.ref == 'refs/heads/dev' && format('/var/www/family-dev.{0}', secrets.DEPLOY_DOMAIN) || '' }}
       FULL_HOSTNAME: ${{ github.ref == 'refs/heads/prod' && format('family.{0}', secrets.DEPLOY_DOMAIN) || github.ref == 'refs/heads/dev' && format('family-dev.{0}', secrets.DEPLOY_DOMAIN) || '' }}
