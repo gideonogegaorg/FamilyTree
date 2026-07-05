@@ -103,6 +103,8 @@ Rank 2.0: [Me, Cousins]         ← Same X coordinate
 
 ### 4. Orientation Switching
 
+Tests toggle layout and lineage via the **tree toolbar** (`.ft-subbar .ft-pills`), not the user menu.
+
 **CSS Class Validation:**
 - Vertical: No `ft-orientation-horizontal` class
 - Horizontal: `ft-orientation-horizontal` class present

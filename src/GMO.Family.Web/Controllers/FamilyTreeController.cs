@@ -1,4 +1,5 @@
 using GMO.Family.Web.Data;
+using GMO.Family.Web.Services;
 
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -10,11 +11,15 @@ public class FamilyTreeController : Controller
 {
     private readonly AppDbContext _db;
     private readonly UserManager<IdentityUser> _userManager;
+    private readonly ICurrentFamilyTreeService _currentFamilyTree;
+    private readonly IFamilyTreeDeletionService _familyTreeDeletion;
 
-    public FamilyTreeController(AppDbContext db, UserManager<IdentityUser> userManager)
+    public FamilyTreeController(AppDbContext db, UserManager<IdentityUser> userManager, ICurrentFamilyTreeService currentFamilyTree, IFamilyTreeDeletionService familyTreeDeletion)
     {
         _db = db;
         _userManager = userManager;
+        _currentFamilyTree = currentFamilyTree;
+        _familyTreeDeletion = familyTreeDeletion;
     }
 
     private string? _ownerId;
@@ -28,14 +33,6 @@ public class FamilyTreeController : Controller
             .OrderBy(x => x.Name)
             .ToListAsync(cancellationToken);
         return View(list);
-    }
-
-    public async Task<IActionResult> Details(long? id, CancellationToken cancellationToken)
-    {
-        if (id == null || OwnerId == null) return NotFound();
-        var entity = await _db.FamilyTrees.FindAsync(new object[] { id.Value }, cancellationToken);
-        if (entity == null || entity.OwnerId != OwnerId) return NotFound();
-        return View(entity);
     }
 
     public IActionResult Create()
@@ -56,7 +53,8 @@ public class FamilyTreeController : Controller
             model.OwnerId = OwnerId;
             _db.FamilyTrees.Add(model);
             await _db.SaveChangesAsync(cancellationToken);
-            return RedirectToAction(nameof(Index));
+            await _currentFamilyTree.SetCurrentFamilyTreeIdAsync(model.Id, cancellationToken);
+            return RedirectToAction("Index", "Home");
         }
         return View(model);
     }
@@ -83,7 +81,7 @@ public class FamilyTreeController : Controller
             if (entity == null || entity.OwnerId != OwnerId) return NotFound();
             entity.Name = model.Name;
             await _db.SaveChangesAsync(cancellationToken);
-            return RedirectToAction(nameof(Index));
+            return RedirectToAction("Index", "Home");
         }
         return View(model);
     }
@@ -101,10 +99,10 @@ public class FamilyTreeController : Controller
     public async Task<IActionResult> DeleteConfirmed(long id, CancellationToken cancellationToken)
     {
         if (OwnerId == null) return NotFound();
-        var entity = await _db.FamilyTrees.FindAsync(new object[] { id }, cancellationToken);
-        if (entity == null || entity.OwnerId != OwnerId) return NotFound();
-        _db.FamilyTrees.Remove(entity);
-        await _db.SaveChangesAsync(cancellationToken);
-        return RedirectToAction(nameof(Index));
+
+        var result = await _familyTreeDeletion.DeleteAsync(OwnerId, id, cancellationToken);
+        return result == FamilyTreeDeleteResult.NotFound
+            ? NotFound()
+            : RedirectToAction("Index", "Home");
     }
 }
