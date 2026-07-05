@@ -61,6 +61,21 @@ Pushes to `prod` and `dev` trigger GitHub Actions to build, publish, and deploy 
 - **prod** → `https://family.<DEPLOY_DOMAIN>`
 - **dev** → `https://family-dev.<DEPLOY_DOMAIN>`
 
+### Branch workflow checklist
+
+`dev` is the default integration branch; `prod` is production (the former `main` branch).
+
+**Release (dev → prod):**
+
+- [ ] Feature PRs merge into `dev` and CI is green
+- [ ] Open **dev → prod** when ready to release; wait for prod deploy and `/health` on the live site
+
+**After prod changes (prod → dev back-merge):**
+
+- [ ] Confirm prod deploy succeeded
+- [ ] Open **prod → dev** so hotfixes and release commits are not lost on the default branch
+- [ ] Merge after CI passes before starting the next feature branch from `dev`
+
 The pipeline generates `appsettings.json` from the template on the **GitHub Actions runner** (using Environment secrets), publishes it into the site output, and copies that to EC2 via SCP. **Nothing with real credentials is ever committed to git** — only `appsettings.json.template` (with `^^PLACEHOLDERS^^`) is in the public repo; generated `appsettings.json` is gitignored and exists only on the runner during CI and on the private EC2 host after deploy. Logs and user uploads live outside the app folder: the pipeline ensures `$DEPLOY_PATH/logs` and `$DEPLOY_PATH/uploads` exist and configures the app to use them.
 
 The deploy job uses GitHub **Environments** (`prod` and `dev`). For each environment, configure:
@@ -75,7 +90,11 @@ The deploy job uses GitHub **Environments** (`prod` and `dev`). For each environ
 - **GH_CLASSIC_PAT**: Classic PAT with `read:packages` so the build can restore GMO.* packages from GitHub Packages.
 - **DEPLOY_DOMAIN** and deploy secrets (AWS, SSH, etc.) as needed.
 
-**PostgreSQL** (per environment): **PG_USER** and **PG_PASS**. The deploy job builds the connection string as `Host=localhost;Port=5432;Database=<SERVICE_NAME>;Username=<PG_USER>;Password=<PG_PASS>` and bakes it into the published `appsettings.json` on EC2 (Postgres on the same EC2; database name matches **SERVICE_NAME**).
+**PostgreSQL** (organization-wide): set **`PG_USER`** and **`PG_PASS`** once under **Organization → Settings → Secrets and variables → Actions** (`gideonogegaorg`), with access to every repo that deploys to EC2 Postgres. Do **not** duplicate them on individual repositories or GitHub Environments — environment secrets override org secrets and force per-env updates when the password rotates.
+
+The deploy job builds the connection string as `Host=localhost;Port=5432;Database=<SERVICE_NAME>;Username=<PG_USER>;Password=<PG_PASS>` (database name comes from each environment’s **SERVICE_NAME** variable: `family` for prod, `family-dev` for dev).
+
+To rotate the password: update the org secret only, then re-run deploy on affected branches. Helper script (requires `gh auth refresh -h github.com -s admin:org`): [`scripts/set-org-postgres-secrets.sh`](scripts/set-org-postgres-secrets.sh).
 
 Optional for OpenTelemetry (same pattern — generated on the runner, deployed to EC2 only): **OPENTELEMETRY_ENABLED**, **OPENTELEMETRY_OTLPEXPORTENDPOINT**, **OPENTELEMETRY_HEADERS**, **OPENTELEMETRY_METRICSENDPOINT**, **OPENTELEMETRY_LOGGINGENDPOINT**. `Telemetry.EnvironmentName` is set automatically to `prod` or `dev`.
 
