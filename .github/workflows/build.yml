@@ -259,8 +259,6 @@ jobs:
     needs: [build, tag]
     environment: ${{ github.ref_name }}
     env:
-      PRODUCTION_BRANCH: ${{ env.PRODUCTION_BRANCH }}
-      DEVELOPMENT_BRANCH: ${{ env.DEVELOPMENT_BRANCH }}
       DEPLOY_PATH: ${{ github.ref == format('refs/heads/{0}', env.PRODUCTION_BRANCH) && format('/var/www/family.{0}', secrets.DEPLOY_DOMAIN) || github.ref == format('refs/heads/{0}', env.DEVELOPMENT_BRANCH) && format('/var/www/family-dev.{0}', secrets.DEPLOY_DOMAIN) || '' }}
       FULL_HOSTNAME: ${{ github.ref == format('refs/heads/{0}', env.PRODUCTION_BRANCH) && format('family.{0}', secrets.DEPLOY_DOMAIN) || github.ref == format('refs/heads/{0}', env.DEVELOPMENT_BRANCH) && format('family-dev.{0}', secrets.DEPLOY_DOMAIN) || '' }}
       BRANCH: ${{ github.ref_name }}
