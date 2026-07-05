@@ -4,8 +4,11 @@ One-time configuration for CI quality gates added to this repository.
 
 ## SonarCloud
 
-1. Sign in at [sonarcloud.io](https://sonarcloud.io) with GitHub and import **`gideonogegaorg/FamilyTree`**.
-2. Confirm project key **`gideonogegaorg_FamilyTree`** and organization **`gideonogegaorg`** match the `SonarCloud begin` step in [`.github/workflows/build.yml`](../.github/workflows/build.yml).
+1. Sign in at [sonarcloud.io](https://sonarcloud.io) with GitHub and import the repository (e.g. **`gideonogegaorg/FamilyTree`**).
+2. Confirm SonarCloud matches CI context from [`.github/workflows/build.yml`](../.github/workflows/build.yml):
+   - **Organization:** `github.repository_owner` (e.g. `gideonogegaorg`)
+   - **Project key:** `{owner}_{repo}` (e.g. `gideonogegaorg_FamilyTree`)
+   - **Display name:** `github.event.repository.name` (e.g. `FamilyTree`)
 3. Add **`SONAR_TOKEN`** for CI analysis upload and PR decoration:
    - **Recommended:** GitHub org secret `SONAR_TOKEN` on **`gideonogegaorg`** (shared by all repos that use SonarCloud org `gideonogegaorg`, e.g. OpenTelemetry and FamilyTree).
    - **Alternative:** repository secret on each repo.
