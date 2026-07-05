@@ -1,0 +1,19 @@
+﻿@model ErrorViewModel
+@{
+    ViewData["Title"] = "Error";
+}
+<h1 class="ft-page-title text-danger">Something went wrong</h1>
+<p class="ft-page-lead">An error occurred while processing your request.</p>
+
+@if (Model.ShowRequestId)
+{
+    <p>
+        <strong>Request ID:</strong> <code>@Model.RequestId</code>
+    </p>
+}
+
+<h2 class="h5 mt-4">Development mode</h2>
+<p class="small text-muted mb-0">
+    Swapping to the Development environment displays more detailed exception information.
+    Do not enable Development in deployed applications.
+</p>

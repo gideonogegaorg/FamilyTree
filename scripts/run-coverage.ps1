@@ -1,31 +1,36 @@
-# Run unit + integration tests with coverage, then merge results into coverage/combined.
-# Requires: dotnet (sln build), reportgenerator (dotnet tool in src).
+# Run tests with OpenCover coverage and optionally merge into coverage/combined for local HTML.
+# SonarCloud ingests **/coverage.opencover.xml directly in CI (no merge required).
 # Usage: from repo root, .\scripts\run-coverage.ps1
 
 $ErrorActionPreference = "Stop"
-# Run from repo root so coverage and src paths are correct
 $root = (Get-Location).Path
-if (-not (Test-Path (Join-Path $root "GMO.Family.sln"))) {
-    Write-Error "Run this script from the repository root (where GMO.Family.sln exists)."
+if (-not (Test-Path (Join-Path $root "GMO.FamilyTree.sln"))) {
+    Write-Error "Run this script from the repository root (where GMO.FamilyTree.sln exists)."
     exit 1
 }
 
-Write-Host "Building and running tests with coverage..."
-dotnet test GMO.Family.sln --collect:"XPlat Code Coverage" --results-directory ./coverage --verbosity minimal
+Write-Host "Building and running tests with OpenCover coverage..."
+dotnet test GMO.FamilyTree.sln `
+  --settings coverlet.runsettings `
+  --collect:"XPlat Code Coverage;Format=opencover" `
+  --results-directory ./coverage `
+  --verbosity minimal
 
-$coberturaFiles = Get-ChildItem -Path ./coverage -Recurse -Filter "coverage.cobertura.xml" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName
-if ($coberturaFiles.Count -eq 0) {
-    Write-Error "No coverage.cobertura.xml files found under ./coverage"
+$openCoverFiles = Get-ChildItem -Path ./coverage, ./tst -Recurse -Filter "coverage.opencover.xml" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName
+if ($openCoverFiles.Count -eq 0) {
+    Write-Error "No coverage.opencover.xml files found under ./coverage"
     exit 1
 }
 
-$reports = ($coberturaFiles | ForEach-Object { $_.Replace("\", "/") }) -join ";"
+Write-Host "Found $($openCoverFiles.Count) OpenCover report(s)."
+
+$reports = ($openCoverFiles | ForEach-Object { $_.Replace("\", "/") }) -join ";"
 $targetDir = (Join-Path $root "coverage\combined").Replace("\", "/")
 
-Write-Host "Merging $($coberturaFiles.Count) coverage report(s) into coverage/combined..."
+Write-Host "Generating HTML report in coverage/combined (web assembly only)..."
 Set-Location (Join-Path $root "src")
 dotnet tool restore
-dotnet tool run reportgenerator -- "-reports:$reports" "-targetdir:$targetDir" "-reporttypes:Html;Cobertura"
+dotnet tool run reportgenerator -- "-reports:$reports" "-targetdir:$targetDir" "-reporttypes:Html" "-assemblyfilters:+GMO.FamilyTree.Web"
 Set-Location $root
 
-Write-Host "Done. Open coverage/combined/index.html for the report. Merged Cobertura: coverage/combined/Cobertura.xml"
+Write-Host "Done. Open coverage/combined/index.html for the local report."

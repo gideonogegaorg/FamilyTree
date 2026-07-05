@@ -1,0 +1,74 @@
+@inject IConfiguration Configuration
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    @if (!Configuration.GetValue<bool>("IsProduction"))
+    {
+        <meta name="robots" content="noindex, nofollow" />
+    }
+    <title>@(ViewData["PageTitle"] ?? ViewData["Title"] + " - Family Tree")</title>
+    <script type="importmap"></script>
+    <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
+    <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
+    <link rel="stylesheet" href="~/GMO.FamilyTree.Web.styles.css" asp-append-version="true" />
+</head>
+<body>
+    <header>
+        <nav class="navbar navbar-expand-sm navbar-toggleable-sm ft-navbar border-bottom mb-3">
+            <div class="container-fluid">
+                <a class="navbar-brand" asp-area="" asp-controller="Home" asp-action="Index">Family Tree</a>
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target=".navbar-collapse" aria-controls="navbarSupportedContent"
+                        aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                <div class="navbar-collapse collapse d-sm-inline-flex justify-content-end">
+                    <div class="navbar-nav">
+                        @await Component.InvokeAsync("UserMenu")
+                    </div>
+                </div>
+            </div>
+        </nav>
+    </header>
+    <div class="container" style="flex:1;display:flex;flex-direction:column">
+        <main role="main" class="pb-3" style="flex:1;display:flex;flex-direction:column">
+            @if (ViewData["BareMain"] as bool? == true)
+            {
+                @RenderBody()
+            }
+            else
+            {
+                <div class="ft-content-page @(ViewData["WideContent"] as bool? == true ? "ft-content-wide" : "")">
+                    <div class="ft-panel">
+                        @RenderBody()
+                    </div>
+                </div>
+            }
+        </main>
+    </div>
+
+    <footer class="border-top footer text-muted">
+        <div class="container">
+            @{
+                var fullVersion = System.Reflection.Assembly.GetExecutingAssembly().GetCustomAttribute<System.Reflection.AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "0.0.0";
+                var isDev = fullVersion.StartsWith("DEV-", StringComparison.OrdinalIgnoreCase);
+                var digits = System.Text.RegularExpressions.Regex.Replace(
+                    fullVersion,
+                    @"\D",
+                    "",
+                    System.Text.RegularExpressions.RegexOptions.None,
+                    TimeSpan.FromSeconds(1));
+                var datePart = digits.Length >= 6 ? $"{digits.Substring(0, 4)}-{digits.Substring(4, 2)}" : fullVersion;
+                var displayVersion = isDev ? $"DEV-{datePart}" : datePart;
+            }
+            &copy; Family Tree <span data-informational-version="@fullVersion" class="visually-hidden">@fullVersion</span>@displayVersion - <a asp-area="" asp-controller="Home" asp-action="Privacy">Privacy</a>
+        </div>
+    </footer>
+    <script src="~/lib/jquery/dist/jquery.min.js"></script>
+    <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="~/js/site.js" asp-append-version="true"></script>
+    <script src="~/js/profile-photo.js" asp-append-version="true"></script>
+    @await RenderSectionAsync("Scripts", required: false)
+</body>
+</html>

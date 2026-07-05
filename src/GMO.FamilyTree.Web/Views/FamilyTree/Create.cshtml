@@ -1,0 +1,21 @@
+@model GMO.FamilyTree.Web.Data.FamilyTree
+@{
+    ViewData["Title"] = "Create Family Tree";
+}
+<h1 class="ft-page-title">Create family tree</h1>
+<p class="ft-page-lead">Give your new tree a name. You can add people after it is created.</p>
+<form asp-action="Create" method="post">
+    <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+    <div class="mb-3">
+        <label asp-for="Name" class="form-label"></label>
+        <input asp-for="Name" class="form-control" autofocus />
+        <span asp-validation-for="Name" class="text-danger"></span>
+    </div>
+    <div class="ft-form-actions">
+        <button type="submit" class="btn btn-primary">Create</button>
+        <a asp-controller="Home" asp-action="Index" class="ft-link">Cancel</a>
+    </div>
+</form>
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

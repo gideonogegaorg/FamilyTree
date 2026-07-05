@@ -1,29 +1,22 @@
-# Family Tree Documentation
+﻿# Family Tree Documentation
 
 This directory contains comprehensive documentation for the Family Tree application, organized for both production features and testing approaches.
 
 ---
 
-## 🔗 Development Setup
+## Development Setup
 
-**For local development setup, see the [root README.md](../README.md)** which includes:**
-- **appsettings.json** configuration (git ignored template system)
-- **Build and run** instructions
-- **Environment variables** and secrets
+For local setup (appsettings, build, run, env vars) see [root README.md](../README.md).
 
 ---
 
-## 🚀 New User Guide
+## New User Guide
 
-### Quick Start for Development
-
-**For complete development setup:**
-
-1. **🔧 Development Environment**: See [root README.md](../README.md#local-setup) for appsettings.json, build, and run instructions
-2. **📖 Understand the Core Feature**: Start with [`tree-layout-orientation.md`](tree-layout-orientation.md) - learn about visual ranks, orientations, and lineage modes
-3. **🗄️ Database Setup**: Use [`database-setup.md`](database-setup.md) - configure PostgreSQL and seed test data
-4. **🧪 Testing Environment**: Follow [`testing-environment.md`](testing-environment.md) - set up test accounts and validation
-5. **🔧 Run Tests**: Use [`ui-testing-approach.md`](ui-testing-approach.md) - understand testing strategy and run tests
+1. [root README.md](../README.md#local-setup) — appsettings, build, run
+2. [`tree-layout-semantics.md`](tree-layout-semantics.md) — canonical layout rules (dominance, half-ranks, forest)
+3. [`tree-layout-orientation.md`](tree-layout-orientation.md) — orientations, toolbar controls, CSS/JS wiring
+4. [`database-setup.md`](database-setup.md) — PostgreSQL and seed data
+5. [`testing-environment.md`](testing-environment.md) — test accounts and validation; [`ui-testing-approach.md`](ui-testing-approach.md) — test strategy
 
 ### Critical Prerequisites
 
@@ -45,17 +38,19 @@ This directory contains comprehensive documentation for the Family Tree applicat
 
 ## Documentation Structure
 
-### 📋 Production Documentation
+### Production Documentation
 **Focus**: Features, behavior, and implementation details for production functionality
 
 | File | Purpose | Key Topics |
 |---|---|---|
-| [`tree-layout-orientation.md`](tree-layout-orientation.md) | **Core Feature Documentation** | Layout orientation, visual ranking, lineage modes, CSS/JS implementation |
+| [`tree-layout-semantics.md`](tree-layout-semantics.md) | **Canonical layout rules** | Dominance, half-ranks, marriage-tree forest, production parity |
+| [`tree-layout-reference-tables.md`](tree-layout-reference-tables.md) | **Layout reference tables** | ASCII tables for the 3-gen test tree by orientation/mode |
+| [`tree-layout-orientation.md`](tree-layout-orientation.md) | **Core Feature Documentation** | Layout orientation, tree toolbar, visual ranking, lineage modes, CSS/JS implementation |
 | [`database-setup.md`](database-setup.md) | **Database Configuration** | PostgreSQL setup, seeding, migrations, MCP server integration |
-| [`configure-service.md`](configure-service.md) | **Service Configuration** | Service setup, configuration options |
+| [`configure-service.md`](configure-service.md) | **Service Configuration** | Service setup, configuration options, private S3 photo storage |
 | [`coverage-pending.md`](coverage-pending.md) | **Test Coverage Planning** | Pending test coverage areas and planning |
 
-### 🧪 Testing Documentation  
+### Testing Documentation
 **Focus**: Testing strategy, validation approaches, and test implementation
 
 | File | Purpose | Key Topics |
@@ -66,7 +61,7 @@ This directory contains comprehensive documentation for the Family Tree applicat
 
 ---
 
-## � Documentation Philosophy
+## Documentation Philosophy
 
 #### Production vs Testing Separation
 
@@ -97,6 +92,15 @@ Two display orientations with **90° rotation principle**:
 - **Vertical**: Top-to-bottom flow, rows aligned by Y coordinate
 - **Horizontal**: Left-to-right flow, columns aligned by X coordinate
 
+### Profile and member photos
+Photos are stored privately (local filesystem in dev, S3 in production) and served only through authenticated routes (`GET /photos/profiles/me`, `GET /photos/members/{id}`). In the UI:
+
+- **Profile**: user menu → *Change profile picture* (modal upload)
+- **Member**: click the avatar on a tree card (modal upload/remove); the Edit panel in the actions menu also supports upload/remove
+- **View modes**: toolbar *View* dropdown (`Standard`, `Compact`, `Photo only`, etc.) — persisted on `UserProfiles.TreeCardViewMode`
+
+See [configure-service.md](configure-service.md#private-photo-storage-s3) for storage and deploy configuration.
+
 ### Testing Strategy
 **Relative positioning validation** with browser tolerance:
 
@@ -124,33 +128,15 @@ Two display orientations with **90° rotation principle**:
 
 ---
 
-## File Index
-
-### Complete File List
-
-```
-docs/
-├── README.md                           # This file - documentation overview
-├── tree-layout-orientation.md          # Core feature documentation
-├── database-setup.md                   # NEW - Database configuration and seeding
-├── ui-testing-approach.md              # UI testing strategy and implementation
-├── testing-environment.md              # NEW - Test environment setup and automation
-├── configure-service.md                # Service configuration guide
-├── coverage-pending.md                 # Test coverage planning
-└── coverage-report-topic-NewUser.md    # New user test coverage
-```
-
----
-
 ## Quick Reference
 
 ### Most Important Files
 
-1. **📖 [`tree-layout-orientation.md`](tree-layout-orientation.md)** - *Must read* for understanding the core feature
-2. **🗄️ [`database-setup.md`](database-setup.md)** - *Essential* for database configuration and seeding
-3. **🧪 [`ui-testing-approach.md`](ui-testing-approach.md)** - *Essential* for understanding test validation
-4. **⚙️ [`testing-environment.md`](testing-environment.md)** - *Important* for test environment setup
-5. **⚙️ [`configure-service.md`](configure-service.md)** - *Reference* for service setup
+1. [`tree-layout-orientation.md`](tree-layout-orientation.md) — core feature (layout, ranks, lineage)
+2. [`database-setup.md`](database-setup.md) — database and seeding
+3. [`ui-testing-approach.md`](ui-testing-approach.md) — test validation
+4. [`testing-environment.md`](testing-environment.md) — test environment setup
+5. [`configure-service.md`](configure-service.md) — service setup
 
 ### Common Questions
 

@@ -1,11 +1,11 @@
 # Coverage report: topic/NewUser vs dev (combined unit + integration)
 
-This report is generated from **combined** unit and integration test coverage (merged Cobertura XML). To regenerate:
+This report is generated from unit, integration, and UI test coverage (OpenCover). To regenerate:
 
-1. From repo root, run: `.\scripts\run-coverage.ps1`  
-   - Runs `dotnet test GMO.Family.sln --collect:"XPlat Code Coverage" --results-directory ./coverage`
-   - Merges all `coverage/**/coverage.cobertura.xml` into `coverage/combined/` using ReportGenerator
-   - Produces `coverage/combined/index.html` (view in browser) and `coverage/combined/Cobertura.xml`
+1. From repo root, run: `.\scripts\run-coverage.ps1`
+   - Runs `dotnet test GMO.FamilyTree.sln` with `--collect:"XPlat Code Coverage;Format=opencover"`
+   - Collects OpenCover reports under `coverage/**/coverage.opencover.xml`
+   - Produces `coverage/combined/index.html` (view in browser) via ReportGenerator
 
 2. Open `coverage/combined/index.html` for the full report.
 
@@ -52,17 +52,18 @@ After building and running `.\scripts\run-coverage.ps1`, re-open `coverage/combi
 
 ---
 
-## Remaining gaps (vs dev diff) after new tests
+## Remaining gaps after new tests
 
-- **AccountController**: SignIn GET (Google Challenge) and **ExternalLoginCallback** (full flow) – not exercised by tests; would require mocked external auth.
-- **AuthenticationExtensions**: Branch where environment is not Testing (fallback auth policy) – tests run in Testing.
-- **AppDbContextFactory**: 0% – design-time only; typically excluded from coverage.
-- **HomeController**: Not part of NewUser diff in the same way; any missing coverage is pre-existing.
+- **AccountController**: SignIn GET, ExternalLoginCallback – need mocked external auth.
+- **AuthenticationExtensions**: Non-Testing fallback branch not hit (tests run in Testing).
+- **AppDbContextFactory**: Design-time only; typically excluded.
+- **HomeController**: Pre-existing gaps, not part of NewUser diff.
 
 ---
 
 ## File reference
 
-- **Script**: `scripts/run-coverage.ps1`  
-- **Merged output**: `coverage/combined/index.html`, `coverage/combined/Cobertura.xml`  
+- **Script**: `scripts/run-coverage.ps1`
+- **Local HTML output**: `coverage/combined/index.html`
+- **CI coverage gate**: SonarCloud quality gate (see [`code-quality-setup.md`](code-quality-setup.md))
 - **Tool**: ReportGenerator (see `src/dotnet-tools.json`).
