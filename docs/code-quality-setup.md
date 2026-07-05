@@ -6,7 +6,10 @@ One-time configuration for CI quality gates added to this repository.
 
 1. Sign in at [sonarcloud.io](https://sonarcloud.io) with GitHub and import **`gideonogegaorg/FamilyTree`**.
 2. Confirm project key **`gideonogegaorg_FamilyTree`** and organization **`gideonogegaorg`** match [`sonar-project.properties`](../sonar-project.properties).
-3. Add repository secret **`SONAR_TOKEN`** (SonarCloud → My Account → Security → Generate Token).
+3. Add **`SONAR_TOKEN`** for CI analysis upload and PR decoration:
+   - **Recommended:** GitHub org secret `SONAR_TOKEN` on **`gideonogegaorg`** (shared by all repos that use SonarCloud org `gideonogegaorg`, e.g. OpenTelemetry and FamilyTree).
+   - **Alternative:** repository secret on each repo.
+   - Value: SonarCloud → My Account → Security → Generate Token (one token can analyze any project you can access in that SonarCloud org).
 4. In SonarCloud → Project → Quality Gate, use (or create) a gate with:
    - Overall line coverage ≥ **80%**
    - Coverage on new code ≥ **80%**
