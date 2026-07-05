@@ -6,7 +6,7 @@ Infrastructure required to host a .NET subdomain on the EC2 instance. Hostnames 
 
 1. **DNS**: An A record for the subdomain pointing to the EC2 Elastic IP (e.g. `family-dev.example.com` → your IP).
 2. **SSL certificates**: Let's Encrypt certs in place for your domain (see [Let's Encrypt setup](#lets-encrypt-setup) below).
-3. **Port**: An unused local port for the .NET app (`5002` for main/`family`, `5003` for `family-dev`).
+3. **Port**: An unused local port for the .NET app (`5002` for prod/`family`, `5003` for `family-dev`).
 4. **ASP.NET Core Runtime 10**: Publish is framework-dependent, so the host needs `Microsoft.AspNetCore.App` 10.x (`/usr/bin/dotnet`). The pipeline runs [scripts/install-aspnetcore-runtime.sh](../scripts/install-aspnetcore-runtime.sh) on every deploy (idempotent `apt` install of `aspnetcore-runtime-10.0`). Manual provisioning via `configure-service.sh` runs the same script. To install by hand:
 
 ```bash
@@ -92,15 +92,15 @@ sudo ./scripts/configure-service.sh <subdomain> <port> <service_name> [cert_doma
 ```
 
 - **subdomain**: Full hostname (e.g. `family-dev.example.com`).
-- **port**: Local port for the .NET app (`5002` main, `5003` dev).
-- **service_name**: Systemd service name; use the same as the pipeline's `SERVICE_NAME` variable for that environment (e.g. `family` for main, `family-dev` for dev).
+- **port**: Local port for the .NET app (`5002` prod, `5003` dev).
+- **service_name**: Systemd service name; use the same as the pipeline's `SERVICE_NAME` variable for that environment (e.g. `family` for prod, `family-dev` for dev).
 - **cert_domain**: Base domain used for the Let's Encrypt path (e.g. `example.com` → `/etc/letsencrypt/live/example.com/`). Defaults to `example.com` if omitted.
 - **is_production**: Optional. `true` for production (no `X-Robots-Tag`); otherwise adds `noindex, nofollow`.
 
 Example:
 
 ```bash
-# Main site (matches pipeline SERVICE_NAME / PORT for main)
+# Production site (matches pipeline SERVICE_NAME / PORT for prod)
 sudo ./scripts/configure-service.sh family.example.com 5002 family example.com true
 # Dev site
 sudo ./scripts/configure-service.sh family-dev.example.com 5003 family-dev example.com false

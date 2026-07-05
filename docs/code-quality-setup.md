@@ -20,7 +20,8 @@ One-time configuration for CI quality gates added to this repository.
    - Duplicated lines ≤ **3%**
 5. Enable **Pull Request decoration** under GitHub integration.
 6. Disable **Automatic Analysis** (Administration → Analysis Method) when using CI-based scanner.
-7. Confirm **Administration → Branches** shows **`main`** as the SonarCloud main branch (not `dev`). The build workflow calls `project_branches/set_main` on pushes to GitHub `main`; if that API call fails, ensure `SONAR_TOKEN` can **Administer** the project or set the main branch manually in SonarCloud.
+7. Set **Administration → Branches → Detection of long-lived branches** regex to `prod|dev|(branch|release)-.*`.
+8. Confirm **Administration → Branches** shows **`prod`** as the SonarCloud main branch (not `dev`). The build workflow calls `project_branches/set_main` on pushes to GitHub `prod`; if that API call fails, ensure `SONAR_TOKEN` can **Administer** the project or set the main branch manually in SonarCloud.
 
 The build workflow runs `dotnet sonarscanner begin/end` around build and tests. Scanner settings (exclusions, OpenCover paths, quality gate wait) are passed on the `begin` command — **do not** add `sonar-project.properties`; the .NET scanner rejects that file. Merge blocking still uses the required **SonarCloud Code Analysis** GitHub check even when scanner-side quality gate wait is skipped.
 
