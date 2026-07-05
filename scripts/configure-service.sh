@@ -94,7 +94,7 @@ NGINX_FILE="/etc/nginx/sites-available/$DEPLOY_DOMAIN"
 
 # Build X-Robots-Tag directive for non-production environments
 ROBOTS_HEADER=""
-if [ "$IS_PRODUCTION" != "true" ]; then
+if [ "$IS_PRODUCTION" != "true" ] && [ "$IS_PRODUCTION" != "production" ]; then
     ROBOTS_HEADER='add_header X-Robots-Tag "noindex, nofollow" always;'
 fi
 
