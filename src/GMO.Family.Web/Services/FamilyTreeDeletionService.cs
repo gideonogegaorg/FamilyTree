@@ -1,4 +1,5 @@
 using GMO.Family.Web.Data;
+using GMO.Family.Web.Services.Photos;
 
 using Microsoft.EntityFrameworkCore;
 
@@ -9,15 +10,18 @@ public sealed class FamilyTreeDeletionService : IFamilyTreeDeletionService
     private readonly AppDbContext _db;
     private readonly ICurrentFamilyTreeService _currentFamilyTree;
     private readonly IDefaultFamilyTreeService _defaultFamilyTree;
+    private readonly IPhotoStorageService _photos;
 
     public FamilyTreeDeletionService(
         AppDbContext db,
         ICurrentFamilyTreeService currentFamilyTree,
-        IDefaultFamilyTreeService defaultFamilyTree)
+        IDefaultFamilyTreeService defaultFamilyTree,
+        IPhotoStorageService photos)
     {
         _db = db;
         _currentFamilyTree = currentFamilyTree;
         _defaultFamilyTree = defaultFamilyTree;
+        _photos = photos;
     }
 
     public async Task<FamilyTreeDeleteResult> DeleteAsync(string ownerId, long treeId, CancellationToken cancellationToken = default)
@@ -29,8 +33,14 @@ public sealed class FamilyTreeDeletionService : IFamilyTreeDeletionService
         var currentId = await _currentFamilyTree.GetCurrentFamilyTreeIdAsync(cancellationToken);
         var wasCurrent = currentId == treeId;
 
+        var memberPhotoKeys = await _db.FamilyMembers
+            .Where(m => m.FamilyTreeId == treeId && m.PhotoKey != null)
+            .Select(m => m.PhotoKey!)
+            .ToListAsync(cancellationToken);
+
         _db.FamilyTrees.Remove(entity);
         await _db.SaveChangesAsync(cancellationToken);
+        await PhotoStorageHelper.DeleteManyAsync(_photos, memberPhotoKeys, cancellationToken);
 
         var hasRemaining = await _db.FamilyTrees.AnyAsync(x => x.OwnerId == ownerId, cancellationToken);
         if (!hasRemaining)

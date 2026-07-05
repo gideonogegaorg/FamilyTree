@@ -4,6 +4,7 @@ using GMO.Family.Web.Data;
 using GMO.Family.Web.Models;
 using GMO.Family.Web.Options;
 using GMO.Family.Web.Services;
+using GMO.Family.Web.Services.Photos;
 
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Google;
@@ -30,6 +31,8 @@ public class AccountController : Controller
     private readonly IWebHostEnvironment _env;
     private readonly PathsOptions _paths;
     private readonly IExternalLoginInfoProvider _externalLoginInfo;
+    private readonly IPhotoStorageService _photos;
+    private readonly ITreeCardViewModeService _treeCardViewMode;
 
     public AccountController(
         SignInManager<IdentityUser> signInManager,
@@ -44,7 +47,9 @@ public class AccountController : Controller
         IFamilyTreeDeletionService familyTreeDeletion,
         IWebHostEnvironment env,
         IOptions<PathsOptions> paths,
-        IExternalLoginInfoProvider externalLoginInfo)
+        IExternalLoginInfoProvider externalLoginInfo,
+        IPhotoStorageService photos,
+        ITreeCardViewModeService treeCardViewMode)
     {
         _signInManager = signInManager;
         _userManager = userManager;
@@ -59,6 +64,8 @@ public class AccountController : Controller
         _env = env;
         _paths = paths.Value;
         _externalLoginInfo = externalLoginInfo;
+        _photos = photos;
+        _treeCardViewMode = treeCardViewMode;
     }
 
     [AllowAnonymous]
@@ -294,7 +301,7 @@ public class AccountController : Controller
     [HttpGet]
     public IActionResult UploadPhoto()
     {
-        return View();
+        return RedirectToAction("Index", "Home");
     }
 
     [HttpPost]
@@ -303,46 +310,70 @@ public class AccountController : Controller
     {
         var userId = _userManager.GetUserId(User);
         if (string.IsNullOrEmpty(userId))
-            return RedirectToAction("Index", "Home");
+            return WantsJson()
+                ? Json(new { success = false, error = "You must be signed in." })
+                : RedirectToAction("Index", "Home");
 
         if (photo == null || photo.Length == 0)
-        {
-            TempData["PhotoError"] = "Please select an image file.";
-            return RedirectToAction(nameof(UploadPhoto));
-        }
+            return PhotoUploadResult("Please select an image file.");
 
-        var allowed = new[] { ".jpg", ".jpeg", ".png", ".gif", ".webp" };
-        var ext = Path.GetExtension(photo.FileName).ToLowerInvariant();
-        if (string.IsNullOrEmpty(ext) || !allowed.Contains(ext))
-        {
-            TempData["PhotoError"] = "Allowed formats: JPG, PNG, GIF, WebP.";
-            return RedirectToAction(nameof(UploadPhoto));
-        }
+        var ext = PhotoStorageKeys.NormalizeExtension(photo.FileName);
+        if (ext == null)
+            return PhotoUploadResult("Allowed formats: JPG, PNG, GIF, WebP.");
 
-        var uploadsBase = string.IsNullOrWhiteSpace(_paths.Uploads)
-            ? Path.Combine(_env.WebRootPath, "uploads")
-            : Path.GetFullPath(Path.Combine(_env.ContentRootPath, _paths.Uploads));
-        var uploadsDir = Path.Combine(uploadsBase, "profiles");
-        Directory.CreateDirectory(uploadsDir);
-        var fileName = $"{userId}{ext}";
-        var path = Path.Combine(uploadsDir, fileName);
-        await using (var stream = new FileStream(path, FileMode.Create))
-            await photo.CopyToAsync(stream, cancellationToken);
-
-        var photoUrl = $"/uploads/profiles/{fileName}";
+        var key = PhotoStorageKeys.Profile(userId, ext);
         var profile = await _db.UserProfiles.FindAsync(new object[] { userId }, cancellationToken);
         if (profile == null)
         {
-            _db.UserProfiles.Add(new UserProfile { UserId = userId, PhotoUrl = photoUrl });
+            profile = new UserProfile { UserId = userId };
+            _db.UserProfiles.Add(profile);
         }
-        else
+
+        try
         {
-            profile.PhotoUrl = photoUrl;
+            await using (var stream = photo.OpenReadStream())
+                await PhotoStorageHelper.SaveAsync(_photos, key, stream, PhotoStorageKeys.ContentTypeForExtension(ext), cancellationToken);
         }
+        catch (Exception ex) when (PhotoStorageHelper.IsStorageException(ex))
+        {
+            return PhotoUploadResult(PhotoStorageHelper.StorageUnavailableMessage);
+        }
+
+        var previousKey = profile.PhotoKey;
+        profile.PhotoKey = key;
+        profile.PhotoUrl = null;
         await _db.SaveChangesAsync(cancellationToken);
+        await PhotoStorageHelper.TryDeleteAsync(_photos, previousKey != key ? previousKey : null, cancellationToken);
+
+        if (WantsJson())
+            return Json(new { success = true, photoUrl = "/photos/profiles/me" });
 
         TempData["PhotoSuccess"] = "Profile picture updated.";
-        return RedirectToAction(nameof(UploadPhoto));
+        return RedirectToAction("Index", "Home");
+    }
+
+    private bool WantsJson() =>
+        string.Equals(Request.Headers.XRequestedWith, "XMLHttpRequest", StringComparison.OrdinalIgnoreCase)
+        || (Request.Headers.Accept.ToString()?.Contains("application/json", StringComparison.OrdinalIgnoreCase) ?? false);
+
+    private IActionResult PhotoUploadResult(string error)
+    {
+        if (WantsJson())
+            return Json(new { success = false, error });
+
+        TempData["PhotoError"] = error;
+        return RedirectToAction("Index", "Home");
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> SetTreeCardViewMode(int mode, CancellationToken cancellationToken)
+    {
+        var value = Enum.IsDefined(typeof(TreeCardViewMode), mode)
+            ? (TreeCardViewMode)mode
+            : TreeCardViewMode.Standard;
+        await _treeCardViewMode.SetAsync(value, cancellationToken);
+        return RedirectToAction("Index", "Home");
     }
 
     [HttpPost]

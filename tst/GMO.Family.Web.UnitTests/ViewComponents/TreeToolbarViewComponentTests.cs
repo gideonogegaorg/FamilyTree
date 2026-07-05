@@ -75,8 +75,10 @@ public class TreeToolbarViewComponentTests
         orientation.Setup(s => s.GetOrientationAsync(It.IsAny<CancellationToken>())).ReturnsAsync(TreeViewOrientation.Vertical);
         var lineage = new Mock<ILineageModeService>();
         lineage.Setup(s => s.GetAsync(It.IsAny<CancellationToken>())).ReturnsAsync(LineageMode.Maternal);
+        var viewMode = new Mock<ITreeCardViewModeService>();
+        viewMode.Setup(s => s.GetAsync(It.IsAny<CancellationToken>())).ReturnsAsync(TreeCardViewMode.Standard);
 
-        var component = new TreeToolbarViewComponent(db, current.Object, orientation.Object, lineage.Object);
+        var component = new TreeToolbarViewComponent(db, current.Object, orientation.Object, lineage.Object, viewMode.Object);
         ViewComponentTestHelper.AttachContext(component, ViewComponentTestHelper.AuthenticatedUser("user-1"));
 
         var model = GetModel(await component.InvokeAsync(hasMembers: false));
@@ -98,8 +100,10 @@ public class TreeToolbarViewComponentTests
         orientation.Setup(s => s.GetOrientationAsync(It.IsAny<CancellationToken>())).ReturnsAsync(TreeViewOrientation.Horizontal);
         var lineage = new Mock<ILineageModeService>();
         lineage.Setup(s => s.GetAsync(It.IsAny<CancellationToken>())).ReturnsAsync(LineageMode.Paternal);
+        var viewMode = new Mock<ITreeCardViewModeService>();
+        viewMode.Setup(s => s.GetAsync(It.IsAny<CancellationToken>())).ReturnsAsync(TreeCardViewMode.Standard);
 
-        var component = new TreeToolbarViewComponent(db, current.Object, orientation.Object, lineage.Object);
+        var component = new TreeToolbarViewComponent(db, current.Object, orientation.Object, lineage.Object, viewMode.Object);
         ViewComponentTestHelper.AttachContext(
             component,
             authenticated ? ViewComponentTestHelper.AuthenticatedUser("user-1") : null);

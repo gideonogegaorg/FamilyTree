@@ -17,9 +17,26 @@ Database seeding, test accounts, and MCP configuration for the Family Tree appli
 ### Software Requirements
 
 - **.NET 10.0** or later
-- **PostgreSQL** 15 or later
+- **Docker** (recommended for local Postgres + S3-compatible MinIO)
+- **PostgreSQL** 15 or later (if not using Docker)
 - **Node.js** (for MCP server if applicable)
 - **Playwright** browsers (Chrome, Firefox, Safari)
+
+### Local Docker stack (Postgres + S3)
+
+From the repo root:
+
+```bash
+docker compose up -d
+```
+
+| Service | URL | Credentials |
+|---------|-----|-------------|
+| PostgreSQL | `localhost:5432` | `family` / `family`, db `family` |
+| MinIO (S3 API) | `http://localhost:9000` | bucket `gideonogega-internal` |
+| MinIO console | `http://localhost:9001` | `minioadmin` / `minioadmin` |
+
+`dotnet run` launch profiles default to **Local** photo storage (no MinIO required). Integration tests use in-process storage and do not require MinIO. To test S3 locally, run `docker compose up -d` and set `Photos__Provider=S3`.
 
 ### Tools Required
 

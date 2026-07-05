@@ -3,6 +3,7 @@ using System.Security.Claims;
 using GMO.Family.Web.Data;
 using GMO.Family.Web.Models;
 using GMO.Family.Web.Services;
+using GMO.Family.Web.Services.Photos;
 
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -15,11 +16,19 @@ public class FamilyMemberController : Controller
 {
     private readonly AppDbContext _db;
     private readonly ICurrentFamilyTreeService _currentTree;
+    private readonly IPhotoStorageService _photos;
+    private readonly IFamilyTreeAccessService _access;
 
-    public FamilyMemberController(AppDbContext db, ICurrentFamilyTreeService currentTree)
+    public FamilyMemberController(
+        AppDbContext db,
+        ICurrentFamilyTreeService currentTree,
+        IPhotoStorageService photos,
+        IFamilyTreeAccessService access)
     {
         _db = db;
         _currentTree = currentTree;
+        _photos = photos;
+        _access = access;
     }
 
     public async Task<IActionResult> AddRelation(long memberId, RelationshipType type, bool isChild = false, CancellationToken cancellationToken = default)
@@ -189,6 +198,7 @@ public class FamilyMemberController : Controller
             BirthOrder = member.BirthOrder,
             IsMe = member.UserId == currentUserId,
             IsMale = member.IsMale,
+            HasPhoto = !string.IsNullOrEmpty(member.PhotoKey),
             ExistingRelationships = existingRels,
             ParentCandidates = allInTree.Where(m => !parentIds.Contains(m.Id)).Select(m => new LinkExistingCandidateViewModel { Id = m.Id, DisplayName = memberNames.TryGetValue(m.Id, out var dn) ? dn : m.Name }).ToList(),
             ChildCandidates = allInTree.Where(m => !GetExistingChildIds(memberId, rels).Contains(m.Id)).Select(m => new LinkExistingCandidateViewModel { Id = m.Id, DisplayName = memberNames.TryGetValue(m.Id, out var dn) ? dn : m.Name }).ToList(),
@@ -211,6 +221,7 @@ public class FamilyMemberController : Controller
         _db.FamilyMemberRelationships.Remove(rel);
         await _db.SaveChangesAsync(cancellationToken);
 
+        var orphanPhotoKeys = new List<string?>();
         foreach (var candidateId in new[] { otherId, contextId })
         {
             var hasRels = await _db.FamilyMemberRelationships.AnyAsync(
@@ -219,10 +230,14 @@ public class FamilyMemberController : Controller
             {
                 var orphan = await _db.FamilyMembers.FindAsync(new object[] { candidateId }, cancellationToken);
                 if (orphan != null && orphan.FamilyTreeId == treeId.Value && string.IsNullOrEmpty(orphan.UserId))
+                {
+                    orphanPhotoKeys.Add(orphan.PhotoKey);
                     _db.FamilyMembers.Remove(orphan);
+                }
             }
         }
         await _db.SaveChangesAsync(cancellationToken);
+        await PhotoStorageHelper.DeleteManyAsync(_photos, orphanPhotoKeys, cancellationToken);
         return Json(new { success = true });
     }
 
@@ -257,6 +272,65 @@ public class FamilyMemberController : Controller
         }
 
         await _db.SaveChangesAsync(cancellationToken);
+        return Json(new { success = true });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> UploadMemberPhoto(long memberId, IFormFile? photo, CancellationToken cancellationToken = default)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(userId))
+            return Json(new { success = false, error = "Unauthorized" });
+        if (!await _access.UserOwnsMemberAsync(userId, memberId, cancellationToken))
+            return Json(new { success = false, error = "Not found" });
+        if (photo == null || photo.Length == 0)
+            return Json(new { success = false, error = "Please select an image file." });
+
+        var ext = PhotoStorageKeys.NormalizeExtension(photo.FileName);
+        if (ext == null)
+            return Json(new { success = false, error = "Allowed formats: JPG, PNG, GIF, WebP." });
+
+        var member = await _db.FamilyMembers.FindAsync(new object[] { memberId }, cancellationToken);
+        if (member == null)
+            return Json(new { success = false, error = "Not found" });
+
+        var key = PhotoStorageKeys.Member(member.FamilyTreeId, memberId, ext);
+        try
+        {
+            await using (var stream = photo.OpenReadStream())
+                await PhotoStorageHelper.SaveAsync(_photos, key, stream, PhotoStorageKeys.ContentTypeForExtension(ext), cancellationToken);
+        }
+        catch (Exception ex) when (PhotoStorageHelper.IsStorageException(ex))
+        {
+            return Json(new { success = false, error = PhotoStorageHelper.StorageUnavailableMessage });
+        }
+
+        var previousKey = member.PhotoKey;
+        member.PhotoKey = key;
+        await _db.SaveChangesAsync(cancellationToken);
+        await PhotoStorageHelper.TryDeleteAsync(_photos, previousKey != key ? previousKey : null, cancellationToken);
+        return Json(new { success = true, photoUrl = $"/photos/members/{memberId}" });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> RemoveMemberPhoto(long memberId, CancellationToken cancellationToken = default)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(userId))
+            return Json(new { success = false, error = "Unauthorized" });
+        if (!await _access.UserOwnsMemberAsync(userId, memberId, cancellationToken))
+            return Json(new { success = false, error = "Not found" });
+
+        var member = await _db.FamilyMembers.FindAsync(new object[] { memberId }, cancellationToken);
+        if (member == null || string.IsNullOrEmpty(member.PhotoKey))
+            return Json(new { success = true });
+
+        var previousKey = member.PhotoKey;
+        member.PhotoKey = null;
+        await _db.SaveChangesAsync(cancellationToken);
+        await PhotoStorageHelper.TryDeleteAsync(_photos, previousKey, cancellationToken);
         return Json(new { success = true });
     }
 

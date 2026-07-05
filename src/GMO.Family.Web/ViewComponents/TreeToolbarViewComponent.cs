@@ -12,17 +12,20 @@ public sealed class TreeToolbarViewComponent : ViewComponent
     private readonly ICurrentFamilyTreeService _currentFamilyTree;
     private readonly ITreeViewOrientationService _treeViewOrientation;
     private readonly ILineageModeService _lineageMode;
+    private readonly ITreeCardViewModeService _treeCardViewMode;
 
     public TreeToolbarViewComponent(
         AppDbContext db,
         ICurrentFamilyTreeService currentFamilyTree,
         ITreeViewOrientationService treeViewOrientation,
-        ILineageModeService lineageMode)
+        ILineageModeService lineageMode,
+        ITreeCardViewModeService treeCardViewMode)
     {
         _db = db;
         _currentFamilyTree = currentFamilyTree;
         _treeViewOrientation = treeViewOrientation;
         _lineageMode = lineageMode;
+        _treeCardViewMode = treeCardViewMode;
     }
 
     public async Task<IViewComponentResult> InvokeAsync(long? focusMemberId = null, bool hasMembers = true)
@@ -46,6 +49,7 @@ public sealed class TreeToolbarViewComponent : ViewComponent
             FamilyTrees = familyTrees,
             TreeViewOrientation = await _treeViewOrientation.GetOrientationAsync(),
             LineageMode = await _lineageMode.GetAsync(),
+            TreeCardViewMode = await _treeCardViewMode.GetAsync(),
             FocusMemberId = focusMemberId,
             HasMembers = hasMembers
         };

@@ -279,6 +279,24 @@ main .table code {
   opacity: 1 !important;
 }
 
+.profile-photo-preview-wrap {
+  min-height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.profile-photo-preview-img,
+.profile-photo-preview-placeholder {
+  width: 120px;
+  height: 120px;
+  object-fit: cover;
+}
+
+.profile-photo-preview-placeholder {
+  font-size: 2.5rem;
+}
+
 /* Family tree — Design B (warm genealogy) tokens scoped to graph */
 .family-tree-graph {
   --ft-bg: #f6f0e6;
@@ -386,12 +404,186 @@ main .table code {
   font-weight: 700;
   flex-shrink: 0;
   border: 1px solid var(--ft-border);
+  overflow: hidden;
+}
+
+button.family-tree-card-avatar.member-photo-trigger {
+  padding: 0;
+  cursor: pointer;
+  line-height: 1;
+  font: inherit;
+  appearance: none;
+  transition: opacity 0.15s ease, box-shadow 0.15s ease;
+}
+
+button.family-tree-card-avatar.member-photo-trigger:hover {
+  opacity: 0.9;
+  box-shadow: 0 0 0 2px var(--ft-accent-soft);
+}
+
+button.family-tree-card-avatar.member-photo-trigger:focus-visible {
+  outline: 2px solid var(--ft-accent);
+  outline-offset: 2px;
 }
 .family-tree-card-me .family-tree-card-avatar {
   background: #cfe8d9;
   color: var(--ft-you);
   border-color: var(--ft-you);
 }
+.family-tree-card-photo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 50%;
+  display: block;
+}
+
+/* View mode modifiers */
+.ft-view-compact .family-tree-card {
+  width: 140px;
+  min-height: 52px;
+  padding: 0.45rem 0.55rem;
+}
+.ft-view-compact .family-tree-card-avatar {
+  width: 28px;
+  height: 28px;
+  font-size: 0.6rem;
+}
+.ft-view-compact .family-tree-card-name {
+  font-size: 0.78rem;
+  -webkit-line-clamp: 1;
+  line-clamp: 1;
+}
+.ft-view-compact .family-tree-card-meta,
+.ft-view-compact .family-tree-card-you-badge {
+  display: none;
+}
+
+.ft-view-large .family-tree-card {
+  width: 220px;
+  min-height: 84px;
+  padding: 0.85rem 0.95rem;
+}
+.ft-view-large .family-tree-card-avatar {
+  width: 52px;
+  height: 52px;
+  font-size: 0.85rem;
+}
+.ft-view-large .family-tree-card-name {
+  font-size: 1rem;
+}
+
+.ft-view-details .family-tree-card {
+  width: 240px;
+  min-height: 96px;
+}
+.ft-view-details .family-tree-card-name {
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+}
+.ft-view-details .family-tree-card-meta {
+  font-size: 0.78rem;
+}
+
+/* Photo-only view modes (gallery / icon style) */
+.ft-view-photo-small .family-tree-card,
+.ft-view-photo-medium .family-tree-card,
+.ft-view-photo-large .family-tree-card,
+.ft-view-photo-xlarge .family-tree-card {
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.ft-view-photo-small .family-tree-card-text,
+.ft-view-photo-medium .family-tree-card-text,
+.ft-view-photo-large .family-tree-card-text,
+.ft-view-photo-xlarge .family-tree-card-text {
+  display: none;
+}
+
+.ft-view-photo-small .family-tree-card-content,
+.ft-view-photo-medium .family-tree-card-content,
+.ft-view-photo-large .family-tree-card-content,
+.ft-view-photo-xlarge .family-tree-card-content {
+  flex-direction: column;
+  align-items: center;
+  padding-right: 0;
+  gap: 0;
+}
+
+.ft-view-photo-small .family-tree-card-avatar,
+.ft-view-photo-medium .family-tree-card-avatar,
+.ft-view-photo-large .family-tree-card-avatar,
+.ft-view-photo-xlarge .family-tree-card-avatar {
+  border-radius: 8px;
+}
+
+.ft-view-photo-small .family-tree-card-photo,
+.ft-view-photo-medium .family-tree-card-photo,
+.ft-view-photo-large .family-tree-card-photo,
+.ft-view-photo-xlarge .family-tree-card-photo {
+  border-radius: 8px;
+}
+
+.ft-view-photo-small .family-tree-card-me .family-tree-card-avatar,
+.ft-view-photo-medium .family-tree-card-me .family-tree-card-avatar,
+.ft-view-photo-large .family-tree-card-me .family-tree-card-avatar,
+.ft-view-photo-xlarge .family-tree-card-me .family-tree-card-avatar {
+  box-shadow: 0 0 0 2px var(--ft-you);
+}
+
+.ft-view-photo-small .family-tree-card {
+  width: 44px;
+  min-height: 44px;
+  padding: 0.2rem;
+}
+.ft-view-photo-small .family-tree-card-avatar {
+  width: 36px;
+  height: 36px;
+  font-size: 0.62rem;
+}
+
+.ft-view-photo-medium .family-tree-card {
+  width: 60px;
+  min-height: 60px;
+  padding: 0.25rem;
+}
+.ft-view-photo-medium .family-tree-card-avatar {
+  width: 52px;
+  height: 52px;
+  font-size: 0.72rem;
+}
+
+.ft-view-photo-large .family-tree-card {
+  width: 84px;
+  min-height: 84px;
+  padding: 0.3rem;
+}
+.ft-view-photo-large .family-tree-card-avatar {
+  width: 72px;
+  height: 72px;
+  font-size: 0.85rem;
+}
+
+.ft-view-photo-xlarge .family-tree-card {
+  width: 116px;
+  min-height: 116px;
+  padding: 0.35rem;
+}
+.ft-view-photo-xlarge .family-tree-card-avatar {
+  width: 104px;
+  height: 104px;
+  font-size: 1rem;
+}
+
+.ft-view-photo-small .member-action-trigger,
+.ft-view-photo-medium .member-action-trigger {
+  top: 0.1rem;
+  right: 0.1rem;
+  font-size: 0.85rem;
+}
+
 .family-tree-card-text {
   min-width: 0;
   flex: 1;
@@ -1120,6 +1312,85 @@ main .table code {
 .ft-pills button.active {
   background: var(--ft-accent);
   color: #fff;
+  font-weight: 600;
+}
+
+.ft-view-picker-wrap {
+  position: relative;
+}
+
+.ft-view-picker-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: 1px solid var(--ft-border);
+  background: var(--ft-surface);
+  color: var(--ft-ink);
+  font: inherit;
+  font-size: 0.8rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.ft-view-picker-btn:hover {
+  border-color: var(--ft-accent);
+  color: var(--ft-accent);
+}
+
+.ft-view-picker-menu {
+  position: absolute;
+  top: calc(100% + 0.35rem);
+  left: 0;
+  z-index: 1200;
+  min-width: 11rem;
+  background: var(--ft-surface);
+  border: 1px solid var(--ft-border);
+  border-radius: var(--ft-radius);
+  box-shadow: var(--ft-shadow);
+  padding: 0.35rem 0;
+}
+
+.ft-view-picker-section + .ft-view-picker-section {
+  border-top: 1px solid var(--ft-border);
+  margin-top: 0.25rem;
+  padding-top: 0.25rem;
+}
+
+.ft-view-picker-heading {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ft-muted);
+  font-weight: 600;
+  padding: 0.25rem 0.75rem 0.15rem;
+}
+
+.ft-view-picker-form {
+  margin: 0;
+}
+
+.ft-view-picker-item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  background: transparent;
+  color: var(--ft-ink);
+  font: inherit;
+  font-size: 0.82rem;
+  padding: 0.4rem 0.75rem;
+  cursor: pointer;
+}
+
+.ft-view-picker-item:hover {
+  background: var(--ft-accent-soft);
+}
+
+.ft-view-picker-item.active {
+  background: var(--ft-accent-soft);
+  color: var(--ft-accent);
   font-weight: 600;
 }
 

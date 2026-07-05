@@ -1,11 +1,14 @@
 using System.Diagnostics;
 using System.Net;
 
+using Amazon.S3;
+
 using GMO.Family.Web;
 using GMO.Family.Web.Data;
 using GMO.Family.Web.Extensions;
 using GMO.Family.Web.Options;
 using GMO.Family.Web.Services;
+using GMO.Family.Web.Services.Photos;
 using GMO.OpenTelemetry;
 using GMO.OpenTelemetry.Serilog;
 
@@ -26,6 +29,34 @@ using Serilog;
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.Configure<PathsOptions>(builder.Configuration.GetSection("Paths"));
+builder.Services.Configure<PhotosOptions>(builder.Configuration.GetSection("Photos"));
+
+var photosProvider = builder.Configuration["Photos:Provider"] ?? "Local";
+if (photosProvider.Equals("S3", StringComparison.OrdinalIgnoreCase))
+{
+    builder.Services.AddSingleton<IAmazonS3>(sp =>
+    {
+        var photos = sp.GetRequiredService<IOptions<PhotosOptions>>().Value;
+        if (!string.IsNullOrWhiteSpace(photos.S3ServiceUrl))
+        {
+            var config = new AmazonS3Config
+            {
+                ServiceURL = photos.S3ServiceUrl,
+                ForcePathStyle = true,
+                AuthenticationRegion = photos.S3Region
+            };
+            var accessKey = photos.S3AccessKey ?? "minioadmin";
+            var secretKey = photos.S3SecretKey ?? "minioadmin";
+            return new AmazonS3Client(accessKey, secretKey, config);
+        }
+        return new AmazonS3Client();
+    });
+    builder.Services.AddSingleton<IPhotoStorageService, S3PhotoStorageService>();
+}
+else
+{
+    builder.Services.AddSingleton<IPhotoStorageService, LocalPhotoStorageService>();
+}
 
 var telemetryOptions = new FamilyOpenTelemetryOptions();
 builder.Configuration.GetSection("Telemetry").Bind(telemetryOptions);
@@ -114,6 +145,8 @@ builder.Services.AddScoped<ICurrentFamilyTreeService, CurrentFamilyTreeService>(
 builder.Services.AddScoped<IFamilyTreeDeletionService, FamilyTreeDeletionService>();
 builder.Services.AddScoped<ITreeViewOrientationService, TreeViewOrientationService>();
 builder.Services.AddScoped<ILineageModeService, LineageModeService>();
+builder.Services.AddScoped<ITreeCardViewModeService, TreeCardViewModeService>();
+builder.Services.AddScoped<IFamilyTreeAccessService, FamilyTreeAccessService>();
 builder.Services.AddScoped<IDefaultFamilyTreeService, DefaultFamilyTreeService>();
 builder.Services.AddScoped<IExternalLoginInfoProvider, SignInManagerExternalLoginInfoProvider>();
 builder.Services.AddDistributedMemoryCache();
