@@ -10,9 +10,13 @@ if (-not (Test-Path (Join-Path $root "GMO.FamilyTree.sln"))) {
 }
 
 Write-Host "Building and running tests with OpenCover coverage..."
-dotnet test GMO.FamilyTree.sln --settings coverlet.runsettings --collect:"XPlat Code Coverage" --results-directory ./coverage --verbosity minimal
+dotnet test GMO.FamilyTree.sln `
+  --settings coverlet.runsettings `
+  --collect:"XPlat Code Coverage;Format=opencover" `
+  --results-directory ./coverage `
+  --verbosity minimal
 
-$openCoverFiles = Get-ChildItem -Path ./coverage -Recurse -Filter "coverage.opencover.xml" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName
+$openCoverFiles = Get-ChildItem -Path ./coverage, ./tst -Recurse -Filter "coverage.opencover.xml" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty FullName
 if ($openCoverFiles.Count -eq 0) {
     Write-Error "No coverage.opencover.xml files found under ./coverage"
     exit 1

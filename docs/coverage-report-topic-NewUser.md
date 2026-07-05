@@ -1,9 +1,9 @@
 # Coverage report: topic/NewUser vs dev (combined unit + integration)
 
-This report is generated from **combined** unit and integration test coverage (merged Cobertura XML). To regenerate:
+This report is generated from unit, integration, and UI test coverage (OpenCover). To regenerate:
 
-1. From repo root, run: `.\scripts\run-coverage.ps1`  
-   - Runs `dotnet test GMO.FamilyTree.sln --collect:"XPlat Code Coverage" --results-directory ./coverage`
+1. From repo root, run: `.\scripts\run-coverage.ps1`
+   - Runs `dotnet test GMO.FamilyTree.sln` with `--collect:"XPlat Code Coverage;Format=opencover"`
    - Collects OpenCover reports under `coverage/**/coverage.opencover.xml`
    - Produces `coverage/combined/index.html` (view in browser) via ReportGenerator
 
@@ -63,6 +63,7 @@ After building and running `.\scripts\run-coverage.ps1`, re-open `coverage/combi
 
 ## File reference
 
-- **Script**: `scripts/run-coverage.ps1`  
-- **Merged output**: `coverage/combined/index.html`, `coverage/combined/Cobertura.xml`  
+- **Script**: `scripts/run-coverage.ps1`
+- **Local HTML output**: `coverage/combined/index.html`
+- **CI coverage gate**: SonarCloud quality gate (see [`code-quality-setup.md`](code-quality-setup.md))
 - **Tool**: ReportGenerator (see `src/dotnet-tools.json`).
