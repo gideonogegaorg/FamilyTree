@@ -56,18 +56,18 @@ Then open https://localhost:7295 (HTTPS) or http://localhost:5229 (HTTP) from [l
 
 ## Deploy
 
-Pushes to `main` and `dev` trigger GitHub Actions to build, publish, and deploy to EC2. You can also run the workflow manually (Actions > Build and Deploy > Run workflow) and choose the branch.
+Pushes to `prod` and `dev` trigger GitHub Actions to build, publish, and deploy to EC2. You can also run the workflow manually (Actions > Build and Deploy > Run workflow) and choose the branch.
 
-- **main** → `https://family.<DEPLOY_DOMAIN>`
+- **prod** → `https://family.<DEPLOY_DOMAIN>`
 - **dev** → `https://family-dev.<DEPLOY_DOMAIN>`
 
 The pipeline generates `appsettings.json` from the template on the **GitHub Actions runner** (using Environment secrets), publishes it into the site output, and copies that to EC2 via SCP. **Nothing with real credentials is ever committed to git** — only `appsettings.json.template` (with `^^PLACEHOLDERS^^`) is in the public repo; generated `appsettings.json` is gitignored and exists only on the runner during CI and on the private EC2 host after deploy. Logs and user uploads live outside the app folder: the pipeline ensures `$DEPLOY_PATH/logs` and `$DEPLOY_PATH/uploads` exist and configures the app to use them.
 
-The deploy job uses GitHub **Environments** (`main` and `dev`). For each environment, configure:
+The deploy job uses GitHub **Environments** (`prod` and `dev`). For each environment, configure:
 
-- **SERVICE_NAME** (variable): systemd service to restart (e.g. `family` for main, `family-dev` for dev).
-- **PORT** (variable): local port for the app (`5002` for main, `5003` for dev).
-- **DEPLOY_DOMAIN** (secret): used for deploy paths and Let's Encrypt cert path (e.g. `example.com` → `/var/www/family.example.com` and `/etc/letsencrypt/live/example.com/`). Set in both **main** and **dev** (or at repository level).
+- **SERVICE_NAME** (variable): systemd service to restart (e.g. `family` for prod, `family-dev` for dev).
+- **PORT** (variable): local port for the app (`5002` for prod, `5003` for dev).
+- **DEPLOY_DOMAIN** (secret): used for deploy paths and Let's Encrypt cert path (e.g. `example.com` → `/var/www/family.example.com` and `/etc/letsencrypt/live/example.com/`). Set in both **prod** and **dev** (or at repository level).
 
 **Repository secrets** (required for CI on private repos; org secrets are not available to private repos on some plans):
 
@@ -77,19 +77,19 @@ The deploy job uses GitHub **Environments** (`main` and `dev`). For each environ
 
 **PostgreSQL** (per environment): **PG_USER** and **PG_PASS**. The deploy job builds the connection string as `Host=localhost;Port=5432;Database=<SERVICE_NAME>;Username=<PG_USER>;Password=<PG_PASS>` and bakes it into the published `appsettings.json` on EC2 (Postgres on the same EC2; database name matches **SERVICE_NAME**).
 
-Optional for OpenTelemetry (same pattern — generated on the runner, deployed to EC2 only): **OPENTELEMETRY_ENABLED**, **OPENTELEMETRY_OTLPEXPORTENDPOINT**, **OPENTELEMETRY_HEADERS**, **OPENTELEMETRY_METRICSENDPOINT**, **OPENTELEMETRY_LOGGINGENDPOINT**. `Telemetry.EnvironmentName` is set automatically to `main` or `dev`.
+Optional for OpenTelemetry (same pattern — generated on the runner, deployed to EC2 only): **OPENTELEMETRY_ENABLED**, **OPENTELEMETRY_OTLPEXPORTENDPOINT**, **OPENTELEMETRY_HEADERS**, **OPENTELEMETRY_METRICSENDPOINT**, **OPENTELEMETRY_LOGGINGENDPOINT**. `Telemetry.EnvironmentName` is set automatically to `prod` or `dev`.
 
 Optional for Google sign-in: **GOOGLE_CLIENT_ID** and **GOOGLE_CLIENT_SECRET**. When both are set, the site requires sign-in except on the home and error pages.
 
 Optional variable: **S3_PHOTOS_BUCKET** (environment variable — private bucket name for photo storage).
 
-**Settings → Secrets and variables → Actions** (repository) and **Settings → Environments → [main | dev]** (environment variables / secrets).
+**Settings → Secrets and variables → Actions** (repository) and **Settings → Environments → [prod | dev]** (environment variables / secrets).
 
 See [.github/workflows/build.yml](.github/workflows/build.yml) for the pipeline.
 
 ### Validating version on Linux
 
-On the server, the deployed DLL’s **InformationalVersion** is set by the pipeline (e.g. `202602123456789` for main, `DEV-202602123456789` for dev). To check it:
+On the server, the deployed DLL’s **InformationalVersion** is set by the pipeline (e.g. `202602123456789` for prod, `DEV-202602123456789` for dev). To check it:
 
 - **From the DLL** (SSH into the server):
   ```bash

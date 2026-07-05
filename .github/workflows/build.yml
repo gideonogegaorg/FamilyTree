@@ -1,10 +1,14 @@
 name: Build and Deploy
 
+env:
+  PRODUCTION_BRANCH: prod
+  DEVELOPMENT_BRANCH: dev
+
 on:
   push:
-    branches: [main, dev]
+    branches: [prod, dev]
   pull_request:
-    branches: [main, dev]
+    branches: [prod, dev]
 
 jobs:
   lint:
@@ -114,13 +118,14 @@ jobs:
         id: setversion
         env:
           REF_NAME: ${{ github.ref_name }}
+          DEVELOPMENT_BRANCH: ${{ env.DEVELOPMENT_BRANCH }}
         run: |
           YEAR=$(date +%Y)
           MONTH=$(date +%m)
           DAY=$(date +%d)
           HHMM=$(date +%H%M)
           ASSEMBLY_VERSION="$YEAR.$MONTH.$DAY.$HHMM"
-          if [ "$REF_NAME" = "dev" ]; then
+          if [ "$REF_NAME" = "$DEVELOPMENT_BRANCH" ]; then
             DLL_VERSION="DEV-$YEAR$MONTH$DAY-$HHMM"
           else
             DLL_VERSION="$YEAR$MONTH$DAY-$HHMM"
@@ -147,16 +152,16 @@ jobs:
           SONAR_ORGANIZATION: ${{ github.repository_owner }}
           SONAR_PROJECT_KEY: ${{ github.repository_owner }}_${{ github.event.repository.name }}
           SONAR_PROJECT_NAME: ${{ github.event.repository.name }}
+          PRODUCTION_BRANCH: ${{ env.PRODUCTION_BRANCH }}
         run: |
           EXCLUSIONS="**/Migrations/**,**/AppDbContextFactory.cs,**/wwwroot/lib/**,**/wwwroot/js/**,**/.github/**,**/bin/**,**/obj/**,**/coverage/**"
           COVERAGE_EXCLUSIONS="**/*.cshtml,**/*.cshtml.css,**/Views/**,**/wwwroot/**,**/S3PhotoStorageService.cs,**/Controllers/FamilyMemberController.cs"
           QG_WAIT="true"
-          # SonarCloud marks the first analyzed branch as "main". Early CI ran on dev, so GitHub main
-          # was analyzed as a short-lived branch and sonar.qualitygate.wait failed at scanner end.
-          if [ "$SONAR_EVENT_NAME" = "push" ] && [ "$SONAR_BRANCH" = "main" ]; then
+          # Align SonarCloud main branch with GitHub production branch (prod).
+          if [ "$SONAR_EVENT_NAME" = "push" ] && [ "$SONAR_BRANCH" = "$PRODUCTION_BRANCH" ]; then
             if curl -sf -X POST -u "${SONAR_TOKEN}:" \
-              "https://sonarcloud.io/api/project_branches/set_main?project=${SONAR_PROJECT_KEY}&branch=main"; then
-              echo "SonarCloud main branch aligned to GitHub main"
+              "https://sonarcloud.io/api/project_branches/set_main?project=${SONAR_PROJECT_KEY}&branch=${PRODUCTION_BRANCH}"; then
+              echo "SonarCloud main branch aligned to GitHub ${PRODUCTION_BRANCH}"
             else
               echo "::warning::Could not set SonarCloud main branch (SONAR_TOKEN may lack Administer Project). Skipping quality gate wait for this run."
               QG_WAIT="false"
@@ -254,8 +259,10 @@ jobs:
     needs: [build, tag]
     environment: ${{ github.ref_name }}
     env:
-      DEPLOY_PATH: ${{ github.ref == 'refs/heads/main' && format('/var/www/family.{0}', secrets.DEPLOY_DOMAIN) || github.ref == 'refs/heads/dev' && format('/var/www/family-dev.{0}', secrets.DEPLOY_DOMAIN) || '' }}
-      FULL_HOSTNAME: ${{ github.ref == 'refs/heads/main' && format('family.{0}', secrets.DEPLOY_DOMAIN) || github.ref == 'refs/heads/dev' && format('family-dev.{0}', secrets.DEPLOY_DOMAIN) || '' }}
+      PRODUCTION_BRANCH: ${{ env.PRODUCTION_BRANCH }}
+      DEVELOPMENT_BRANCH: ${{ env.DEVELOPMENT_BRANCH }}
+      DEPLOY_PATH: ${{ github.ref == format('refs/heads/{0}', env.PRODUCTION_BRANCH) && format('/var/www/family.{0}', secrets.DEPLOY_DOMAIN) || github.ref == format('refs/heads/{0}', env.DEVELOPMENT_BRANCH) && format('/var/www/family-dev.{0}', secrets.DEPLOY_DOMAIN) || '' }}
+      FULL_HOSTNAME: ${{ github.ref == format('refs/heads/{0}', env.PRODUCTION_BRANCH) && format('family.{0}', secrets.DEPLOY_DOMAIN) || github.ref == format('refs/heads/{0}', env.DEVELOPMENT_BRANCH) && format('family-dev.{0}', secrets.DEPLOY_DOMAIN) || '' }}
       BRANCH: ${{ github.ref_name }}
       ASSEMBLY_VERSION: ${{ needs.build.outputs.assembly_version }}
       DLL_VERSION: ${{ needs.build.outputs.dll_version }}
