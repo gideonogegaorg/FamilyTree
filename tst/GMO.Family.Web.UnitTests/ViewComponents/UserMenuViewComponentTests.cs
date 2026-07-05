@@ -1,7 +1,6 @@
 using GMO.Family.Web.Data;
-using GMO.Family.Web.ViewComponents;
-
 using GMO.Family.Web.UnitTests.Fixtures;
+using GMO.Family.Web.ViewComponents;
 
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ViewComponents;
