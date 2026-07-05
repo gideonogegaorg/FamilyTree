@@ -260,7 +260,7 @@ public class AccountController : Controller
     {
         if (token == null || email == null)
             return BadRequest();
-        return View(new ResetPasswordViewModel { Code = token, Email = email ?? string.Empty });
+        return View(new ResetPasswordViewModel { Code = token, Email = email });
     }
 
     [AllowAnonymous]

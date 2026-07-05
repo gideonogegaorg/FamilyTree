@@ -146,12 +146,14 @@ jobs:
           SONAR_PROJECT_VERSION: ${{ env.DLL_VERSION }}
         run: |
           EXCLUSIONS="**/Migrations/**,**/AppDbContextFactory.cs,**/wwwroot/lib/**,**/wwwroot/js/**,**/.github/**,**/bin/**,**/obj/**,**/coverage/**"
+          COVERAGE_EXCLUSIONS="**/*.cshtml,**/*.cshtml.css,**/Views/**,**/wwwroot/**"
           ARGS="/k:gideonogegaorg_FamilyTree /o:gideonogegaorg /n:GMO.FamilyTree /v:$SONAR_PROJECT_VERSION"
           ARGS="$ARGS /d:sonar.projectBaseDir=$GITHUB_WORKSPACE"
           ARGS="$ARGS /d:sonar.token=$SONAR_TOKEN /d:sonar.host.url=https://sonarcloud.io"
           ARGS="$ARGS /d:sonar.qualitygate.wait=true"
           ARGS="$ARGS /d:sonar.cs.opencover.reportsPaths=coverage/**/coverage.opencover.xml,**/TestResults/**/coverage.opencover.xml"
           ARGS="$ARGS /d:sonar.exclusions=$EXCLUSIONS"
+          ARGS="$ARGS /d:sonar.coverage.exclusions=$COVERAGE_EXCLUSIONS"
           ARGS="$ARGS /d:sonar.cpd.exclusions=**/tst/**"
           if [ "$SONAR_EVENT_NAME" = "pull_request" ]; then
             ARGS="$ARGS /d:sonar.pullrequest.key=$SONAR_PR_KEY"
