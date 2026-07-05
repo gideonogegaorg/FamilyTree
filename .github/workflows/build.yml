@@ -310,7 +310,7 @@ jobs:
             exit 1
           fi
           if [ -z "$PG_USER" ] || [ -z "$PG_PASS" ]; then
-            echo "::error::Set PG_USER and PG_PASS secrets for this environment (GitHub → Settings → Environments)."
+            echo "::error::Set PG_USER and PG_PASS organization secrets (gideonogegaorg → Settings → Secrets → Actions). Do not duplicate on repo or environment — overrides block org-wide rotation."
             exit 1
           fi
 
