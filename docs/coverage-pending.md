@@ -18,6 +18,8 @@ The following paths are excluded from coverage metrics to reduce noise from desi
 
 CI enforces coverage via the **SonarCloud quality gate** (≥80% line and new-code coverage); see [`code-quality-setup.md`](code-quality-setup.md).
 
+Sonar coverage exclusions (in `build.yml`) omit Razor views, S3 photo storage (not used in CI), and `FamilyMemberController` until dedicated integration tests land below.
+
 ---
 
 ## Zero coverage (not exercised by tests)
