@@ -90,7 +90,11 @@ The deploy job uses GitHub **Environments** (`prod` and `dev`). For each environ
 - **GH_CLASSIC_PAT**: Classic PAT with `read:packages` so the build can restore GMO.* packages from GitHub Packages.
 - **DEPLOY_DOMAIN** and deploy secrets (AWS, SSH, etc.) as needed.
 
-**PostgreSQL** (per environment): **PG_USER** and **PG_PASS**. The deploy job builds the connection string as `Host=localhost;Port=5432;Database=<SERVICE_NAME>;Username=<PG_USER>;Password=<PG_PASS>` and bakes it into the published `appsettings.json` on EC2 (Postgres on the same EC2; database name matches **SERVICE_NAME**).
+**PostgreSQL** (organization-wide): set **`PG_USER`** and **`PG_PASS`** once under **Organization → Settings → Secrets and variables → Actions** (`gideonogegaorg`), with access to every repo that deploys to EC2 Postgres. Do **not** duplicate them on individual repositories or GitHub Environments — environment secrets override org secrets and force per-env updates when the password rotates.
+
+The deploy job builds the connection string as `Host=localhost;Port=5432;Database=<SERVICE_NAME>;Username=<PG_USER>;Password=<PG_PASS>` (database name comes from each environment’s **SERVICE_NAME** variable: `family` for prod, `family-dev` for dev).
+
+To rotate the password: update the org secret only, then re-run deploy on affected branches. Helper script (requires `gh auth refresh -h github.com -s admin:org`): [`scripts/set-org-postgres-secrets.sh`](scripts/set-org-postgres-secrets.sh).
 
 Optional for OpenTelemetry (same pattern — generated on the runner, deployed to EC2 only): **OPENTELEMETRY_ENABLED**, **OPENTELEMETRY_OTLPEXPORTENDPOINT**, **OPENTELEMETRY_HEADERS**, **OPENTELEMETRY_METRICSENDPOINT**, **OPENTELEMETRY_LOGGINGENDPOINT**. `Telemetry.EnvironmentName` is set automatically to `prod` or `dev`.
 

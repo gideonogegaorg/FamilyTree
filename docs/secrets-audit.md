@@ -14,6 +14,15 @@ Full scan of all **121 commits** across `main`, `dev`, and topic branches found 
 - Trivy filesystem scan includes **secret** detection (see [`.github/workflows/trivy.yml`](../.github/workflows/trivy.yml))
 - SSH deploy step runs with `debug: false` to avoid echoing environment values in CI logs
 
+## PostgreSQL credentials (organization secrets)
+
+**Single source of truth:** `PG_USER` and `PG_PASS` live only under **gideonogegaorg → Organization settings → Secrets and variables → Actions**.
+
+- Workflows reference `${{ secrets.PG_USER }}` and `${{ secrets.PG_PASS }}`; GitHub resolves org → repo → environment (first match wins).
+- **Do not** set `PG_USER` / `PG_PASS` on individual repos or GitHub Environments unless a database truly uses different credentials (none do today on shared EC2 Postgres).
+- When rotating the password, update the org secret and re-deploy; use [`scripts/set-org-postgres-secrets.sh`](../scripts/set-org-postgres-secrets.sh).
+- After the `main` → `prod` branch rename, confirm org secret **environment** policies include `prod` and `dev` (remove stale `main`-only restrictions).
+
 ## If a secret is ever committed
 
 1. Rotate the credential immediately (GitHub, Google OAuth, AWS, DB, etc.)
