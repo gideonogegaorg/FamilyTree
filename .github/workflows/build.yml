@@ -278,6 +278,8 @@ jobs:
       GITHUB_USERNAME: ${{ secrets.GH_USER }}
       GITHUB_PAT: ${{ secrets.GH_CLASSIC_PAT }}
       IS_PRODUCTION: ${{ vars.IS_PRODUCTION }}
+      PG_USER: ${{ secrets.PG_USER }}
+      PG_PASS: ${{ secrets.PG_PASS }}
     steps:
       - uses: actions/checkout@v4
 
@@ -300,7 +302,7 @@ jobs:
             echo "::error::DEPLOY_PATH looks invalid (missing domain?). Set DEPLOY_DOMAIN secret for this environment."
             exit 1
           fi
-          if [ -z "${{ secrets.PG_USER }}" ] || [ -z "${{ secrets.PG_PASS }}" ]; then
+          if [ -z "$PG_USER" ] || [ -z "$PG_PASS" ]; then
             echo "::error::Set PG_USER and PG_PASS secrets for this environment (GitHub → Settings → Environments)."
             exit 1
           fi
