@@ -118,26 +118,33 @@ jobs:
         if: env.SONAR_TOKEN != ''
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_EVENT_NAME: ${{ github.event_name }}
+          SONAR_PR_KEY: ${{ github.event.pull_request.number }}
+          SONAR_PR_BRANCH: ${{ github.head_ref }}
+          SONAR_PR_BASE: ${{ github.base_ref }}
+          SONAR_BRANCH: ${{ github.ref_name }}
         run: |
           ARGS="/k:gideonogegaorg_FamilyTree /o:gideonogegaorg /d:sonar.token=$SONAR_TOKEN /d:sonar.host.url=https://sonarcloud.io /d:sonar.exclusions=**/.github/**,**/wwwroot/js/**"
-          if [ "${{ github.event_name }}" = "pull_request" ]; then
-            ARGS="$ARGS /d:sonar.pullrequest.key=${{ github.event.pull_request.number }}"
-            ARGS="$ARGS /d:sonar.pullrequest.branch=${{ github.head_ref }}"
-            ARGS="$ARGS /d:sonar.pullrequest.base=${{ github.base_ref }}"
+          if [ "$SONAR_EVENT_NAME" = "pull_request" ]; then
+            ARGS="$ARGS /d:sonar.pullrequest.key=$SONAR_PR_KEY"
+            ARGS="$ARGS /d:sonar.pullrequest.branch=$SONAR_PR_BRANCH"
+            ARGS="$ARGS /d:sonar.pullrequest.base=$SONAR_PR_BASE"
           else
-            ARGS="$ARGS /d:sonar.branch.name=${{ github.ref_name }}"
+            ARGS="$ARGS /d:sonar.branch.name=$SONAR_BRANCH"
           fi
           dotnet sonarscanner begin $ARGS
 
       - name: Set version
         id: setversion
+        env:
+          REF_NAME: ${{ github.ref_name }}
         run: |
           YEAR=$(date +%Y)
           MONTH=$(date +%m)
           DAY=$(date +%d)
           HHMM=$(date +%H%M)
           ASSEMBLY_VERSION="$YEAR.$MONTH.$DAY.$HHMM"
-          if [ "${{ github.ref_name }}" = "dev" ]; then
+          if [ "$REF_NAME" = "dev" ]; then
             DLL_VERSION="DEV-$YEAR$MONTH$DAY-$HHMM"
           else
             DLL_VERSION="$YEAR$MONTH$DAY-$HHMM"
