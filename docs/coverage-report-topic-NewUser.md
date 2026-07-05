@@ -4,8 +4,8 @@ This report is generated from **combined** unit and integration test coverage (m
 
 1. From repo root, run: `.\scripts\run-coverage.ps1`  
    - Runs `dotnet test GMO.FamilyTree.sln --collect:"XPlat Code Coverage" --results-directory ./coverage`
-   - Merges all `coverage/**/coverage.cobertura.xml` into `coverage/combined/` using ReportGenerator
-   - Produces `coverage/combined/index.html` (view in browser) and `coverage/combined/Cobertura.xml`
+   - Collects OpenCover reports under `coverage/**/coverage.opencover.xml`
+   - Produces `coverage/combined/index.html` (view in browser) via ReportGenerator
 
 2. Open `coverage/combined/index.html` for the full report.
 

@@ -16,7 +16,7 @@ The following paths are excluded from coverage metrics to reduce noise from desi
 | `**/AppDbContextFactory.cs` | Design-time EF tooling only |
 | `**/wwwroot/lib/**` | Vendored third-party assets (SonarCloud only) |
 
-CI enforces a **minimum 80% combined line coverage** via `scripts/enforce-coverage-threshold.sh` on the merged Cobertura report.
+CI enforces coverage via the **SonarCloud quality gate** (≥80% line and new-code coverage); see [`code-quality-setup.md`](code-quality-setup.md).
 
 ---
 

@@ -16,8 +16,9 @@ One-time configuration for CI quality gates added to this repository.
    - No new blocker issues
    - Duplicated lines ≤ **3%**
 5. Enable **Pull Request decoration** under GitHub integration.
+6. Disable **Automatic Analysis** (Administration → Analysis Method) when using CI-based scanner.
 
-The build workflow runs `dotnet sonarscanner begin/end` around build, tests, and merged Cobertura coverage.
+The build workflow runs `dotnet sonarscanner begin/end` around build and tests. Coverlet produces OpenCover reports; CI passes `sonar.cs.opencover.reportsPaths=**/coverage.opencover.xml` and `sonar.qualitygate.wait=true` on begin. Coverage enforcement is via the SonarCloud quality gate and the required **SonarCloud Code Analysis** GitHub check.
 
 ## GitHub security features
 
@@ -41,5 +42,4 @@ This fails CI when known vulnerabilities exist. A current transitive issue is **
 |-------|---------|
 | Format | `dotnet format GMO.FamilyTree.sln --verify-no-changes` |
 | JS lint | `npm ci && npm run lint:js` |
-| Coverage | `.\scripts\run-coverage.ps1` |
-| Coverage gate | `bash scripts/enforce-coverage-threshold.sh coverage/combined/Cobertura.xml 80` |
+| Coverage (local HTML) | `.\scripts\run-coverage.ps1` then open `coverage/combined/index.html` |

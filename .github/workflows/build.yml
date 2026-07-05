@@ -124,7 +124,7 @@ jobs:
           SONAR_PR_BASE: ${{ github.base_ref }}
           SONAR_BRANCH: ${{ github.ref_name }}
         run: |
-          ARGS="/k:gideonogegaorg_FamilyTree /o:gideonogegaorg /d:sonar.token=$SONAR_TOKEN /d:sonar.host.url=https://sonarcloud.io /d:sonar.exclusions=**/.github/**,**/wwwroot/js/**"
+          ARGS="/k:gideonogegaorg_FamilyTree /o:gideonogegaorg /d:sonar.token=$SONAR_TOKEN /d:sonar.host.url=https://sonarcloud.io /d:sonar.qualitygate.wait=true /d:sonar.cs.opencover.reportsPaths=**/coverage.opencover.xml /d:sonar.exclusions=**/.github/**,**/wwwroot/js/**"
           if [ "$SONAR_EVENT_NAME" = "pull_request" ]; then
             ARGS="$ARGS /d:sonar.pullrequest.key=$SONAR_PR_KEY"
             ARGS="$ARGS /d:sonar.pullrequest.branch=$SONAR_PR_BRANCH"
@@ -178,26 +178,16 @@ jobs:
           EXIT=${PIPESTATUS[0]}
           if [ $EXIT -ne 0 ]; then exit $EXIT; fi
 
-      - name: Generate merged coverage report
+      - name: Verify coverage output
+        if: env.SONAR_TOKEN != ''
         run: |
-          COBERTURA_FILES=$(find coverage -type f -name 'coverage.cobertura.xml' 2>/dev/null || true)
-          if [ -z "$COBERTURA_FILES" ]; then
-            echo "::error::No coverage files found."
+          OPENCover_FILES=$(find coverage -type f -name 'coverage.opencover.xml' 2>/dev/null || true)
+          if [ -z "$OPENCOVER_FILES" ]; then
+            echo "::error::No coverage.opencover.xml files found."
             exit 1
           fi
-          REPORTS=$(echo "$COBERTURA_FILES" | sed 's|^|../|' | tr '\n' ';' | sed 's/;$//')
-          mkdir -p coverage/combined
-          cd src
-          dotnet tool restore
-          dotnet tool run reportgenerator -- \
-            "-reports:$REPORTS" \
-            "-targetdir:../coverage/combined" \
-            "-reporttypes:Html;Cobertura" \
-            "-assemblyfilters:+GMO.FamilyTree.Web"
-          echo "HTML report in coverage/combined/index.html"
-
-      - name: Enforce coverage threshold
-        run: bash scripts/enforce-coverage-threshold.sh coverage/combined/Cobertura.xml 80
+          echo "OpenCover reports:"
+          echo "$OPENCOVER_FILES"
 
       - name: SonarCloud end
         if: env.SONAR_TOKEN != ''
@@ -209,8 +199,7 @@ jobs:
         with:
           name: coverage-results
           path: |
-            coverage/**/coverage.cobertura.xml
-            coverage/combined/
+            coverage/**/coverage.opencover.xml
           retention-days: 30
           if-no-files-found: ignore
 
