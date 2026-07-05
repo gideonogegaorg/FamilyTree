@@ -14,6 +14,7 @@ public class MemberActionMenuViewModel
     public int? BirthOrder { get; set; }
     public bool IsMe { get; set; }
     public bool IsMale { get; set; }
+    public bool HasPhoto { get; set; }
 
     public IReadOnlyList<ExistingRelationshipViewModel> ExistingRelationships { get; set; } = new List<ExistingRelationshipViewModel>();
     public IReadOnlyList<LinkExistingCandidateViewModel> ParentCandidates { get; set; } = new List<LinkExistingCandidateViewModel>();

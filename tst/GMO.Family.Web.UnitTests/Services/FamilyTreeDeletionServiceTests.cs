@@ -1,5 +1,6 @@
 using GMO.Family.Web.Data;
 using GMO.Family.Web.Services;
+using GMO.Family.Web.Services.Photos;
 
 using GMO.Family.Web.UnitTests.Mocks;
 
@@ -19,8 +20,15 @@ public class FamilyTreeDeletionServiceTests
     private static AppDbContext CreateDb(string name) =>
         new(new DbContextOptionsBuilder<AppDbContext>().UseInMemoryDatabase(name).Options);
 
-    private static FamilyTreeDeletionService CreateSut(AppDbContext db, CurrentFamilyTreeServiceMock? current = null) =>
-        new(db, (current ?? new CurrentFamilyTreeServiceMock()).Object, new DefaultFamilyTreeService(db));
+    private static FamilyTreeDeletionService CreateSut(
+        AppDbContext db,
+        CurrentFamilyTreeServiceMock? current = null,
+        Mock<IPhotoStorageService>? photos = null) =>
+        new(
+            db,
+            (current ?? new CurrentFamilyTreeServiceMock()).Object,
+            new DefaultFamilyTreeService(db),
+            (photos ?? new Mock<IPhotoStorageService>(MockBehavior.Loose)).Object);
 
     private static async Task<FamilyTree> SeedTreeAsync(AppDbContext db, string ownerId, string name)
     {
@@ -103,5 +111,36 @@ public class FamilyTreeDeletionServiceTests
 
         Assert.Equal(FamilyTreeDeleteResult.Deleted, result);
         current.Verify(s => s.SetCurrentFamilyTreeIdAsync(It.IsAny<long?>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task DeleteAsync_deletes_member_photos_from_storage()
+    {
+        await using var db = CreateDb(nameof(DeleteAsync_deletes_member_photos_from_storage));
+        var tree = await SeedTreeAsync(db, OwnerId, "WithPhotos");
+        db.FamilyMembers.Add(new FamilyMember
+        {
+            FamilyTreeId = tree.Id,
+            Name = "Alice",
+            PhotoKey = "members/1/alice.png"
+        });
+        db.FamilyMembers.Add(new FamilyMember
+        {
+            FamilyTreeId = tree.Id,
+            Name = "Bob",
+            PhotoKey = "members/1/bob.jpg"
+        });
+        await db.SaveChangesAsync();
+
+        var photos = new Mock<IPhotoStorageService>(MockBehavior.Strict);
+        photos.Setup(p => p.DeleteAsync("members/1/alice.png", It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+        photos.Setup(p => p.DeleteAsync("members/1/bob.jpg", It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
+        var sut = CreateSut(db, photos: photos);
+
+        var result = await sut.DeleteAsync(OwnerId, tree.Id);
+
+        Assert.Equal(FamilyTreeDeleteResult.Deleted, result);
+        photos.Verify(p => p.DeleteAsync("members/1/alice.png", It.IsAny<CancellationToken>()), Times.Once);
+        photos.Verify(p => p.DeleteAsync("members/1/bob.jpg", It.IsAny<CancellationToken>()), Times.Once);
     }
 }

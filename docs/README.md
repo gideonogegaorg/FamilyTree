@@ -47,7 +47,7 @@ For local setup (appsettings, build, run, env vars) see [root README.md](../READ
 | [`tree-layout-reference-tables.md`](tree-layout-reference-tables.md) | **Layout reference tables** | ASCII tables for the 3-gen test tree by orientation/mode |
 | [`tree-layout-orientation.md`](tree-layout-orientation.md) | **Core Feature Documentation** | Layout orientation, tree toolbar, visual ranking, lineage modes, CSS/JS implementation |
 | [`database-setup.md`](database-setup.md) | **Database Configuration** | PostgreSQL setup, seeding, migrations, MCP server integration |
-| [`configure-service.md`](configure-service.md) | **Service Configuration** | Service setup, configuration options |
+| [`configure-service.md`](configure-service.md) | **Service Configuration** | Service setup, configuration options, private S3 photo storage |
 | [`coverage-pending.md`](coverage-pending.md) | **Test Coverage Planning** | Pending test coverage areas and planning |
 
 ### Testing Documentation
@@ -91,6 +91,15 @@ Two display orientations with **90° rotation principle**:
 
 - **Vertical**: Top-to-bottom flow, rows aligned by Y coordinate
 - **Horizontal**: Left-to-right flow, columns aligned by X coordinate
+
+### Profile and member photos
+Photos are stored privately (local filesystem in dev, S3 in production) and served only through authenticated routes (`GET /photos/profiles/me`, `GET /photos/members/{id}`). In the UI:
+
+- **Profile**: user menu → *Change profile picture* (modal upload)
+- **Member**: click the avatar on a tree card (modal upload/remove); the Edit panel in the actions menu also supports upload/remove
+- **View modes**: toolbar *View* dropdown (`Standard`, `Compact`, `Photo only`, etc.) — persisted on `UserProfiles.TreeCardViewMode`
+
+See [configure-service.md](configure-service.md#private-photo-storage-s3) for storage and deploy configuration.
 
 ### Testing Strategy
 **Relative positioning validation** with browser tolerance:

@@ -92,5 +92,42 @@
                 </form>
             </div>
         </div>
+        <div class="ft-pill-group">
+            <span>View</span>
+            <div class="ft-view-picker-wrap">
+                <button type="button" class="ft-view-picker-btn" aria-expanded="false" aria-haspopup="menu">
+                    <span class="ft-view-picker-label">@Model.TreeCardViewMode.GetLabel()</span>
+                    <span class="ft-tree-picker-chevron" aria-hidden="true">&#9662;</span>
+                </button>
+                <div class="ft-view-picker-menu" role="menu" hidden>
+                    <div class="ft-view-picker-section">
+                        <div class="ft-view-picker-heading">Cards</div>
+                        @foreach (var viewMode in new[] { TreeCardViewMode.Compact, TreeCardViewMode.Standard, TreeCardViewMode.Large, TreeCardViewMode.Details })
+                        {
+                            <form asp-controller="Account" asp-action="SetTreeCardViewMode" method="post" class="ft-view-picker-form">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="mode" value="@((int)viewMode)" />
+                                <button type="submit" class="ft-view-picker-item @(Model.TreeCardViewMode == viewMode ? "active" : "")" role="menuitem">
+                                    @viewMode.GetLabel()
+                                </button>
+                            </form>
+                        }
+                    </div>
+                    <div class="ft-view-picker-section">
+                        <div class="ft-view-picker-heading">Photos only</div>
+                        @foreach (var viewMode in new[] { TreeCardViewMode.PhotoSmall, TreeCardViewMode.PhotoMedium, TreeCardViewMode.PhotoLarge, TreeCardViewMode.PhotoExtraLarge })
+                        {
+                            <form asp-controller="Account" asp-action="SetTreeCardViewMode" method="post" class="ft-view-picker-form">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="mode" value="@((int)viewMode)" />
+                                <button type="submit" class="ft-view-picker-item @(Model.TreeCardViewMode == viewMode ? "active" : "")" role="menuitem">
+                                    @viewMode.GetLabel()
+                                </button>
+                            </form>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 </div>
