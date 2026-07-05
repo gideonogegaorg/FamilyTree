@@ -1,0 +1,13 @@
+{
+  "name": "gmo-familytree",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "lint:js": "eslint \"src/GMO.FamilyTree.Web/wwwroot/js/**/*.js\""
+  },
+  "devDependencies": {
+    "eslint": "^9.28.0",
+    "@eslint/js": "^9.28.0",
+    "globals": "^16.2.0"
+  }
+}
