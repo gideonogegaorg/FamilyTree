@@ -1,8 +1,24 @@
 # Coverage report – what’s still pending (all code)
 
-Generated after running `.\scripts\run-coverage.ps1`. Combined line coverage: **90.6%** (1442/1591 lines). Branch coverage: **70.4%**.
+Generated after running `.\scripts\run-coverage.ps1`. Percentages below are from a prior local HTML report; **SonarCloud is the authoritative coverage gate in CI** (≥80% line and new-code coverage).
 
-Open **coverage/combined/index.html** for the full report.
+Open **coverage/combined/index.html** for the local HTML report.
+
+---
+
+## Coverage exclusions (coverlet + SonarCloud)
+
+The following paths are excluded from coverage metrics to reduce noise from design-time or vendor code:
+
+| Path | Reason |
+|------|--------|
+| `**/Migrations/**` | EF migration `Down()` methods are not exercised in tests |
+| `**/AppDbContextFactory.cs` | Design-time EF tooling only |
+| `**/wwwroot/lib/**` | Vendored third-party assets (SonarCloud only) |
+
+CI enforces coverage via the **SonarCloud quality gate** (≥80% line and new-code coverage); see [`code-quality-setup.md`](code-quality-setup.md).
+
+Sonar coverage exclusions (in `build.yml`) omit Razor views, S3 photo storage (not used in CI), and `FamilyMemberController` until dedicated integration tests land below.
 
 ---
 
