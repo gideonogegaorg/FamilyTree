@@ -35,6 +35,7 @@ appsettings.json
 appsettings.*.json
 
 # Others
+node_modules/
 ~$*
 *~
 CodeCoverage/

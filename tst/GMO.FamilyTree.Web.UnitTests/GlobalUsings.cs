@@ -1,0 +1,1 @@
+global using FamilyTreeEntity = GMO.FamilyTree.Web.Data.FamilyTree;

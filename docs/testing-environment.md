@@ -79,7 +79,7 @@ Since `appsettings.json` is git ignored, you have several options:
 **Option 2: Check Local Configuration**
 ```bash
 # Check your local appsettings.json
-cat src/GMO.Family.Web/appsettings.json
+cat src/GMO.FamilyTree.Web/appsettings.json
 
 # Or check if using environment variables
 echo $DB_HOST $DB_NAME $DB_USER $DB_PASSWORD
@@ -385,7 +385,7 @@ psql -h localhost -p 5432 -U family -d family -c "SELECT COUNT(*) FROM \"FamilyM
 
 ```bash
 # Start application
-dotnet run --project src/GMO.Family.Web
+dotnet run --project src/GMO.FamilyTree.Web
 
 # Test application health (dev URL from launchSettings.json)
 curl http://localhost:5229/
@@ -393,14 +393,14 @@ curl http://localhost:5229/
 
 ### 3. UI Test Validation
 
-**Test hosting (not the dev port):** Integration tests use in-process **TestServer** (`WebAppFixture`) — no TCP port, no conflict with `dotnet run` on 5229 except when rebuilding locks `GMO.Family.Web.exe`. UI tests (`AppFixture`) bind Kestrel to a **random ephemeral port** for Playwright; they also do not use 5229.
+**Test hosting (not the dev port):** Integration tests use in-process **TestServer** (`WebAppFixture`) — no TCP port, no conflict with `dotnet run` on 5229 except when rebuilding locks `GMO.FamilyTree.Web.exe`. UI tests (`AppFixture`) bind Kestrel to a **random ephemeral port** for Playwright; they also do not use 5229.
 
 ```bash
 # Run UI tests to validate environment
-dotnet test tst/GMO.Family.Web.UiTests --logger "console;verbosity=detailed"
+dotnet test tst/GMO.FamilyTree.Web.UiTests --logger "console;verbosity=detailed"
 
 # Run specific test to verify test data
-dotnet test tst/GMO.Family.Web.UiTests --filter "FullyQualifiedName~HorizontalLayout_Paternal_PositionsEveryNodeAndRank"
+dotnet test tst/GMO.FamilyTree.Web.UiTests --filter "FullyQualifiedName~HorizontalLayout_Paternal_PositionsEveryNodeAndRank"
 ```
 
 ### 4. Data Validation
@@ -451,7 +451,7 @@ dotnet tool install --global playwright
 playwright install
 
 # Run tests with detailed output
-dotnet test tst/GMO.Family.Web.UiTests --logger "console;verbosity=detailed"
+dotnet test tst/GMO.FamilyTree.Web.UiTests --logger "console;verbosity=detailed"
 
 # Check test data state
 psql -h localhost -U family -d family -c "SELECT \"Name\", \"Generation\" FROM \"FamilyMembers\" WHERE \"FamilyTreeId\" = 9 ORDER BY \"Generation\", \"Name\";"
@@ -480,7 +480,7 @@ DB_NAME="family"
 
 # Run seed script
 echo "Running seed script..."
-psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -f tst/GMO.Family.Web.UiTests/Data/seed_trees.sql
+psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -f tst/GMO.FamilyTree.Web.UiTests/Data/seed_trees.sql
 
 # Verify setup
 echo "Verifying setup..."
@@ -539,7 +539,7 @@ echo "Quick start for Family Tree testing..."
 
 # 1. Start web server
 echo "Starting web server..."
-cd src/GMO.Family.Web
+cd src/GMO.FamilyTree.Web
 dotnet run &
 SERVER_PID=$!
 echo "Server PID: $SERVER_PID"

@@ -6,6 +6,20 @@ Open **coverage/combined/index.html** for the full report.
 
 ---
 
+## Coverage exclusions (coverlet + SonarCloud)
+
+The following paths are excluded from coverage metrics to reduce noise from design-time or vendor code:
+
+| Path | Reason |
+|------|--------|
+| `**/Migrations/**` | EF migration `Down()` methods are not exercised in tests |
+| `**/AppDbContextFactory.cs` | Design-time EF tooling only |
+| `**/wwwroot/lib/**` | Vendored third-party assets (SonarCloud only) |
+
+CI enforces a **minimum 80% combined line coverage** via `scripts/enforce-coverage-threshold.sh` on the merged Cobertura report.
+
+---
+
 ## Zero coverage (not exercised by tests)
 
 ### Controllers
