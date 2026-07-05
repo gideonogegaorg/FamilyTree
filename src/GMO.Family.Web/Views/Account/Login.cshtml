@@ -5,46 +5,44 @@
     var returnUrl = ViewData["ReturnUrl"] as string ?? "/";
 }
 
-<div class="card login-card mx-auto bg-white p-4">
-    <div class="card-body p-0">
-        <h1 class="h4 mb-4 fw-bold text-dark">Family Tree</h1>
-        <h2 class="h5 mb-4 text-secondary">Log in to see your data</h2>
+<div class="ft-auth-card mx-auto">
+    <h1 class="ft-page-title">Family Tree</h1>
+    <p class="ft-auth-subtitle">Log in to see your data</p>
 
-        <form asp-action="Login" method="post" asp-route-returnUrl="@returnUrl">
-            <div asp-validation-summary="ModelOnly" class="text-danger mb-2" role="alert"></div>
-            <div class="mb-3">
-                <label asp-for="Email" class="form-label"></label>
-                <input asp-for="Email" class="form-control" autocomplete="username" />
-                <span asp-validation-for="Email" class="text-danger"></span>
-            </div>
-            <div class="mb-3">
-                <label asp-for="Password" class="form-label"></label>
-                <input asp-for="Password" class="form-control" autocomplete="current-password" />
-                <span asp-validation-for="Password" class="text-danger"></span>
-            </div>
-            <div class="mb-3 form-check">
-                <input asp-for="RememberMe" class="form-check-input" />
-                <label asp-for="RememberMe" class="form-check-label"></label>
-            </div>
-            <button type="submit" class="btn btn-dark w-100 mb-2">Log in</button>
-        </form>
+    <form asp-action="Login" method="post" asp-route-returnUrl="@returnUrl">
+        <div asp-validation-summary="ModelOnly" class="text-danger mb-2" role="alert"></div>
+        <div class="mb-3">
+            <label asp-for="Email" class="form-label"></label>
+            <input asp-for="Email" class="form-control" autocomplete="username" />
+            <span asp-validation-for="Email" class="text-danger"></span>
+        </div>
+        <div class="mb-3">
+            <label asp-for="Password" class="form-label"></label>
+            <input asp-for="Password" class="form-control" autocomplete="current-password" />
+            <span asp-validation-for="Password" class="text-danger"></span>
+        </div>
+        <div class="mb-3 form-check">
+            <input asp-for="RememberMe" class="form-check-input" />
+            <label asp-for="RememberMe" class="form-check-label"></label>
+        </div>
+        <button type="submit" class="btn btn-primary w-100 mb-2">Log in</button>
+    </form>
 
-        <p class="mb-0">
-            <a asp-action="ForgotPassword" class="text-primary text-decoration-none">Forgot your password?</a>
-        </p>
+    <p class="mb-0">
+        <a asp-action="ForgotPassword">Forgot your password?</a>
+    </p>
 
-        @if (ViewBag.GoogleAuthEnabled == true)
-        {
-            <hr class="my-3" />
-            <p class="text-center small text-muted mb-2">Or</p>
-            <a asp-action="SignIn" asp-route-returnUrl="@returnUrl" class="btn btn-outline-secondary w-100">Sign in with Google</a>
-        }
-
+    @if (ViewBag.GoogleAuthEnabled == true)
+    {
         <hr class="my-3" />
-        <p class="mb-0 text-center small">
-            <a asp-action="Register" asp-route-returnUrl="@returnUrl" class="text-primary text-decoration-none">Create a free account</a>
-        </p>
-    </div>
+        <p class="text-center small text-muted mb-2">Or</p>
+        <a asp-action="SignIn" asp-route-returnUrl="@returnUrl" class="btn btn-outline-secondary w-100">Sign in with Google</a>
+    }
+
+    <hr class="my-3" />
+    <p class="mb-0 text-center small">
+        <a asp-action="Register" asp-route-returnUrl="@returnUrl">Create a free account</a>
+    </p>
 </div>
 
 @section Scripts {

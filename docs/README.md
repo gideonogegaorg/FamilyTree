@@ -13,9 +13,10 @@ For local setup (appsettings, build, run, env vars) see [root README.md](../READ
 ## New User Guide
 
 1. [root README.md](../README.md#local-setup) — appsettings, build, run
-2. [`tree-layout-orientation.md`](tree-layout-orientation.md) — visual ranks, orientations, lineage modes
-3. [`database-setup.md`](database-setup.md) — PostgreSQL and seed data
-4. [`testing-environment.md`](testing-environment.md) — test accounts and validation; [`ui-testing-approach.md`](ui-testing-approach.md) — test strategy
+2. [`tree-layout-semantics.md`](tree-layout-semantics.md) — canonical layout rules (dominance, half-ranks, forest)
+3. [`tree-layout-orientation.md`](tree-layout-orientation.md) — orientations, toolbar controls, CSS/JS wiring
+4. [`database-setup.md`](database-setup.md) — PostgreSQL and seed data
+5. [`testing-environment.md`](testing-environment.md) — test accounts and validation; [`ui-testing-approach.md`](ui-testing-approach.md) — test strategy
 
 ### Critical Prerequisites
 
@@ -42,7 +43,9 @@ For local setup (appsettings, build, run, env vars) see [root README.md](../READ
 
 | File | Purpose | Key Topics |
 |---|---|---|
-| [`tree-layout-orientation.md`](tree-layout-orientation.md) | **Core Feature Documentation** | Layout orientation, visual ranking, lineage modes, CSS/JS implementation |
+| [`tree-layout-semantics.md`](tree-layout-semantics.md) | **Canonical layout rules** | Dominance, half-ranks, marriage-tree forest, production parity |
+| [`tree-layout-reference-tables.md`](tree-layout-reference-tables.md) | **Layout reference tables** | ASCII tables for the 3-gen test tree by orientation/mode |
+| [`tree-layout-orientation.md`](tree-layout-orientation.md) | **Core Feature Documentation** | Layout orientation, tree toolbar, visual ranking, lineage modes, CSS/JS implementation |
 | [`database-setup.md`](database-setup.md) | **Database Configuration** | PostgreSQL setup, seeding, migrations, MCP server integration |
 | [`configure-service.md`](configure-service.md) | **Service Configuration** | Service setup, configuration options |
 | [`coverage-pending.md`](coverage-pending.md) | **Test Coverage Planning** | Pending test coverage areas and planning |
