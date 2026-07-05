@@ -21,4 +21,10 @@
     <ProjectReference Include="..\..\src\GMO.Family.Web\GMO.Family.Web.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Update="TestAssets\**\*">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+
 </Project>

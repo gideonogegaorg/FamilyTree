@@ -14,6 +14,8 @@ public class FamilyMember
     public bool IsMale { get; set; }
     /// <summary>When set and equal to current user's id, this member is "me" in the tree.</summary>
     public string? UserId { get; set; }
+    /// <summary>Storage key for member photo (private bucket; served via authenticated endpoint).</summary>
+    public string? PhotoKey { get; set; }
 
     public FamilyTree FamilyTree { get; set; } = null!;
     public IdentityUser? User { get; set; }

@@ -22,7 +22,7 @@
     }
     else
     {
-        <div id="family-tree-graph" class="family-tree-graph @(Model.TreeViewOrientation == TreeViewOrientation.Horizontal ? "ft-orientation-horizontal" : "")"
+        <div id="family-tree-graph" class="family-tree-graph @Model.TreeCardViewMode.ToCssClass() @(Model.TreeViewOrientation == TreeViewOrientation.Horizontal ? "ft-orientation-horizontal" : "")"
              data-nodes="@Model.NodesJson"
              data-edges="@Model.EdgesJson"
              data-focus-member-id="@Model.FocusMemberId"
@@ -32,6 +32,8 @@
         <div id="member-action-popup" class="cascading-menu-container" style="display:none;">
             <div class="text-muted small p-2">Loading…</div>
         </div>
+
+        @await Html.PartialAsync("_MemberPhotoModal")
     }
 </div>
 
@@ -40,5 +42,7 @@
     @if (hasMembers)
     {
         <script src="~/js/family-tree.js" asp-append-version="true"></script>
+        <script src="~/js/photo-upload-common.js" asp-append-version="true"></script>
+        <script src="~/js/member-photo.js" asp-append-version="true"></script>
     }
 }

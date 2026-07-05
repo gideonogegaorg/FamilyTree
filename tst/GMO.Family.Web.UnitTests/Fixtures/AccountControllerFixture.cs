@@ -6,6 +6,7 @@ using GMO.Family.Web.Controllers;
 using GMO.Family.Web.Data;
 using GMO.Family.Web.Options;
 using GMO.Family.Web.Services;
+using GMO.Family.Web.Services.Photos;
 
 using GMO.Family.Web.UnitTests.Mocks;
 
@@ -104,6 +105,7 @@ public sealed class AccountControllerFixture
         IUrlHelper? urlHelper = null,
         IDefaultFamilyTreeService? defaultFamilyTreeService = null,
         IFamilyTreeDeletionService? familyTreeDeletion = null,
+        IPhotoStorageService? photos = null,
         string? userId = null)
     {
         var currentTree = new CurrentFamilyTreeServiceMock().Object;
@@ -114,6 +116,8 @@ public sealed class AccountControllerFixture
         var env = new WebHostEnvironmentMock().Object;
         var paths = _fixture.Create<PathsOptions>();
         var urlHelperToUse = urlHelper ?? new UrlHelperMock().Object;
+        var photosService = photos ?? new Mock<IPhotoStorageService>().Object;
+        var treeCardViewMode = new Mock<ITreeCardViewModeService>().Object;
 
         var emailSender = _fixture.Create<Mock<IEmailSender>>().Object;
         var googleAuth = new GoogleAuthOptionsMock().Object;
@@ -131,7 +135,9 @@ public sealed class AccountControllerFixture
             familyTreeDeletionService,
             env,
             Microsoft.Extensions.Options.Options.Create(paths),
-            externalLoginInfo);
+            externalLoginInfo,
+            photosService,
+            treeCardViewMode);
 
         var services = new ServiceCollection();
         services.AddSingleton<IUrlHelperFactory>(new TestUrlHelperFactory(urlHelperToUse));

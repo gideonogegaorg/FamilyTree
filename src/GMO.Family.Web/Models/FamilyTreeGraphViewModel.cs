@@ -10,6 +10,7 @@ public class FamilyTreeGraphViewModel
     public long? FocusMemberId { get; set; }
     public TreeViewOrientation TreeViewOrientation { get; set; }
     public LineageMode LineageMode { get; set; }
+    public TreeCardViewMode TreeCardViewMode { get; set; }
     public IReadOnlyList<FamilyMemberCardViewModel> Members { get; set; } = new List<FamilyMemberCardViewModel>();
 
     /// <summary>JSON array of Cytoscape node objects.</summary>

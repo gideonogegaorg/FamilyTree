@@ -45,9 +45,9 @@ DB_PASSWORD=your_password
 | Table | Purpose | Key Columns |
 |---|---|---|
 | `AspNetUsers` | User accounts | `Id`, `Email`, `UserName` |
-| `FamilyMembers` | Family member data | `Id`, `Name`, `IsMale`, `Generation` |
+| `FamilyMembers` | Family member data | `Id`, `Name`, `IsMale`, `Generation`, `PhotoKey` |
 | `FamilyRelationships` | Member relationships | `ParentId`, `ChildId`, `RelationshipType` |
-| `UserProfiles` | User preferences | `UserId`, `TreeViewOrientation`, `LineageMode` |
+| `UserProfiles` | User preferences | `UserId`, `TreeViewOrientation`, `LineageMode`, `PhotoKey`, `TreeCardViewMode` |
 
 ### Entity Framework Migrations
 
@@ -334,32 +334,18 @@ GRANT ALL PRIVILEGES ON DATABASE FamilyTree TO familytree_user;
 
 #### Docker Setup
 
-```dockerfile
-# docker-compose.yml
-version: '3.8'
-services:
-  postgres:
-    image: postgres:15
-    environment:
-      POSTGRES_DB: FamilyTree
-      POSTGRES_USER: familytree_user
-      POSTGRES_PASSWORD: your_password
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-
-volumes:
-  postgres_data:
-```
+Use the repo-root [docker-compose.yml](../docker-compose.yml) (PostgreSQL + MinIO for local S3):
 
 ```bash
-# Start PostgreSQL
-docker-compose up -d postgres
-
-# Run migrations
-dotnet ef database update
+docker compose up -d
 ```
+
+| Service | Connection |
+|---------|------------|
+| PostgreSQL | `localhost:5432`, user/db `family`, password `family` |
+| MinIO (S3) | `http://localhost:9000`, bucket `gideonogega-internal` |
+
+Migrations run automatically on app startup (`dotnet run`).
 
 ### Production Environment
 

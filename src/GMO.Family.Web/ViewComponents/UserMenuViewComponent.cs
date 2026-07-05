@@ -24,12 +24,12 @@ public sealed class UserMenuViewComponent : ViewComponent
         var email = User.Identity.Name ?? string.Empty;
 
         var profile = userId != null ? await _db.UserProfiles.FindAsync(userId) : null;
-        var photoUrl = profile?.PhotoUrl;
+        var hasPhoto = !string.IsNullOrEmpty(profile?.PhotoKey) || !string.IsNullOrEmpty(profile?.PhotoUrl);
 
         var model = new UserMenuViewModel
         {
             Email = email,
-            PhotoUrl = photoUrl
+            PhotoUrl = hasPhoto ? "/photos/profiles/me" : null
         };
         return View("Default", model);
     }

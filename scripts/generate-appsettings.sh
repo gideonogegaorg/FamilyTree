@@ -34,6 +34,24 @@ replace() {
 replace "POSTGRES_CONNECTION_STRING"      "${POSTGRES_CONNECTION_STRING:-}"
 replace "SERILOG_LOG_PATH"                "${SERILOG_LOG_PATH:-../../logs}"
 replace "UPLOADS_PATH"                    "${UPLOADS_PATH:-../uploads}"
+replace "PHOTOS_PROVIDER"                 "${PHOTOS_PROVIDER:-Local}"
+replace "S3_PHOTOS_BUCKET"                "${S3_PHOTOS_BUCKET:-gideonogega-internal}"
+replace "S3_SERVICE_URL"                  "${S3_SERVICE_URL:-}"
+replace "S3_ACCESS_KEY"                   "${S3_ACCESS_KEY:-}"
+replace "S3_SECRET_KEY"                   "${S3_SECRET_KEY:-}"
+replace "S3_REGION"                       "${S3_REGION:-us-east-1}"
+replace "PHOTOS_LOCAL_BASE_PATH"          "${PHOTOS_LOCAL_BASE_PATH:-uploads/photos}"
+
+# Storage prefix: explicit PHOTOS_STORAGE_PREFIX, or PHOTOS_APP_NAME/PHOTOS_ENVIRONMENT, or PHOTOS_APP_NAME/TELEMETRY_ENVIRONMENT_NAME
+if [ -z "${PHOTOS_STORAGE_PREFIX:-}" ]; then
+  if [ -n "${PHOTOS_APP_NAME:-}" ] && [ -n "${PHOTOS_ENVIRONMENT:-}" ]; then
+    PHOTOS_STORAGE_PREFIX="${PHOTOS_APP_NAME}/${PHOTOS_ENVIRONMENT}"
+  elif [ -n "${PHOTOS_APP_NAME:-}" ] && [ -n "${TELEMETRY_ENVIRONMENT_NAME:-}" ]; then
+    PHOTOS_STORAGE_PREFIX="${PHOTOS_APP_NAME}/${TELEMETRY_ENVIRONMENT_NAME}"
+  fi
+fi
+replace "PHOTOS_STORAGE_PREFIX"           "${PHOTOS_STORAGE_PREFIX:-}"
+
 replace "OPENTELEMETRY_ENABLED"           "${OPENTELEMETRY_ENABLED:-false}"
 replace "TELEMETRY_ENVIRONMENT_NAME"      "${TELEMETRY_ENVIRONMENT_NAME:-}"
 replace "OPENTELEMETRY_OTLPEXPORTENDPOINT" "${OPENTELEMETRY_OTLPEXPORTENDPOINT:-}"

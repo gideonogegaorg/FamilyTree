@@ -81,6 +81,11 @@ public sealed class WebAppFixture : WebApplicationFactory<WebAppEntry>, IDisposa
     {
         builder.UseSetting("ConnectionStrings:DefaultConnection", _testConnectionString);
         builder.UseSetting("Telemetry:Otlp:Endpoint", "http://localhost:4317"); // avoid null Endpoint when binding OtlpExporterOptions
+        if (!string.IsNullOrEmpty(_testDatabaseName))
+        {
+            builder.UseSetting("Photos:LocalBasePath", Path.Combine("uploads", "photos-test", _testDatabaseName));
+            builder.UseSetting("Photos:StoragePrefix", $"family/test/{_testDatabaseName}");
+        }
 
         // Suppress verbose EF Core and ASP.NET Core Information logs during tests
         builder.UseSetting("Serilog:MinimumLevel:Default", "Error");

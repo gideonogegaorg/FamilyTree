@@ -9,6 +9,7 @@ public sealed class TreeToolbarViewModel
     public IReadOnlyList<FamilyTree> FamilyTrees { get; set; } = Array.Empty<FamilyTree>();
     public TreeViewOrientation TreeViewOrientation { get; set; }
     public LineageMode LineageMode { get; set; }
+    public TreeCardViewMode TreeCardViewMode { get; set; }
     public long? FocusMemberId { get; set; }
     public bool HasMembers { get; set; }
 }
