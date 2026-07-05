@@ -201,7 +201,7 @@ jobs:
           REPORTS=$(echo "$COBERTURA_FILES" | tr '\n' ';' | sed 's/;$//')
           mkdir -p coverage/combined
           dotnet tool restore --tool-manifest src/dotnet-tools.json
-          dotnet tool run --tool-manifest src/dotnet-tools.json reportgenerator -- \
+          dotnet tool run reportgenerator --tool-manifest src/dotnet-tools.json -- \
             "-reports:$REPORTS" \
             "-targetdir:coverage/combined" \
             "-reporttypes:Html;Cobertura"
