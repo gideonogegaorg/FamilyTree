@@ -13,26 +13,54 @@ jobs:
       GITHUB_USERNAME: ${{ secrets.GH_USER }}
       GITHUB_PAT: ${{ secrets.GH_CLASSIC_PAT }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
       - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
         with:
           dotnet-version: '10.0.x'
       - name: Generate appsettings.json
         run: bash scripts/generate-appsettings.sh
+      - name: Verify appsettings.json is not tracked
+        run: |
+          tracked=$(git ls-files '**/appsettings.json' '**/appsettings.*.json' 2>/dev/null | grep -v '\.template$' || true)
+          if [ -n "$tracked" ]; then
+            echo "::error::Do not commit appsettings.json or appsettings.*.json (use appsettings.json.template only):"
+            echo "$tracked"
+            exit 1
+          fi
       - name: Configure NuGet auth for GMO feed
         run: dotnet nuget update source GMO --username "$GITHUB_USERNAME" --password "$GITHUB_PAT" --store-password-in-clear-text
       - name: Restore
-        run: dotnet restore GMO.Family.sln --verbosity normal
+        run: dotnet restore GMO.FamilyTree.sln --verbosity normal
+      - name: Audit NuGet packages for vulnerabilities
+        run: dotnet list GMO.FamilyTree.sln package --vulnerable --include-transitive
       - name: Verify format
-        run: dotnet format GMO.Family.sln --verbosity diagnostic --verify-no-changes --no-restore
+        run: dotnet format GMO.FamilyTree.sln --verbosity diagnostic --verify-no-changes --no-restore
+
+  js-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Lint JavaScript
+        run: npm run lint:js
 
   build:
     runs-on: ubuntu-latest
-    needs: [lint]
+    needs: [lint, js-lint]
+    permissions:
+      contents: read
+      pull-requests: write
     env:
       GITHUB_USERNAME: ${{ secrets.GH_USER }}
       GITHUB_PAT: ${{ secrets.GH_CLASSIC_PAT }}
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
     outputs:
       assembly_version: ${{ steps.setversion.outputs.assembly_version }}
       dll_version: ${{ steps.setversion.outputs.dll_version }}
@@ -52,11 +80,11 @@ jobs:
           --health-timeout 5s
           --health-retries 5
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           fetch-depth: 0
 
-      - uses: dorny/paths-filter@v3
+      - uses: dorny/paths-filter@6852f92c20ea7fd3b0c25de3b5112db3a98da050 # v3
         if: github.event_name == 'push'
         id: filter
         with:
@@ -65,7 +93,7 @@ jobs:
               - 'scripts/configure-service.sh'
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
         with:
           dotnet-version: '10.0.x'
 
@@ -84,13 +112,15 @@ jobs:
 
       - name: Set version
         id: setversion
+        env:
+          REF_NAME: ${{ github.ref_name }}
         run: |
           YEAR=$(date +%Y)
           MONTH=$(date +%m)
           DAY=$(date +%d)
           HHMM=$(date +%H%M)
           ASSEMBLY_VERSION="$YEAR.$MONTH.$DAY.$HHMM"
-          if [ "${{ github.ref_name }}" = "dev" ]; then
+          if [ "$REF_NAME" = "dev" ]; then
             DLL_VERSION="DEV-$YEAR$MONTH$DAY-$HHMM"
           else
             DLL_VERSION="$YEAR$MONTH$DAY-$HHMM"
@@ -100,76 +130,87 @@ jobs:
           echo "assembly_version=$ASSEMBLY_VERSION" >> $GITHUB_OUTPUT
           echo "dll_version=$DLL_VERSION" >> $GITHUB_OUTPUT
 
+      - name: Install SonarScanner
+        if: env.SONAR_TOKEN != ''
+        run: dotnet tool install --global dotnet-sonarscanner
+
+      - name: SonarCloud begin
+        if: env.SONAR_TOKEN != ''
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_EVENT_NAME: ${{ github.event_name }}
+          SONAR_PR_KEY: ${{ github.event.pull_request.number }}
+          SONAR_PR_BRANCH: ${{ github.head_ref }}
+          SONAR_PR_BASE: ${{ github.base_ref }}
+          SONAR_BRANCH: ${{ github.ref_name }}
+          SONAR_PROJECT_VERSION: ${{ env.DLL_VERSION }}
+        run: |
+          EXCLUSIONS="**/Migrations/**,**/AppDbContextFactory.cs,**/wwwroot/lib/**,**/wwwroot/js/**,**/.github/**,**/bin/**,**/obj/**,**/coverage/**"
+          COVERAGE_EXCLUSIONS="**/*.cshtml,**/*.cshtml.css,**/Views/**,**/wwwroot/**,**/S3PhotoStorageService.cs,**/Controllers/FamilyMemberController.cs"
+          begin_args=(
+            /k:gideonogegaorg_FamilyTree
+            /o:gideonogegaorg
+            /n:GMO.FamilyTree
+            "/v:$SONAR_PROJECT_VERSION"
+            "/d:sonar.projectBaseDir=$GITHUB_WORKSPACE"
+            "/d:sonar.token=$SONAR_TOKEN"
+            "/d:sonar.host.url=https://sonarcloud.io"
+            "/d:sonar.qualitygate.wait=true"
+            "/d:sonar.cs.opencover.reportsPaths=coverage/**/coverage.opencover.xml,**/TestResults/**/coverage.opencover.xml"
+            "/d:sonar.exclusions=$EXCLUSIONS"
+            "/d:sonar.coverage.exclusions=$COVERAGE_EXCLUSIONS"
+            "/d:sonar.cpd.exclusions=**/tst/**"
+          )
+          if [ "$SONAR_EVENT_NAME" = "pull_request" ]; then
+            begin_args+=(
+              "/d:sonar.pullrequest.key=$SONAR_PR_KEY"
+              "/d:sonar.pullrequest.branch=$SONAR_PR_BRANCH"
+              "/d:sonar.pullrequest.base=$SONAR_PR_BASE"
+            )
+          else
+            begin_args+=("/d:sonar.branch.name=$SONAR_BRANCH")
+          fi
+          dotnet sonarscanner begin "${begin_args[@]}"
+
       - name: Build
         run: |
-          dotnet build GMO.Family.sln --verbosity normal \
+          dotnet build GMO.FamilyTree.sln --verbosity normal \
             -p:Version=${{ env.ASSEMBLY_VERSION }} \
             -p:AssemblyVersion=${{ env.ASSEMBLY_VERSION }} \
             -p:FileVersion=${{ env.ASSEMBLY_VERSION }} \
             -p:InformationalVersion=${{ env.DLL_VERSION }}
 
       - name: Install Playwright Browsers
-        run: pwsh tst/GMO.Family.Web.UiTests/bin/Debug/net10.0/playwright.ps1 install --with-deps chromium
+        run: pwsh tst/GMO.FamilyTree.Web.UiTests/bin/Debug/net10.0/playwright.ps1 install --with-deps chromium
 
       - name: Create working directory
         run: mkdir -p working
 
-      - name: Test (Unit)
+      - name: Test (all projects)
         run: |
-          set +e
-          dotnet test tst/GMO.Family.Web.UnitTests --no-build --verbosity normal \
-            --collect:"XPlat Code Coverage" \
-            --results-directory ./coverage/unit 2>&1 | tee unit-test.log
-          EXIT=${PIPESTATUS[0]}
-          if [ $EXIT -ne 0 ]; then exit $EXIT; fi
+          mkdir -p coverage
+          dotnet test GMO.FamilyTree.sln --no-build --verbosity normal \
+            --settings "$GITHUB_WORKSPACE/coverlet.runsettings" \
+            --collect:"XPlat Code Coverage;Format=opencover" \
+            --results-directory "$GITHUB_WORKSPACE/coverage"
 
-      - name: Test (Integration)
-        run: |
-          set +e
-          dotnet test tst/GMO.Family.Web.IntegrationTests --no-build --verbosity normal \
-            --collect:"XPlat Code Coverage" \
-            --results-directory ./coverage/integration 2>&1 | tee integration-test.log
-          EXIT=${PIPESTATUS[0]}
-          if [ $EXIT -ne 0 ]; then exit $EXIT; fi
-
-      - name: Test (UI)
-        run: |
-          set +e
-          dotnet test tst/GMO.Family.Web.UiTests --no-build --verbosity normal \
-            --collect:"XPlat Code Coverage" \
-            --results-directory ./coverage/ui 2>&1 | tee ui-test.log
-          EXIT=${PIPESTATUS[0]}
-          if [ $EXIT -ne 0 ]; then exit $EXIT; fi
-
-      - name: Generate HTML coverage report
-        if: always()
-        run: |
-          COBERTURA_FILES=$(find coverage -type f -name 'coverage.cobertura.xml' 2>/dev/null || true)
-          if [ -z "$COBERTURA_FILES" ]; then
-            echo "No coverage files found; skipping HTML report."
-            exit 0
-          fi
-          dotnet tool install -g dotnet-reportgenerator-globaltool
-          export PATH="$PATH:$HOME/.dotnet/tools"
-          REPORTS=$(echo "$COBERTURA_FILES" | tr '\n' ';' | sed 's/;$//')
-          mkdir -p coverage/combined
-          reportgenerator -reports:"$REPORTS" -targetdir:coverage/combined/html -reporttypes:Html || true
-          echo "HTML report in coverage/combined/html/index.html"
+      - name: SonarCloud end
+        if: env.SONAR_TOKEN != ''
+        run: dotnet sonarscanner end /d:sonar.token=$SONAR_TOKEN
 
       - name: Upload coverage results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: coverage-results
           path: |
-            coverage/**/coverage.cobertura.xml
-            coverage/combined/
+            coverage/**/coverage.opencover.xml
           retention-days: 30
           if-no-files-found: ignore
 
       - name: Upload UI test artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: ui-test-artifacts
           path: working/
@@ -183,7 +224,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
       - name: Create and push tag
         run: |
           TAG_NAME="${{ github.ref_name }}-$(date +%Y)-$(date +%m)-${{ github.run_id }}"
@@ -218,11 +259,14 @@ jobs:
       GITHUB_USERNAME: ${{ secrets.GH_USER }}
       GITHUB_PAT: ${{ secrets.GH_CLASSIC_PAT }}
       IS_PRODUCTION: ${{ vars.IS_PRODUCTION }}
+      PG_USER: ${{ secrets.PG_USER }}
+      PG_PASS: ${{ secrets.PG_PASS }}
+      SEC_GROUP_ID: ${{ secrets.SEC_GROUP_ID }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4
         with:
           dotnet-version: '10.0.x'
 
@@ -240,12 +284,22 @@ jobs:
             echo "::error::DEPLOY_PATH looks invalid (missing domain?). Set DEPLOY_DOMAIN secret for this environment."
             exit 1
           fi
+          if [ -z "$PG_USER" ] || [ -z "$PG_PASS" ]; then
+            echo "::error::Set PG_USER and PG_PASS secrets for this environment (GitHub → Settings → Environments)."
+            exit 1
+          fi
 
       - name: Generate appsettings.json for deploy
         env:
           SERILOG_LOG_PATH: ${{ env.DEPLOY_PATH }}/logs
           UPLOADS_PATH: ${{ env.DEPLOY_PATH }}/uploads
+          PHOTOS_PROVIDER: S3
+          S3_PHOTOS_BUCKET: ${{ vars.S3_PHOTOS_BUCKET }}
+          PHOTOS_APP_NAME: family
+          PHOTOS_ENVIRONMENT: ${{ vars.SERVICE_NAME == 'family-dev' && 'dev' || 'prod' }}
+          PHOTOS_LOCAL_BASE_PATH: uploads/photos
           TELEMETRY_ENVIRONMENT_NAME: ${{ github.ref_name }}
+          IS_PRODUCTION: ${{ vars.IS_PRODUCTION }}
         run: bash scripts/generate-appsettings.sh
 
       - name: Generate robots.txt
@@ -253,7 +307,7 @@ jobs:
 
       - name: Publish
         run: |
-          dotnet publish src/GMO.Family.Web/GMO.Family.Web.csproj -c Release -o ./site \
+          dotnet publish src/GMO.FamilyTree.Web/GMO.FamilyTree.Web.csproj -c Release -o ./site \
             -p:Version=${{ env.ASSEMBLY_VERSION }} \
             -p:AssemblyVersion=${{ env.ASSEMBLY_VERSION }} \
             -p:FileVersion=${{ env.ASSEMBLY_VERSION }} \
@@ -264,7 +318,7 @@ jobs:
         run: echo "ipv4=$(curl -s https://api.ipify.org)" >> $GITHUB_OUTPUT
 
       - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@ff717079ee2060e4bcee96c4779b553acc87447c # v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -273,26 +327,26 @@ jobs:
       - name: Authorize Runner IP in Security Group
         run: |
           aws ec2 authorize-security-group-ingress \
-            --group-id ${{ secrets.SEC_GROUP_ID }} \
+            --group-id "$SEC_GROUP_ID" \
             --protocol tcp --port 22 --cidr ${{ steps.ip.outputs.ipv4 }}/32
 
       - name: Copy site output to EC2
-        uses: appleboy/scp-action@v0.1.7
+        uses: appleboy/scp-action@917f8b81dfc1ccd331fef9e2d61bdc6c8be94634 # v0.1.7
         with:
           host: ${{ secrets.REMOTE_HOST }}
           username: ubuntu
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          source: "site/*,scripts/configure-service.sh"
+          source: "site/*,scripts/configure-service.sh,scripts/install-aspnetcore-runtime.sh"
           target: "/tmp/family-deploy-${{ github.run_id }}"
 
       - name: Deploy to EC2 via SSH
-        uses: appleboy/ssh-action@v1.0.3
+        uses: appleboy/ssh-action@029f5b4aeeeb58fdfe1410a5d17f967dacf36262 # v1.0.3
         with:
           host: ${{ secrets.REMOTE_HOST }}
           username: ubuntu
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script_stop: true
-          debug: true
+          debug: false
           script: |
             set -e
             DEPLOY_PATH='${{ env.DEPLOY_PATH }}'
@@ -305,6 +359,8 @@ jobs:
             IS_PRODUCTION='${{ env.IS_PRODUCTION }}'
             STAGING="/tmp/family-deploy-${{ github.run_id }}"
             trap 'rm -rf "$STAGING"' EXIT
+            echo "[Deploy] Ensuring ASP.NET Core Runtime 10..."
+            sudo bash "$STAGING/scripts/install-aspnetcore-runtime.sh"
             echo "[Deploy] Ensuring directory..."
             sudo mkdir -p "$DEPLOY_PATH/site" "$DEPLOY_PATH/logs" "$DEPLOY_PATH/uploads"
             sudo chown -R ubuntu:www-data "$DEPLOY_PATH"
@@ -317,11 +373,36 @@ jobs:
             sudo chown -R ubuntu:www-data "$DEPLOY_PATH"
             echo "[Deploy] Restarting service..."
             sudo systemctl restart "$SERVICE_NAME"
-            echo "[Deploy] Done."
+            if ! systemctl is-active --quiet "$SERVICE_NAME"; then
+              echo "::error::Service $SERVICE_NAME failed to start after deploy."
+              sudo journalctl -u "$SERVICE_NAME" -n 40 --no-pager
+              exit 1
+            fi
+            echo "[Deploy] Service restarted; public health check runs from GitHub Actions."
+
+      - name: Verify public site health
+        run: |
+          HEALTH_URL="https://${FULL_HOSTNAME}/health"
+          echo "Polling $HEALTH_URL every 5s for up to 30s..."
+          START=$(date +%s)
+          while true; do
+            ELAPSED=$(( $(date +%s) - START ))
+            HTTP=$(curl -s -o /dev/null -w '%{http_code}' "$HEALTH_URL" || echo "000")
+            echo "Health check (+${ELAPSED}s) -> HTTP $HTTP"
+            if [ "$HTTP" = "200" ]; then
+              echo "Health check passed."
+              exit 0
+            fi
+            if [ "$ELAPSED" -ge 30 ]; then
+              echo "::error::Health check failed after 30s (expected HTTP 200 from $HEALTH_URL)."
+              exit 1
+            fi
+            sleep 5
+          done
 
       - name: Revoke Runner IP (Cleanup)
         if: always()
         run: |
           aws ec2 revoke-security-group-ingress \
-            --group-id ${{ secrets.SEC_GROUP_ID }} \
+            --group-id "$SEC_GROUP_ID" \
             --protocol tcp --port 22 --cidr ${{ steps.ip.outputs.ipv4 }}/32

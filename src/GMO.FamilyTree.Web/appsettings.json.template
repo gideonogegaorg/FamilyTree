@@ -1,0 +1,71 @@
+{
+  "ConnectionStrings": {
+    "DefaultConnection": "^^POSTGRES_CONNECTION_STRING^^"
+  },
+  "Serilog": {
+    "Using": [ "Serilog.Sinks.Console", "Serilog.Sinks.File" ],
+    "MinimumLevel": "Information",
+    "WriteTo": [
+      {
+        "Name": "Console",
+        "Args": {
+          "theme": "Serilog.Sinks.SystemConsole.Themes.AnsiConsoleTheme::Code, Serilog.Sinks.Console",
+          "outputTemplate": "[{Timestamp:HH:mm:ss} {Level:u3}] {Message:lj} <{ThreadId}>{NewLine}{Exception}"
+        }
+      },
+      {
+        "Name": "File",
+        "Args": {
+          "path": "^^SERILOG_LOG_PATH^^/log-.txt",
+          "rollingInterval": "Day",
+          "fileSizeLimitBytes": 256000000,
+          "rollOnFileSizeLimit": true,
+          "retainedFileCountLimit": 28,
+          "outputTemplate": "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {Message:lj}{NewLine}{Exception}"
+        }
+      }
+    ],
+    "Enrich": [ "FromLogContext", "WithMachineName", "WithProcessId", "WithThreadId" ],
+    "Destructure": [
+      {
+        "Name": "ToMaximumDepth",
+        "Args": { "maximumDestructuringDepth": 3 }
+      }
+    ],
+    "Properties": {
+      "ApplicationName": "GOOM Family Tree"
+    }
+  },
+  "Telemetry": {
+    "Enabled": ^^OPENTELEMETRY_ENABLED^^,
+    "EnableLogging": true,
+    "EnvironmentName": "^^TELEMETRY_ENVIRONMENT_NAME^^",
+    "Otlp": {
+      "Endpoint": "^^OPENTELEMETRY_OTLPEXPORTENDPOINT^^",
+      "Headers": "^^OPENTELEMETRY_HEADERS^^"
+    },
+    "MetricsEndpoint": "^^OPENTELEMETRY_METRICSENDPOINT^^",
+    "LoggingEndpoint": "^^OPENTELEMETRY_LOGGINGENDPOINT^^"
+  },
+  "Paths": {
+    "Uploads": "^^UPLOADS_PATH^^"
+  },
+  "Photos": {
+    "Provider": "^^PHOTOS_PROVIDER^^",
+    "S3Bucket": "^^S3_PHOTOS_BUCKET^^",
+    "S3ServiceUrl": "^^S3_SERVICE_URL^^",
+    "S3AccessKey": "^^S3_ACCESS_KEY^^",
+    "S3SecretKey": "^^S3_SECRET_KEY^^",
+    "S3Region": "^^S3_REGION^^",
+    "StoragePrefix": "^^PHOTOS_STORAGE_PREFIX^^",
+    "LocalBasePath": "^^PHOTOS_LOCAL_BASE_PATH^^"
+  },
+  "AllowedHosts": "*",
+  "Authentication": {
+    "Google": {
+      "ClientId": "^^GOOGLE_CLIENT_ID^^",
+      "ClientSecret": "^^GOOGLE_CLIENT_SECRET^^"
+    }
+  },
+  "IsProduction": ^^IS_PRODUCTION^^
+}

@@ -29,12 +29,19 @@ SERVICE_NAME=$3
 CERT_DOMAIN=${4:-example.com}
 IS_PRODUCTION=${5:-false}
 WEB_ROOT="/var/www/$DEPLOY_DOMAIN"
-DLL_NAME="GMO.Family.Web.dll" # Change this if your DLL name varies per project
+DLL_NAME="GMO.FamilyTree.Web.dll" # Change this if your DLL name varies per project
 
 # Ensure running as root
 if [ "$EUID" -ne 0 ]; then
   echo "Error: Please run as root (sudo)"
   exit 1
+fi
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -f "$SCRIPT_DIR/install-aspnetcore-runtime.sh" ]; then
+  bash "$SCRIPT_DIR/install-aspnetcore-runtime.sh"
+else
+  echo "Warning: install-aspnetcore-runtime.sh not found next to this script; skipping runtime install."
 fi
 
 echo "Starting provisioning for $DEPLOY_DOMAIN on port $PORT (cert domain: $CERT_DOMAIN, is_production: $IS_PRODUCTION)..."
@@ -159,6 +166,6 @@ fi
 echo "========================================================"
 echo "Provisioning Complete!"
 echo "1. Deploy your code to: $WEB_ROOT (app in $WEB_ROOT/site)"
-echo "2. Put .env in $WEB_ROOT for secrets (e.g. Google auth)"
+echo "2. Put .env in $WEB_ROOT for optional env-var overrides (e.g. Google auth)"
 echo "3. Start the app: sudo systemctl restart $SERVICE_NAME"
 echo "========================================================"

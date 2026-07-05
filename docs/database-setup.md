@@ -1,12 +1,6 @@
 # Database Setup and Configuration
 
-This document covers database setup, configuration, and maintenance for the Family Tree application.
-
----
-
-## Overview
-
-The Family Tree application uses PostgreSQL as its primary database. This guide covers setup, seeding, and maintenance procedures.
+PostgreSQL setup, seeding, and maintenance for the Family Tree application.
 
 ---
 
@@ -27,26 +21,7 @@ The database connection is configured in `appsettings.json` (note: this file is 
 
 ### Finding Your Connection String
 
-Since `appsettings.json` is git ignored, you'll need to check your local configuration:
-
-1. **Check your local appsettings.json**:
-   ```bash
-   cat src/GMO.Family.Web/appsettings.json
-   ```
-
-2. **Check environment variables** (if used):
-   ```bash
-   echo $DB_HOST
-   echo $DB_NAME
-   echo $DB_USER
-   echo $DB_PASSWORD
-   ```
-
-3. **Common default values**:
-   - Host: `localhost`
-   - Database: `family`
-   - User: `family`
-   - Port: `5432`
+`appsettings.json` is git ignored. Check local `appsettings.json` or env vars (`DB_HOST`, `DB_NAME`, `DB_USER`, `DB_PASSWORD`). Common defaults: Host `localhost`, Database `family`, User `family`, Port `5432`. See [testing-environment.md](testing-environment.md#finding-your-database-connection) for more options.
 
 ### Environment Variables
 
@@ -70,9 +45,9 @@ DB_PASSWORD=your_password
 | Table | Purpose | Key Columns |
 |---|---|---|
 | `AspNetUsers` | User accounts | `Id`, `Email`, `UserName` |
-| `FamilyMembers` | Family member data | `Id`, `Name`, `IsMale`, `Generation` |
+| `FamilyMembers` | Family member data | `Id`, `Name`, `IsMale`, `Generation`, `PhotoKey` |
 | `FamilyRelationships` | Member relationships | `ParentId`, `ChildId`, `RelationshipType` |
-| `UserProfiles` | User preferences | `UserId`, `TreeViewOrientation`, `LineageMode` |
+| `UserProfiles` | User preferences | `UserId`, `TreeViewOrientation`, `LineageMode`, `PhotoKey`, `TreeCardViewMode` |
 
 ### Entity Framework Migrations
 
@@ -101,7 +76,7 @@ The application uses a **deterministic seeding approach** with SQL scripts locat
 
 The seed script is located at:
 ```
-tst/GMO.Family.Web.UiTests/Data/seed_3gen.sql
+tst/GMO.FamilyTree.Web.UiTests/Data/seed_trees.sql
 ```
 
 ### Seed Data Structure
@@ -142,7 +117,7 @@ tst/GMO.Family.Web.UiTests/Data/seed_3gen.sql
 cd c:\_Git\gideonogega\Family
 
 # Run the seed script (update connection details as needed)
-psql -h localhost -p 5432 -U family -d family -f tst/GMO.Family.Web.UiTests/Data/seed_3gen.sql
+psql -h localhost -p 5432 -U family -d family -f tst/GMO.FamilyTree.Web.UiTests/Data/seed_trees.sql
 ```
 
 **Note**: For detailed troubleshooting and alternative approaches, see the testing environment documentation.
@@ -343,9 +318,7 @@ await mcp0_get_table_data({
 
 ## Environment Setup
 
-### Development Environment
-
-#### Local PostgreSQL Setup
+#### Local PostgreSQL
 
 ```bash
 # Install PostgreSQL (Ubuntu/Debian)
@@ -361,32 +334,18 @@ GRANT ALL PRIVILEGES ON DATABASE FamilyTree TO familytree_user;
 
 #### Docker Setup
 
-```dockerfile
-# docker-compose.yml
-version: '3.8'
-services:
-  postgres:
-    image: postgres:15
-    environment:
-      POSTGRES_DB: FamilyTree
-      POSTGRES_USER: familytree_user
-      POSTGRES_PASSWORD: your_password
-    ports:
-      - "5432:5432"
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-
-volumes:
-  postgres_data:
-```
+Use the repo-root [docker-compose.yml](../docker-compose.yml) (PostgreSQL + MinIO for local S3):
 
 ```bash
-# Start PostgreSQL
-docker-compose up -d postgres
-
-# Run migrations
-dotnet ef database update
+docker compose up -d
 ```
+
+| Service | Connection |
+|---------|------------|
+| PostgreSQL | `localhost:5432`, user/db `family`, password `family` |
+| MinIO (S3) | `http://localhost:9000`, bucket `gideonogega-internal` |
+
+Migrations run automatically on app startup (`dotnet run`).
 
 ### Production Environment
 
@@ -412,9 +371,9 @@ dotnet ef database update
 
 ## Troubleshooting
 
-### Common Issues
+**Connection**: Check PostgreSQL service, test psql, verify connection string. **Migrations**: `dotnet ef migrations list`; reset with `database drop` then `update` (destructive). **Seeding**: Verify `FamilyMembers` / `FamilyRelationships` counts (see [testing-environment.md](testing-environment.md)).
 
-#### Connection Problems
+#### Connection
 
 ```bash
 # Check PostgreSQL service status
@@ -427,7 +386,7 @@ psql -h localhost -U familytree_user -d FamilyTree
 echo $DB_CONNECTION_STRING
 ```
 
-#### Migration Issues
+#### Migrations
 
 ```bash
 # Check pending migrations
@@ -438,7 +397,7 @@ dotnet ef database drop
 dotnet ef database update
 ```
 
-#### Seeding Issues
+#### Seeding
 
 ```sql
 -- Check if seed data exists

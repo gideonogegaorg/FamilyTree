@@ -1,16 +1,14 @@
 # Testing Environment Setup
 
-This document covers the complete testing environment setup for the Family Tree application, including database seeding, test accounts, and MCP server configuration.
+Database seeding, test accounts, and MCP configuration for the Family Tree application.
 
 ---
 
 ## Overview
 
-The testing environment requires:
-1. **Database setup** with seeded family data
-2. **Test account configuration** for authentication
-3. **MCP server setup** for database operations
-4. **Test data validation** for reliable test execution
+- **Database** with seeded family data
+- **Test account** for authentication
+- **MCP server** (optional) for database operations
 
 ---
 
@@ -19,9 +17,26 @@ The testing environment requires:
 ### Software Requirements
 
 - **.NET 10.0** or later
-- **PostgreSQL** 15 or later
+- **Docker** (recommended for local Postgres + S3-compatible MinIO)
+- **PostgreSQL** 15 or later (if not using Docker)
 - **Node.js** (for MCP server if applicable)
 - **Playwright** browsers (Chrome, Firefox, Safari)
+
+### Local Docker stack (Postgres + S3)
+
+From the repo root:
+
+```bash
+docker compose up -d
+```
+
+| Service | URL | Credentials |
+|---------|-----|-------------|
+| PostgreSQL | `localhost:5432` | `family` / `family`, db `family` |
+| MinIO (S3 API) | `http://localhost:9000` | bucket `gideonogega-internal` |
+| MinIO console | `http://localhost:9001` | `minioadmin` / `minioadmin` |
+
+`dotnet run` launch profiles default to **Local** photo storage (no MinIO required). Integration tests use in-process storage and do not require MinIO. To test S3 locally, run `docker compose up -d` and set `Photos__Provider=S3`.
 
 ### Tools Required
 
@@ -44,9 +59,9 @@ brew install postgresql                   # macOS
 
 - **PostgreSQL database**: Must be already configured and running
 - **Database connection**: Check your local `appsettings.json` for connection details (file is git ignored)
-- **⚠️ IMPORTANT**: Seed data must be loaded for meaningful UI validation
+- **IMPORTANT**: Seed data must be loaded for meaningful UI validation.
 
-**⚠️ CRITICAL**: The UI validation requires the complete 16-person family tree from the seed script. Without the seeded data, you'll only see "Me" (1 person) and cannot validate:
+**CRITICAL**: UI validation requires the complete 16-person family tree from the seed script. Without it you only see "Me" and cannot validate:
 - Visual rank positioning (0, 0.5, 1, 1.5, 2)
 - Half-rank spouse positioning
 - Multi-generation layout
@@ -64,7 +79,7 @@ Since `appsettings.json` is git ignored, you have several options:
 **Option 2: Check Local Configuration**
 ```bash
 # Check your local appsettings.json
-cat src/GMO.Family.Web/appsettings.json
+cat src/GMO.FamilyTree.Web/appsettings.json
 
 # Or check if using environment variables
 echo $DB_HOST $DB_NAME $DB_USER $DB_PASSWORD
@@ -99,27 +114,13 @@ GRANT ALL PRIVILEGES ON DATABASE Family_Test TO test_user;
 
 ### 2. Run Seed Script
 
-**Current Limitations:**
-- MCP server is not configured by default
-- Direct psql requires database credentials (appsettings.json is git ignored)
-- Need an alternative approach for seed data
+Direct psql requires credentials (see [database-setup.md](database-setup.md)); appsettings.json is git ignored. Check if seed data exists, or use the application UI / MCP for data. To check state:
 
-**Recommended Approach:**
-1. **Check if seed data already exists** in the database
-2. **Use application endpoints** if available for data management
-3. **Configure MCP server** for database operations (advanced)
-
-**Check Current Database State:**
 ```bash
-# Try to connect with common defaults (may fail without credentials)
 psql -h localhost -p 5432 -U family -d family -c "SELECT COUNT(*) FROM \"FamilyMembers\" WHERE \"FamilyTreeId\" = 9;" 2>/dev/null || echo "Database connection failed - check credentials"
 ```
 
-**Alternative: Manual Data Entry**
-If seed script cannot be executed, you can:
-1. Create family members manually through the UI
-2. Use the application's data management features
-3. Configure database access for seed script execution
+If you cannot run the seed script, create members via the UI or configure database access.
 
 ### 3. Verify Seed Data
 
@@ -384,23 +385,22 @@ psql -h localhost -p 5432 -U family -d family -c "SELECT COUNT(*) FROM \"FamilyM
 
 ```bash
 # Start application
-dotnet run --project src/GMO.Family.Web
+dotnet run --project src/GMO.FamilyTree.Web
 
-# Test application health
-curl http://localhost:5000/health
-
-# Test test authentication
-curl -X POST http://localhost:5000/TestAuth/SignIn
+# Test application health (dev URL from launchSettings.json)
+curl http://localhost:5229/
 ```
 
 ### 3. UI Test Validation
 
+**Test hosting (not the dev port):** Integration tests use in-process **TestServer** (`WebAppFixture`) — no TCP port, no conflict with `dotnet run` on 5229 except when rebuilding locks `GMO.FamilyTree.Web.exe`. UI tests (`AppFixture`) bind Kestrel to a **random ephemeral port** for Playwright; they also do not use 5229.
+
 ```bash
 # Run UI tests to validate environment
-dotnet test tst/GMO.Family.Web.UiTests --logger "console;verbosity=detailed"
+dotnet test tst/GMO.FamilyTree.Web.UiTests --logger "console;verbosity=detailed"
 
 # Run specific test to verify test data
-dotnet test tst/GMO.Family.Web.UiTests --filter "FullyQualifiedName~HorizontalLayout_Paternal_PositionsEveryNodeAndRank"
+dotnet test tst/GMO.FamilyTree.Web.UiTests --filter "FullyQualifiedName~HorizontalLayout_Paternal_PositionsEveryNodeAndRank"
 ```
 
 ### 4. Data Validation
@@ -451,7 +451,7 @@ dotnet tool install --global playwright
 playwright install
 
 # Run tests with detailed output
-dotnet test tst/GMO.Family.Web.UiTests --logger "console;verbosity=detailed"
+dotnet test tst/GMO.FamilyTree.Web.UiTests --logger "console;verbosity=detailed"
 
 # Check test data state
 psql -h localhost -U family -d family -c "SELECT \"Name\", \"Generation\" FROM \"FamilyMembers\" WHERE \"FamilyTreeId\" = 9 ORDER BY \"Generation\", \"Name\";"
@@ -461,7 +461,9 @@ psql -h localhost -U family -d family -c "SELECT \"Name\", \"Generation\" FROM \
 
 ## Automation Scripts
 
-### 1. Complete Setup Script
+Example scripts (can be placed in `scripts/`). Update connection details to match your appsettings.
+
+### 1. Setup Script
 
 Create `scripts/setup-test-environment.sh`:
 
@@ -478,7 +480,7 @@ DB_NAME="family"
 
 # Run seed script
 echo "Running seed script..."
-psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -f tst/GMO.Family.Web.UiTests/Data/seed_3gen.sql
+psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -f tst/GMO.FamilyTree.Web.UiTests/Data/seed_trees.sql
 
 # Verify setup
 echo "Verifying setup..."
@@ -499,27 +501,27 @@ echo "Validating Family Tree test environment..."
 
 # Check database connectivity
 if psql -h localhost -p 5432 -U family -d family -c "SELECT 1;" > /dev/null 2>&1; then
-    echo "✅ Database connection: OK"
+    echo "Database connection: OK"
 else
-    echo "❌ Database connection: FAILED"
+    echo "Database connection: FAILED"
     exit 1
 fi
 
 # Check test data
 member_count=$(psql -h localhost -p 5432 -U family -d family -t -c "SELECT COUNT(*) FROM \"FamilyMembers\" WHERE \"FamilyTreeId\" = 9;")
 if [ "$member_count" -eq "16" ]; then
-    echo "✅ Family members data: OK ($member_count members)"
+    echo "Family members data: OK ($member_count members)"
 else
-    echo "❌ Family members data: FAILED (expected 16, got $member_count)"
+    echo "Family members data: FAILED (expected 16, got $member_count)"
     exit 1
 fi
 
 # Check relationships
 relationship_count=$(psql -h localhost -p 5432 -U family -d family -t -c "SELECT COUNT(*) FROM \"FamilyRelationships\" WHERE \"FamilyTreeId\" = 9;")
 if [ "$relationship_count" -eq "15" ]; then
-    echo "✅ Family relationships: OK ($relationship_count relationships)"
+    echo "Family relationships: OK ($relationship_count relationships)"
 else
-    echo "❌ Family relationships: FAILED (expected 15, got $relationship_count)"
+    echo "Family relationships: FAILED (expected 15, got $relationship_count)"
     exit 1
 fi
 
@@ -537,7 +539,7 @@ echo "Quick start for Family Tree testing..."
 
 # 1. Start web server
 echo "Starting web server..."
-cd src/GMO.Family.Web
+cd src/GMO.FamilyTree.Web
 dotnet run &
 SERVER_PID=$!
 echo "Server PID: $SERVER_PID"
