@@ -1,12 +1,14 @@
 using GMO.FamilyTree.Web.Data;
 using GMO.FamilyTree.Web.Services;
 
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
 namespace GMO.FamilyTree.Web.Controllers;
 
+[Authorize]
 public class FamilyTreeController : Controller
 {
     private readonly AppDbContext _db;
