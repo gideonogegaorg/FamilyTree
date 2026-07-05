@@ -4,8 +4,11 @@ One-time configuration for CI quality gates added to this repository.
 
 ## SonarCloud
 
-1. Sign in at [sonarcloud.io](https://sonarcloud.io) with GitHub and import **`gideonogegaorg/FamilyTree`**.
-2. Confirm project key **`gideonogegaorg_FamilyTree`** and organization **`gideonogegaorg`** match the `SonarCloud begin` step in [`.github/workflows/build.yml`](../.github/workflows/build.yml).
+1. Sign in at [sonarcloud.io](https://sonarcloud.io) with GitHub and import the repository (e.g. **`gideonogegaorg/FamilyTree`**).
+2. Confirm SonarCloud matches CI context from [`.github/workflows/build.yml`](../.github/workflows/build.yml):
+   - **Organization:** `github.repository_owner` (e.g. `gideonogegaorg`)
+   - **Project key:** `{owner}_{repo}` (e.g. `gideonogegaorg_FamilyTree`)
+   - **Display name:** `github.event.repository.name` (e.g. `FamilyTree`)
 3. Add **`SONAR_TOKEN`** for CI analysis upload and PR decoration:
    - **Recommended:** GitHub org secret `SONAR_TOKEN` on **`gideonogegaorg`** (shared by all repos that use SonarCloud org `gideonogegaorg`, e.g. OpenTelemetry and FamilyTree).
    - **Alternative:** repository secret on each repo.
@@ -17,8 +20,9 @@ One-time configuration for CI quality gates added to this repository.
    - Duplicated lines ≤ **3%**
 5. Enable **Pull Request decoration** under GitHub integration.
 6. Disable **Automatic Analysis** (Administration → Analysis Method) when using CI-based scanner.
+7. Confirm **Administration → Branches** shows **`main`** as the SonarCloud main branch (not `dev`). The build workflow calls `project_branches/set_main` on pushes to GitHub `main`; if that API call fails, ensure `SONAR_TOKEN` can **Administer** the project or set the main branch manually in SonarCloud.
 
-The build workflow runs `dotnet sonarscanner begin/end` around build and tests. Scanner settings (exclusions, OpenCover paths, quality gate wait) are passed on the `begin` command — **do not** add `sonar-project.properties`; the .NET scanner rejects that file.
+The build workflow runs `dotnet sonarscanner begin/end` around build and tests. Scanner settings (exclusions, OpenCover paths, quality gate wait) are passed on the `begin` command — **do not** add `sonar-project.properties`; the .NET scanner rejects that file. Merge blocking still uses the required **SonarCloud Code Analysis** GitHub check even when scanner-side quality gate wait is skipped.
 
 ## GitHub security features
 

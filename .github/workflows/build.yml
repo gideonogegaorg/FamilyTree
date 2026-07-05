@@ -144,18 +144,33 @@ jobs:
           SONAR_PR_BASE: ${{ github.base_ref }}
           SONAR_BRANCH: ${{ github.ref_name }}
           SONAR_PROJECT_VERSION: ${{ env.DLL_VERSION }}
+          SONAR_ORGANIZATION: ${{ github.repository_owner }}
+          SONAR_PROJECT_KEY: ${{ github.repository_owner }}_${{ github.event.repository.name }}
+          SONAR_PROJECT_NAME: ${{ github.event.repository.name }}
         run: |
           EXCLUSIONS="**/Migrations/**,**/AppDbContextFactory.cs,**/wwwroot/lib/**,**/wwwroot/js/**,**/.github/**,**/bin/**,**/obj/**,**/coverage/**"
           COVERAGE_EXCLUSIONS="**/*.cshtml,**/*.cshtml.css,**/Views/**,**/wwwroot/**,**/S3PhotoStorageService.cs,**/Controllers/FamilyMemberController.cs"
+          QG_WAIT="true"
+          # SonarCloud marks the first analyzed branch as "main". Early CI ran on dev, so GitHub main
+          # was analyzed as a short-lived branch and sonar.qualitygate.wait failed at scanner end.
+          if [ "$SONAR_EVENT_NAME" = "push" ] && [ "$SONAR_BRANCH" = "main" ]; then
+            if curl -sf -X POST -u "${SONAR_TOKEN}:" \
+              "https://sonarcloud.io/api/project_branches/set_main?project=${SONAR_PROJECT_KEY}&branch=main"; then
+              echo "SonarCloud main branch aligned to GitHub main"
+            else
+              echo "::warning::Could not set SonarCloud main branch (SONAR_TOKEN may lack Administer Project). Skipping quality gate wait for this run."
+              QG_WAIT="false"
+            fi
+          fi
           begin_args=(
-            /k:gideonogegaorg_FamilyTree
-            /o:gideonogegaorg
-            /n:GMO.FamilyTree
+            "/k:${SONAR_PROJECT_KEY}"
+            "/o:${SONAR_ORGANIZATION}"
+            "/n:${SONAR_PROJECT_NAME}"
             "/v:$SONAR_PROJECT_VERSION"
             "/d:sonar.projectBaseDir=$GITHUB_WORKSPACE"
             "/d:sonar.token=$SONAR_TOKEN"
             "/d:sonar.host.url=https://sonarcloud.io"
-            "/d:sonar.qualitygate.wait=true"
+            "/d:sonar.qualitygate.wait=$QG_WAIT"
             "/d:sonar.cs.opencover.reportsPaths=coverage/**/coverage.opencover.xml,**/TestResults/**/coverage.opencover.xml"
             "/d:sonar.exclusions=$EXCLUSIONS"
             "/d:sonar.coverage.exclusions=$COVERAGE_EXCLUSIONS"
