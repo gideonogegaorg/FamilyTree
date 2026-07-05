@@ -5,7 +5,7 @@
 # Usage: sudo ./configure-service.sh <DEPLOY_DOMAIN> <port> <service_name> [cert_domain] [is_production]
 #   DEPLOY_DOMAIN  Full hostname (e.g. family-dev.example.com); matches pipeline.
 #   port           Local port for the .NET app (e.g. 5002)
-#   service_name   Systemd service name; match pipeline SERVICE_NAME (main=family, dev=family-dev)
+#   service_name   Systemd service name; match pipeline SERVICE_NAME (prod=family, dev=family-dev)
 #   cert_domain    Optional. Base domain for Let's Encrypt cert path
 #                  (e.g. example.com → /etc/letsencrypt/live/example.com/).
 #                  Default: example.com (replace with your cert domain).
