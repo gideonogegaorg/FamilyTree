@@ -8,13 +8,13 @@
 #   ./scripts/generate-appsettings.sh [template] [output]
 #
 # Defaults:
-#   template = src/GMO.Family.Web/appsettings.json.template
-#   output   = src/GMO.Family.Web/appsettings.json
+#   template = src/GMO.FamilyTree.Web/appsettings.json.template
+#   output   = src/GMO.FamilyTree.Web/appsettings.json
 
 set -euo pipefail
 
-TEMPLATE="${1:-src/GMO.Family.Web/appsettings.json.template}"
-OUTPUT="${2:-src/GMO.Family.Web/appsettings.json}"
+TEMPLATE="${1:-src/GMO.FamilyTree.Web/appsettings.json.template}"
+OUTPUT="${2:-src/GMO.FamilyTree.Web/appsettings.json}"
 
 if [ ! -f "$TEMPLATE" ]; then
   echo "::error::Template not found: $TEMPLATE"
@@ -31,11 +31,19 @@ replace() {
   sed -i "s|\^\^${token}\^\^|${value}|g" "$OUTPUT"
 }
 
+replace_bool() {
+  local token="$1" value="${2:-false}"
+  if [ -z "$value" ]; then
+    value="false"
+  fi
+  sed -i "s|\^\^${token}\^\^|${value}|g" "$OUTPUT"
+}
+
 replace "POSTGRES_CONNECTION_STRING"      "${POSTGRES_CONNECTION_STRING:-}"
 replace "SERILOG_LOG_PATH"                "${SERILOG_LOG_PATH:-../../logs}"
 replace "UPLOADS_PATH"                    "${UPLOADS_PATH:-../uploads}"
 replace "PHOTOS_PROVIDER"                 "${PHOTOS_PROVIDER:-Local}"
-replace "S3_PHOTOS_BUCKET"                "${S3_PHOTOS_BUCKET:-gideonogega-internal}"
+replace "S3_PHOTOS_BUCKET"                "${S3_PHOTOS_BUCKET:-}"
 replace "S3_SERVICE_URL"                  "${S3_SERVICE_URL:-}"
 replace "S3_ACCESS_KEY"                   "${S3_ACCESS_KEY:-}"
 replace "S3_SECRET_KEY"                   "${S3_SECRET_KEY:-}"
@@ -52,14 +60,14 @@ if [ -z "${PHOTOS_STORAGE_PREFIX:-}" ]; then
 fi
 replace "PHOTOS_STORAGE_PREFIX"           "${PHOTOS_STORAGE_PREFIX:-}"
 
-replace "OPENTELEMETRY_ENABLED"           "${OPENTELEMETRY_ENABLED:-false}"
-replace "TELEMETRY_ENVIRONMENT_NAME"      "${TELEMETRY_ENVIRONMENT_NAME:-}"
 replace "OPENTELEMETRY_OTLPEXPORTENDPOINT" "${OPENTELEMETRY_OTLPEXPORTENDPOINT:-}"
 replace "OPENTELEMETRY_HEADERS"           "${OPENTELEMETRY_HEADERS:-}"
 replace "OPENTELEMETRY_METRICSENDPOINT"   "${OPENTELEMETRY_METRICSENDPOINT:-}"
 replace "OPENTELEMETRY_LOGGINGENDPOINT"   "${OPENTELEMETRY_LOGGINGENDPOINT:-}"
+replace_bool "OPENTELEMETRY_ENABLED"      "${OPENTELEMETRY_ENABLED:-false}"
+replace "TELEMETRY_ENVIRONMENT_NAME"      "${TELEMETRY_ENVIRONMENT_NAME:-}"
 replace "GOOGLE_CLIENT_ID"               "${GOOGLE_CLIENT_ID:-}"
 replace "GOOGLE_CLIENT_SECRET"           "${GOOGLE_CLIENT_SECRET:-}"
-replace "IS_PRODUCTION"                  "${IS_PRODUCTION:-false}"
+replace_bool "IS_PRODUCTION"              "${IS_PRODUCTION:-false}"
 
 echo "Generated $OUTPUT from $TEMPLATE"

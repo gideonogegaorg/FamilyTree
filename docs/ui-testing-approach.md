@@ -25,7 +25,7 @@ See [`testing-environment.md`](testing-environment.md) for database, test accoun
 
 ### Test Files
 
-- **Primary**: `tst/GMO.Family.Web.UiTests/LayoutOrientationTests.cs`
+- **Primary**: `tst/GMO.FamilyTree.Web.UiTests/LayoutOrientationTests.cs`
 - **Coverage**: Visual layout, orientation switching, lineage mode switching, positioning validation
 
 ### Test Categories

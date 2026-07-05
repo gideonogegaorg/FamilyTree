@@ -43,7 +43,7 @@ X=690  [Children]    ← Same X (column alignment)
 
 ## Enum & Persistence
 
-Defined in [`TreeViewOrientation.cs`](../src/GMO.Family.Web/Data/TreeViewOrientation.cs):
+Defined in [`TreeViewOrientation.cs`](../src/GMO.FamilyTree.Web/Data/TreeViewOrientation.cs):
 
 ```csharp
 public enum TreeViewOrientation
@@ -64,7 +64,7 @@ public enum TreeViewOrientation
 
 ### 1. Server-Side (Razor)
 
-In [`Index.cshtml`](../src/GMO.Family.Web/Views/Home/Index.cshtml), the container receives the CSS class and data attribute:
+In [`Index.cshtml`](../src/GMO.FamilyTree.Web/Views/Home/Index.cshtml), the container receives the CSS class and data attribute:
 
 ```html
 <div id="family-tree-graph"
@@ -75,7 +75,7 @@ In [`Index.cshtml`](../src/GMO.Family.Web/Views/Home/Index.cshtml), the containe
 
 The `ft-orientation-horizontal` CSS class triggers all the horizontal overrides.
 
-### 2. CSS Overrides ([`site.css`](../src/GMO.Family.Web/wwwroot/css/site.css))
+### 2. CSS Overrides ([`site.css`](../src/GMO.FamilyTree.Web/wwwroot/css/site.css))
 
 All horizontal-specific rules are scoped under `.ft-orientation-horizontal`. Key transformations:
 
@@ -94,7 +94,7 @@ All horizontal-specific rules are scoped under `.ft-orientation-horizontal`. Key
 | `.ft-rank-spacer` | Expands via `height` | Expands via `width` |
 | `.ft-rank-spacer::after` | Vertical line (`border-left`) | Horizontal line (`border-top`) |
 
-### 3. JavaScript Spacer Alignment ([`family-tree.js`](../src/GMO.Family.Web/wwwroot/js/family-tree.js))
+### 3. JavaScript Spacer Alignment ([`family-tree.js`](../src/GMO.FamilyTree.Web/wwwroot/js/family-tree.js))
 
 The half-rank spacer alignment logic uses three orientation-aware variables:
 
@@ -231,7 +231,7 @@ Each node receives a `data-visual-rank` attribute that the UI tests read to veri
 
 ## Tree Toolbar Controls
 
-Layout and lineage toggles live on the home page toolbar ([`TreeToolbar/Default.cshtml`](../src/GMO.Family.Web/Views/Shared/Components/TreeToolbar/Default.cshtml)), not in the user menu. The user menu is limited to profile photo, email, and sign out.
+Layout and lineage toggles live on the home page toolbar ([`TreeToolbar/Default.cshtml`](../src/GMO.FamilyTree.Web/Views/Shared/Components/TreeToolbar/Default.cshtml)), not in the user menu. The user menu is limited to profile photo, email, and sign out.
 
 ### Layout orientation
 
@@ -267,7 +267,7 @@ The UI tests validate the documented behavior using a **relative positioning app
 
 ### Key Test Files
 
-- **Primary**: `tst/GMO.Family.Web.UiTests/LayoutOrientationTests.cs`
+- **Primary**: `tst/GMO.FamilyTree.Web.UiTests/LayoutOrientationTests.cs`
 - **Documentation**: `docs/ui-testing-approach.md` (detailed testing strategy)
 - **Coverage**: All layout orientations, lineage modes, and positioning validation
 

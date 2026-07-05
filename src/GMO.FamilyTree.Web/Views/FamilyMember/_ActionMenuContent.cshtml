@@ -1,0 +1,161 @@
+@model GMO.FamilyTree.Web.Models.MemberActionMenuViewModel
+@using GMO.FamilyTree.Web.Data
+@{
+    var menuId = "action-menu-" + Model.ContextMemberId;
+}
+<div class="cascading-menu" id="@menuId" data-member-id="@Model.ContextMemberId" data-tree-id="@Model.FamilyTreeId">
+    <div class="cascading-primary">
+        <div class="cascading-item" data-panel="edit">Edit</div>
+        <div class="cascading-item" data-panel="add">Add</div>
+        <div class="cascading-item" data-panel="remove">Remove</div>
+    </div>
+    <div class="cascading-sub">
+        <!-- EDIT panel -->
+        <div class="cascading-panel" data-panel="edit">
+            <div class="small fw-semibold mb-2">Edit @Model.ContextMemberName</div>
+            <form class="cascading-edit-form" data-member-id="@Model.ContextMemberId">
+                @Html.AntiForgeryToken()
+                <input type="hidden" name="memberId" value="@Model.ContextMemberId" />
+                <div class="mb-2">
+                    <label class="form-label small mb-0">Name</label>
+                    <input type="text" name="name" class="form-control form-control-sm" value="@Model.Name" required />
+                </div>
+                <div class="mb-2">
+                    <label class="form-label small mb-0">Nickname</label>
+                    <input type="text" name="nickName" class="form-control form-control-sm" value="@Model.NickName" />
+                </div>
+                <div class="mb-2">
+                    <label class="form-label small mb-0">Date of birth</label>
+                    <input type="date" name="dob" class="form-control form-control-sm" value="@(Model.DOB?.ToString("yyyy-MM-dd"))" />
+                </div>
+                <div class="mb-2">
+                    <label class="form-label small mb-0">Birth order</label>
+                    <input type="number" name="birthOrder" class="form-control form-control-sm" min="1" value="@Model.BirthOrder" />
+                </div>
+                <div class="form-check mb-2">
+                    <input type="checkbox" name="isMale" value="true" class="form-check-input" id="@(menuId)-edit-male" @(Model.IsMale ? "checked" : "") />
+                    <label class="form-check-label small" for="@(menuId)-edit-male">Male</label>
+                </div>
+                <div class="form-check mb-2">
+                    <input type="checkbox" name="setAsMe" value="true" class="form-check-input" id="@(menuId)-edit-me" @(Model.IsMe ? "checked" : "") />
+                    <label class="form-check-label small" for="@(menuId)-edit-me">This is me</label>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label small mb-0">Photo</label>
+                    <div class="mb-1 member-photo-preview-wrap @(Model.HasPhoto ? "" : "d-none")">
+                        <img src="@(Model.HasPhoto ? $"/photos/members/{Model.ContextMemberId}" : "")" alt="" class="rounded-circle member-edit-photo-preview" width="48" height="48" style="object-fit: cover;" />
+                    </div>
+                    <input type="file" name="photo" class="form-control form-control-sm member-photo-input" accept="image/jpeg,image/png,image/gif,image/webp" />
+                    <button type="button" class="btn btn-sm btn-link p-0 mt-1 member-photo-remove-btn @(Model.HasPhoto ? "" : "d-none")">Remove photo</button>
+                </div>
+                <button type="submit" class="btn btn-sm btn-primary">Save</button>
+            </form>
+        </div>
+
+        <!-- ADD panel -->
+        <div class="cascading-panel" data-panel="add">
+            <div class="small fw-semibold mb-2">Add relationship</div>
+            <!-- Relationship type -->
+            <div class="mb-2">
+                <div class="small text-muted mb-1">Type</div>
+                <div class="d-flex flex-wrap gap-1 menu-type-btns">
+                    @if (Model.CanAddParent)
+                    {
+                        <button type="button" class="btn btn-sm btn-outline-secondary menu-type-btn" data-type="parent" data-ischild="false">Parent</button>
+                    }
+                    <button type="button" class="btn btn-sm btn-outline-secondary menu-type-btn active" data-type="parent" data-ischild="true">Child</button>
+                    <button type="button" class="btn btn-sm btn-outline-secondary menu-type-btn" data-type="partner" data-ischild="false">Partner</button>
+                </div>
+            </div>
+            <!-- Existing or New -->
+            <div class="mb-2">
+                <div class="small text-muted mb-1">Link existing or create new?</div>
+                <div class="d-flex gap-1">
+                    <button type="button" class="btn btn-sm btn-outline-primary menu-add-choice-btn active" data-choice="existing">Link existing</button>
+                    <button type="button" class="btn btn-sm btn-outline-primary menu-add-choice-btn" data-choice="new">Create new</button>
+                </div>
+            </div>
+            <!-- Link existing: search + candidates -->
+            <div class="menu-panel-existing">
+                <label class="form-label small text-muted mb-0">Search</label>
+                <input type="text" class="form-control form-control-sm member-action-search mb-1" placeholder="Filter people…" />
+                <div class="menu-candidates-container" style="max-height: 180px; overflow-y: auto;">
+                    <div class="menu-candidates" data-type="parent" data-ischild="false" style="display:none;">
+                        @foreach (var c in Model.ParentCandidates)
+                        {
+                            <button type="button" class="btn btn-sm btn-outline-secondary w-100 text-start mb-1 candidate-btn"
+                                    data-name="@c.DisplayName" data-existing-id="@c.Id" data-rel-type="0" data-is-child="false">@c.DisplayName</button>
+                        }
+                    </div>
+                    <div class="menu-candidates" data-type="parent" data-ischild="true">
+                        @foreach (var c in Model.ChildCandidates)
+                        {
+                            <button type="button" class="btn btn-sm btn-outline-secondary w-100 text-start mb-1 candidate-btn"
+                                    data-name="@c.DisplayName" data-existing-id="@c.Id" data-rel-type="0" data-is-child="true">@c.DisplayName</button>
+                        }
+                    </div>
+                    <div class="menu-candidates" data-type="partner" data-ischild="false" style="display:none;">
+                        @foreach (var c in Model.PartnerCandidates)
+                        {
+                            <button type="button" class="btn btn-sm btn-outline-secondary w-100 text-start mb-1 candidate-btn"
+                                    data-name="@c.DisplayName" data-existing-id="@c.Id" data-rel-type="2" data-is-child="false">@c.DisplayName</button>
+                        }
+                    </div>
+                </div>
+            </div>
+            <!-- Create new form -->
+            <div class="menu-panel-new-form" style="display:none;">
+                <form class="cascading-add-form" data-member-id="@Model.ContextMemberId">
+                    @Html.AntiForgeryToken()
+                    <input type="hidden" name="ContextMemberId" value="@Model.ContextMemberId" />
+                    <input type="hidden" name="FamilyTreeId" value="@Model.FamilyTreeId" />
+                    <input type="hidden" name="RelationshipType" class="add-rel-type" value="0" />
+                    <input type="hidden" name="IsChild" class="add-is-child" value="true" />
+                    <div class="mb-2">
+                        <label class="form-label small mb-0">Name</label>
+                        <input type="text" name="Name" class="form-control form-control-sm" required />
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label small mb-0">Nickname</label>
+                        <input type="text" name="NickName" class="form-control form-control-sm" />
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label small mb-0">Date of birth</label>
+                        <input type="date" name="DOB" class="form-control form-control-sm" />
+                    </div>
+                    <div class="mb-2 menu-birthorder-row" style="display:none;">
+                        <label class="form-label small mb-0">Birth order</label>
+                        <input type="number" name="BirthOrder" class="form-control form-control-sm" min="1" />
+                    </div>
+                    <div class="form-check mb-2">
+                        <input type="checkbox" name="IsMale" value="true" class="form-check-input" id="@(menuId)-add-male" />
+                        <label class="form-check-label small" for="@(menuId)-add-male">Male</label>
+                    </div>
+                    <div class="form-check mb-2">
+                        <input type="checkbox" name="SetAsMe" value="true" class="form-check-input" id="@(menuId)-add-me" />
+                        <label class="form-check-label small" for="@(menuId)-add-me">This is me</label>
+                    </div>
+                    <button type="submit" class="btn btn-sm btn-primary">Add</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- REMOVE panel -->
+        <div class="cascading-panel" data-panel="remove">
+            <div class="small fw-semibold mb-2">Remove relationship</div>
+            @if (Model.ExistingRelationships.Count == 0)
+            {
+                <p class="small text-muted mb-0">No relationships to remove.</p>
+            }
+            else
+            {
+                <div class="d-flex flex-column gap-1">
+                    @foreach (var r in Model.ExistingRelationships)
+                    {
+                        <button type="button" class="btn btn-sm btn-outline-danger w-100 text-start cascading-remove-btn" data-rel-id="@r.RelationshipId">@r.Label</button>
+                    }
+                </div>
+            }
+        </div>
+    </div>
+</div>

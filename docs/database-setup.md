@@ -76,7 +76,7 @@ The application uses a **deterministic seeding approach** with SQL scripts locat
 
 The seed script is located at:
 ```
-tst/GMO.Family.Web.UiTests/Data/seed_trees.sql
+tst/GMO.FamilyTree.Web.UiTests/Data/seed_trees.sql
 ```
 
 ### Seed Data Structure
@@ -117,7 +117,7 @@ tst/GMO.Family.Web.UiTests/Data/seed_trees.sql
 cd c:\_Git\gideonogega\Family
 
 # Run the seed script (update connection details as needed)
-psql -h localhost -p 5432 -U family -d family -f tst/GMO.Family.Web.UiTests/Data/seed_trees.sql
+psql -h localhost -p 5432 -U family -d family -f tst/GMO.FamilyTree.Web.UiTests/Data/seed_trees.sql
 ```
 
 **Note**: For detailed troubleshooting and alternative approaches, see the testing environment documentation.
