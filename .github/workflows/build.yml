@@ -157,6 +157,10 @@ jobs:
           EXCLUSIONS="**/Migrations/**,**/AppDbContextFactory.cs,**/wwwroot/lib/**,**/wwwroot/js/**,**/.github/**,**/bin/**,**/obj/**,**/coverage/**"
           COVERAGE_EXCLUSIONS="**/*.cshtml,**/*.cshtml.css,**/Views/**,**/wwwroot/**,**/S3PhotoStorageService.cs,**/Controllers/FamilyMemberController.cs"
           QG_WAIT="true"
+          if [ "$SONAR_EVENT_NAME" = "pull_request" ]; then
+            # PR analysis uses SonarCloud's GitHub check; scanner QG wait often fails on short-lived branches.
+            QG_WAIT="false"
+          fi
           # Align SonarCloud main branch with GitHub production branch (prod).
           if [ "$SONAR_EVENT_NAME" = "push" ] && [ "$SONAR_BRANCH" = "$PRODUCTION_BRANCH" ]; then
             if curl -sf -X POST -u "${SONAR_TOKEN}:" \
