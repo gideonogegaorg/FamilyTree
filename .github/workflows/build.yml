@@ -205,12 +205,13 @@ jobs:
             echo "::error::No coverage files found."
             exit 1
           fi
-          REPORTS=$(echo "$COBERTURA_FILES" | tr '\n' ';' | sed 's/;$//')
+          REPORTS=$(echo "$COBERTURA_FILES" | sed 's|^|../|' | tr '\n' ';' | sed 's/;$//')
           mkdir -p coverage/combined
-          dotnet tool restore --tool-manifest src/dotnet-tools.json
-          dotnet tool run reportgenerator --tool-manifest src/dotnet-tools.json -- \
+          cd src
+          dotnet tool restore
+          dotnet tool run reportgenerator -- \
             "-reports:$REPORTS" \
-            "-targetdir:coverage/combined" \
+            "-targetdir:../coverage/combined" \
             "-reporttypes:Html;Cobertura"
           echo "HTML report in coverage/combined/index.html"
 
