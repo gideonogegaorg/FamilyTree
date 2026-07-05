@@ -157,6 +157,10 @@ jobs:
           EXCLUSIONS="**/Migrations/**,**/AppDbContextFactory.cs,**/wwwroot/lib/**,**/wwwroot/js/**,**/.github/**,**/bin/**,**/obj/**,**/coverage/**"
           COVERAGE_EXCLUSIONS="**/*.cshtml,**/*.cshtml.css,**/Views/**,**/wwwroot/**,**/S3PhotoStorageService.cs,**/Controllers/FamilyMemberController.cs"
           QG_WAIT="true"
+          if [ "$SONAR_EVENT_NAME" = "pull_request" ]; then
+            # PR analysis uses SonarCloud's GitHub check; scanner QG wait often fails on short-lived branches.
+            QG_WAIT="false"
+          fi
           # Align SonarCloud main branch with GitHub production branch (prod).
           if [ "$SONAR_EVENT_NAME" = "push" ] && [ "$SONAR_BRANCH" = "$PRODUCTION_BRANCH" ]; then
             if curl -sf -X POST -u "${SONAR_TOKEN}:" \
@@ -384,7 +388,18 @@ jobs:
             echo "[Deploy] Ensuring directory..."
             sudo mkdir -p "$DEPLOY_PATH/site" "$DEPLOY_PATH/logs" "$DEPLOY_PATH/uploads"
             sudo chown -R ubuntu:www-data "$DEPLOY_PATH"
-            if [ "$SETUP_CHANGED" = "true" ] || [ ! -f "/etc/systemd/system/${SERVICE_NAME}.service" ]; then
+            SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
+            NEEDS_SETUP=false
+            if [ "$SETUP_CHANGED" = "true" ] || [ ! -f "$SERVICE_FILE" ]; then
+              NEEDS_SETUP=true
+            else
+              DEPLOYED_DLL=$(basename "$(ls "$STAGING/site/"*.Web.dll 2>/dev/null | head -1)" 2>/dev/null || true)
+              if [ -n "$DEPLOYED_DLL" ] && ! grep -qF "$DEPLOYED_DLL" "$SERVICE_FILE"; then
+                echo "[Deploy] Systemd unit does not reference $DEPLOYED_DLL; re-running configure-service.sh..."
+                NEEDS_SETUP=true
+              fi
+            fi
+            if [ "$NEEDS_SETUP" = "true" ]; then
               echo "[Deploy] Running configure-service.sh..."
               sudo bash "$STAGING/scripts/configure-service.sh" "$FULL_HOSTNAME" "$PORT" "$SERVICE_NAME" "$CERT_DOMAIN" "$IS_PRODUCTION"
             fi
@@ -395,10 +410,25 @@ jobs:
             sudo systemctl restart "$SERVICE_NAME"
             if ! systemctl is-active --quiet "$SERVICE_NAME"; then
               echo "::error::Service $SERVICE_NAME failed to start after deploy."
-              sudo journalctl -u "$SERVICE_NAME" -n 40 --no-pager
+              sudo journalctl -u "$SERVICE_NAME" -n 80 --no-pager
               exit 1
             fi
-            echo "[Deploy] Service restarted; public health check runs from GitHub Actions."
+            echo "[Deploy] Waiting for local health check on port $PORT..."
+            HEALTH_OK=false
+            for i in $(seq 1 24); do
+              if curl -sf "http://127.0.0.1:${PORT}/health" > /dev/null; then
+                echo "[Deploy] Local health check passed (+$(( (i - 1) * 5 ))s)."
+                HEALTH_OK=true
+                break
+              fi
+              sleep 5
+            done
+            if [ "$HEALTH_OK" != "true" ]; then
+              echo "::error::Local health check failed after 115s on http://127.0.0.1:${PORT}/health"
+              sudo journalctl -u "$SERVICE_NAME" -n 80 --no-pager
+              exit 1
+            fi
+            echo "[Deploy] Service healthy; public health check runs from GitHub Actions."
 
       - name: Verify public site health
         run: |
