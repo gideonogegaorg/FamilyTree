@@ -16,6 +16,7 @@ using Microsoft.Extensions.Options;
 
 namespace GMO.FamilyTree.Web.Controllers;
 
+[Authorize]
 public class AccountController : Controller
 {
     private readonly SignInManager<IdentityUser> _signInManager;
