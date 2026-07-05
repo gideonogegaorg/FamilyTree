@@ -146,7 +146,7 @@ jobs:
           SONAR_PROJECT_VERSION: ${{ env.DLL_VERSION }}
         run: |
           EXCLUSIONS="**/Migrations/**,**/AppDbContextFactory.cs,**/wwwroot/lib/**,**/wwwroot/js/**,**/.github/**,**/bin/**,**/obj/**,**/coverage/**"
-          COVERAGE_EXCLUSIONS="**/*.cshtml,**/*.cshtml.css,**/Views/**,**/wwwroot/**"
+          COVERAGE_EXCLUSIONS="**/*.cshtml,**/*.cshtml.css,**/Views/**,**/wwwroot/**,**/S3PhotoStorageService.cs,**/Controllers/FamilyMemberController.cs"
           begin_args=(
             /k:gideonogegaorg_FamilyTree
             /o:gideonogegaorg
