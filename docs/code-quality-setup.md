@@ -5,7 +5,7 @@ One-time configuration for CI quality gates added to this repository.
 ## SonarCloud
 
 1. Sign in at [sonarcloud.io](https://sonarcloud.io) with GitHub and import **`gideonogegaorg/FamilyTree`**.
-2. Confirm project key **`gideonogegaorg_FamilyTree`** and organization **`gideonogegaorg`** match [`sonar-project.properties`](../sonar-project.properties).
+2. Confirm project key **`gideonogegaorg_FamilyTree`** and organization **`gideonogegaorg`** match the `SonarCloud begin` step in [`.github/workflows/build.yml`](../.github/workflows/build.yml).
 3. Add **`SONAR_TOKEN`** for CI analysis upload and PR decoration:
    - **Recommended:** GitHub org secret `SONAR_TOKEN` on **`gideonogegaorg`** (shared by all repos that use SonarCloud org `gideonogegaorg`, e.g. OpenTelemetry and FamilyTree).
    - **Alternative:** repository secret on each repo.
@@ -18,7 +18,7 @@ One-time configuration for CI quality gates added to this repository.
 5. Enable **Pull Request decoration** under GitHub integration.
 6. Disable **Automatic Analysis** (Administration → Analysis Method) when using CI-based scanner.
 
-The build workflow runs `dotnet sonarscanner begin/end` around build and tests. Coverlet produces OpenCover reports; CI passes `sonar.cs.opencover.reportsPaths=**/coverage.opencover.xml` and `sonar.qualitygate.wait=true` on begin. Coverage enforcement is via the SonarCloud quality gate and the required **SonarCloud Code Analysis** GitHub check.
+The build workflow runs `dotnet sonarscanner begin/end` around build and tests. Scanner settings (exclusions, OpenCover paths, quality gate wait) are passed on the `begin` command — **do not** add `sonar-project.properties`; the .NET scanner rejects that file.
 
 ## GitHub security features
 
