@@ -1,8 +1,8 @@
 # Coverage report – what’s still pending (all code)
 
-Generated after running `.\scripts\run-coverage.ps1`. Combined line coverage: **90.6%** (1442/1591 lines). Branch coverage: **70.4%**.
+Generated after running `.\scripts\run-coverage.ps1`. Percentages below are from a prior local HTML report; **SonarCloud is the authoritative coverage gate in CI** (≥80% line and new-code coverage).
 
-Open **coverage/combined/index.html** for the full report.
+Open **coverage/combined/index.html** for the local HTML report.
 
 ---
 
