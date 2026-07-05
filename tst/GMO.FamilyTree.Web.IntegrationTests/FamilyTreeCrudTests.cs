@@ -97,7 +97,7 @@ public class FamilyTreeCrudTests : IClassFixture<WebAppFixture>
     }
 
     [Fact]
-    public async Task Index_returns_404_when_not_authenticated()
+    public async Task Index_redirects_when_not_authenticated()
     {
         // Arrange
         var client = _fixture.CreateClient(signIn: false);
@@ -105,8 +105,8 @@ public class FamilyTreeCrudTests : IClassFixture<WebAppFixture>
         // Act
         var response = await client.GetAsync("/FamilyTree");
 
-        // Assert
-        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        // Assert — [Authorize] redirects anonymous users to login
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
     }
 
     [Fact]
