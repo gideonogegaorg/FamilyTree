@@ -1,0 +1,80 @@
+name: Domain migration AWS
+
+on:
+  workflow_dispatch:
+    inputs:
+      phase:
+        description: "migration phase"
+        required: true
+        default: upsert-dns-and-s3
+        type: choice
+        options:
+          - upsert-dns-and-s3
+          - retire-old-dns
+          - update-iam-s3-prefix
+
+jobs:
+  aws:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          repository: gideonogegaorg/DevOps
+          path: DevOps
+          token: ${{ secrets.GH_CLASSIC_PAT }}
+
+      - uses: aws-actions/configure-aws-credentials@ff717079ee2060e4bcee96c4779b553acc87447c # v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Upsert Route53 and sync S3 prefixes
+        if: inputs.phase == 'upsert-dns-and-s3'
+        run: |
+          chmod +x DevOps/aws/route53/*.sh DevOps/aws/s3/*.sh
+          bash DevOps/aws/route53/upsert-a-records.sh goom.life \
+            familytree.goom.life=35.172.36.171 \
+            familytree-dev.goom.life=35.172.36.171
+          bash DevOps/aws/s3/migrate-prefix.sh gideonogega-internal family/prod familytree/prod
+          bash DevOps/aws/s3/migrate-prefix.sh gideonogega-internal family/dev familytree/dev
+
+      - name: Delete old Route53 records
+        if: inputs.phase == 'retire-old-dns'
+        run: |
+          chmod +x DevOps/aws/route53/*.sh
+          bash DevOps/aws/route53/delete-a-records.sh goom.life \
+            family.goom.life family-dev.goom.life
+
+      - name: Update EC2 IAM S3 photo prefix policy
+        if: inputs.phase == 'update-iam-s3-prefix'
+        run: |
+          cat > /tmp/s3-photos-policy.json <<'EOF'
+          {
+            "Version": "2012-10-17",
+            "Statement": [
+              {
+                "Effect": "Allow",
+                "Action": ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"],
+                "Resource": [
+                  "arn:aws:s3:::gideonogega-internal/familytree/prod/*",
+                  "arn:aws:s3:::gideonogega-internal/familytree/dev/*"
+                ]
+              },
+              {
+                "Effect": "Allow",
+                "Action": ["s3:ListBucket"],
+                "Resource": "arn:aws:s3:::gideonogega-internal",
+                "Condition": {
+                  "StringLike": {
+                    "s3:prefix": ["familytree/prod/*", "familytree/dev/*"]
+                  }
+                }
+              }
+            ]
+          }
+          EOF
+          aws iam put-role-policy \
+            --role-name EC2-Certbot-Role \
+            --policy-name FamilyTreePhotosS3Policy \
+            --policy-document file:///tmp/s3-photos-policy.json
