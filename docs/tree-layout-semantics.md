@@ -100,7 +100,7 @@ left-right ordering within a lane).
 
 ---
 
-## Edge cases validated against production (family-dev.goom.life, 2026-07-04)
+## Edge cases validated against production (familytree-dev.goom.life, 2026-07-04)
 
 When in doubt, production is the reference. The 3-gen test tree was inspected
 on family-dev in both lineage modes; observed `data-visual-rank` values are
@@ -165,7 +165,7 @@ orientation × lineage ASCII tables (3-Gen Test Tree).
 
 ## Reference render — marriage-tree forest (Horizontal × Paternal, 3-gen "Default" tree)
 
-Validated against production (family-dev.goom.life, 2026-07-05). The tree is a
+Validated against production (familytree-dev.goom.life, 2026-07-05). The tree is a
 **forest of marriage trees**. Each marriage (or single-parent family) renders
 exactly once as a couple/branch unit; a person who participates in several
 marriages is **duplicated** into each one (`*` below, DOM id

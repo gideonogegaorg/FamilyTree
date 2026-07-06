@@ -1,18 +1,13 @@
 # Configure Service Guide (.NET / Nginx / Ubuntu)
 
-Infrastructure required to host a .NET subdomain on the EC2 instance. Hostnames are `family.<DEPLOY_DOMAIN>` and `family-dev.<DEPLOY_DOMAIN>` (the `DEPLOY_DOMAIN` secret; examples below use `example.com`).
+Infrastructure required to host a .NET subdomain on the EC2 instance. Hostnames are `familytree.<DEPLOY_DOMAIN>` and `familytree-dev.<DEPLOY_DOMAIN>` (the `DEPLOY_DOMAIN` secret; examples below use `example.com`).
 
 ## Prerequisites
 
-1. **DNS**: An A record for the subdomain pointing to the EC2 Elastic IP (e.g. `family-dev.example.com` → your IP).
+1. **DNS**: An A record for the subdomain pointing to the EC2 Elastic IP (e.g. `familytree-dev.example.com` → your IP).
 2. **SSL certificates**: Let's Encrypt certs in place for your domain (see [Let's Encrypt setup](#lets-encrypt-setup) below).
-3. **Port**: An unused local port for the .NET app (`5002` for prod/`family`, `5003` for `family-dev`).
-4. **ASP.NET Core Runtime 10**: Publish is framework-dependent, so the host needs `Microsoft.AspNetCore.App` 10.x (`/usr/bin/dotnet`). The pipeline runs [scripts/install-aspnetcore-runtime.sh](../scripts/install-aspnetcore-runtime.sh) on every deploy (idempotent `apt` install of `aspnetcore-runtime-10.0`). Manual provisioning via `configure-service.sh` runs the same script. To install by hand:
-
-```bash
-sudo ./scripts/install-aspnetcore-runtime.sh
-# or: sudo apt-get update && sudo apt-get install -y aspnetcore-runtime-10.0
-```
+3. **Port**: An unused local port for the .NET app (`5002` for prod/`familytree`, `5003` for `familytree-dev`).
+Generic nginx/systemd/certbot steps live in [gideonogegaorg/DevOps](https://github.com/gideonogegaorg/DevOps) (`ec2/nginx/configure-subdomain.sh`, `ec2/certbot/setup-wildcard-route53.sh`). The deploy pipeline checks out DevOps and runs those scripts automatically when the workflow changes or the systemd unit is missing.
 
 ---
 
@@ -50,10 +45,10 @@ Certificates will be in `/etc/letsencrypt/live/example.com/`.
 Use when you only need one hostname and port 80 is available to Certbot:
 
 ```bash
-sudo certbot certonly --nginx -d family.example.com
+sudo certbot certonly --nginx -d familytree.example.com
 ```
 
-Certificates will be in `/etc/letsencrypt/live/family.example.com/` (use that full name as `cert_domain` if you go this route).
+Certificates will be in `/etc/letsencrypt/live/familytree.example.com/` (use that full name as `cert_domain` if you go this route).
 
 ### 3. Auto-renewal
 
@@ -87,13 +82,15 @@ ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
 
 From the repo root on the server (or from the deployed directory, e.g. `$DEPLOY_PATH`):
 
+Clone DevOps on the server and run `ec2/nginx/configure-subdomain.sh` (see [domain-migration.md](https://github.com/gideonogegaorg/DevOps/blob/main/ec2/domain-migration.md)):
+
 ```bash
-sudo ./scripts/configure-service.sh <subdomain> <port> <service_name> [cert_domain] [is_production]
+sudo DLL_NAME=GMO.FamilyTree.Web.dll ./configure-subdomain.sh <subdomain> <port> <service_name> [cert_domain] [is_production]
 ```
 
-- **subdomain**: Full hostname (e.g. `family-dev.example.com`).
+- **subdomain**: Full hostname (e.g. `familytree-dev.example.com`).
 - **port**: Local port for the .NET app (`5002` prod, `5003` dev).
-- **service_name**: Systemd service name; use the same as the pipeline's `SERVICE_NAME` variable for that environment (e.g. `family` for prod, `family-dev` for dev).
+- **service_name**: Systemd service name; use the same as the pipeline's `SERVICE_NAME` variable for that environment (e.g. `familytree` for prod, `familytree-dev` for dev).
 - **cert_domain**: Base domain used for the Let's Encrypt path (e.g. `example.com` → `/etc/letsencrypt/live/example.com/`). Defaults to `example.com` if omitted.
 - **is_production**: Optional. `true` for production (no `X-Robots-Tag`); otherwise adds `noindex, nofollow`.
 
@@ -101,23 +98,23 @@ Example:
 
 ```bash
 # Production site (matches pipeline SERVICE_NAME / PORT for prod)
-sudo ./scripts/configure-service.sh family.example.com 5002 family example.com true
+sudo DLL_NAME=GMO.FamilyTree.Web.dll ./configure-subdomain.sh familytree.example.com 5002 familytree example.com true
 # Dev site
-sudo ./scripts/configure-service.sh family-dev.example.com 5003 family-dev example.com false
+sudo DLL_NAME=GMO.FamilyTree.Web.dll ./configure-subdomain.sh familytree-dev.example.com 5003 familytree-dev example.com false
 ```
 
 This creates the web directory, systemd unit, and Nginx config (HTTP→HTTPS and proxy to the app). The unit runs the app from `$WEB_ROOT/site`. Optional `$WEB_ROOT/.env` can supply extra env-var overrides via `EnvironmentFile`.
 
-**Pipeline behaviour:** The GitHub Actions deploy job generates `appsettings.json` on the runner from the template and GitHub Environment secrets, runs `dotnet publish` into `./site`, then SCPs `site/*`, `scripts/configure-service.sh`, and `scripts/install-aspnetcore-runtime.sh` to the server. Generated config is **not** in the public git repo — it lands only on EC2. It always runs **install-aspnetcore-runtime.sh** (ensures ASP.NET Core 10), then runs **configure-service.sh** only when that script has changed or the systemd service file is missing; otherwise it copies the site output into `$DEPLOY_PATH/site`, ensures `$DEPLOY_PATH/logs` and `$DEPLOY_PATH/uploads` exist, and restarts the service. Legacy profile photos under `$DEPLOY_PATH/uploads` may still be served for accounts that have not re-uploaded; new profile and member photos are stored in a **private S3 bucket** (see below) and served only through authenticated `/photos/...` endpoints. The **service_name** and **port** must match the `SERVICE_NAME` and `PORT` variables for that environment. For manual deploy, generate `appsettings.json` locally (never commit it), publish into `./site`, then:
+**Pipeline behaviour:** The GitHub Actions deploy job checks out DevOps, generates `appsettings.json`, publishes into `./site`, SCPs the site and DevOps scripts to EC2, and runs `dotnet/ec2/deploy-to-ec2.sh`.
 
 ```bash
-sudo systemctl restart family-dev
+sudo systemctl restart familytree-dev
 ```
 
 **Google authentication:** Set environment secrets `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET`. The pipeline bakes them into the deployed `appsettings.json` on EC2. Configure the Google OAuth client with redirect URIs:
 
-- `https://family.<DEPLOY_DOMAIN>/signin-google`
-- `https://family-dev.<DEPLOY_DOMAIN>/signin-google`
+- `https://familytree.<DEPLOY_DOMAIN>/signin-google`
+- `https://familytree-dev.<DEPLOY_DOMAIN>/signin-google`
 
 ---
 
@@ -131,20 +128,20 @@ Use **one shared private bucket** for the organization and isolate apps/environm
 
 | Deploy | `StoragePrefix` | Example object key |
 |--------|-----------------|-------------------|
-| Family prod | `family/prod/` | `family/prod/members/12/34.jpg` |
-| Family dev | `family/dev/` | `family/dev/profiles/user-id.jpg` |
+| Family prod | `familytree/prod/` | `familytree/prod/members/12/34.jpg` |
+| Family dev | `familytree/dev/` | `familytree/dev/profiles/user-id.jpg` |
 | Another app | `other-app/prod/` | `other-app/prod/...` |
 
 - Empty buckets cost nothing; you pay for storage and requests. One bucket vs several is negligible in cost but simpler to operate.
-- Set the same `S3_PHOTOS_BUCKET` secret for all environments; differentiate with `PHOTOS_APP_NAME` + `PHOTOS_ENVIRONMENT` (the deploy pipeline sets `family/prod` or `family/dev` automatically).
+- Set the same `S3_PHOTOS_BUCKET` secret for all environments; differentiate with `PHOTOS_APP_NAME` + `PHOTOS_ENVIRONMENT` (the deploy pipeline sets `familytree/prod` or `familytree/dev` automatically).
 - Override with an explicit `PHOTOS_STORAGE_PREFIX` env var when needed.
 - The database stores **logical** keys only (`members/{treeId}/{memberId}.jpg`); the prefix is applied at read/write time.
 
-Local dev/CI uses `Photos:Provider` = `Local` by default (see [launchSettings.json](../src/GMO.FamilyTree.Web/Properties/launchSettings.json)). For **localhost S3 parity**, run `docker compose up -d` and set `Photos__Provider=S3` (MinIO at `http://localhost:9000`, bucket `gideonogega-internal`, prefix `family/local/`).
+Local dev/CI uses `Photos:Provider` = `Local` by default (see [launchSettings.json](../src/GMO.FamilyTree.Web/Properties/launchSettings.json)). For **localhost S3 parity**, run `docker compose up -d` and set `Photos__Provider=S3` (MinIO at `http://localhost:9000`, bucket `gideonogega-internal`, prefix `familytree/local/`).
 
 ### Alternative: separate buckets per environment
 
-You can still point `S3_PHOTOS_BUCKET` at different buckets per GitHub environment (e.g. `family-photos-prod` vs `family-photos-dev`) if you prefer hard isolation. Leave `StoragePrefix` empty or use a short app prefix.
+You can still point `S3_PHOTOS_BUCKET` at different buckets per GitHub environment (e.g. `familytree-photos-prod` vs `familytree-photos-dev`) if you prefer hard isolation. Leave `StoragePrefix` empty or use a short app prefix.
 
 ### 1. Create the bucket
 
@@ -165,21 +162,21 @@ Create one org-wide private bucket: **`gideonogega-internal`** (gideonogegaorg).
     {
       "Effect": "Allow",
       "Action": ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"],
-      "Resource": "arn:aws:s3:::gideonogega-internal/family/prod/*"
+      "Resource": "arn:aws:s3:::gideonogega-internal/familytree/prod/*"
     },
     {
       "Effect": "Allow",
       "Action": ["s3:ListBucket"],
       "Resource": "arn:aws:s3:::gideonogega-internal",
       "Condition": {
-        "StringLike": { "s3:prefix": ["family/prod/*"] }
+        "StringLike": { "s3:prefix": ["familytree/prod/*"] }
       }
     }
   ]
 }
 ```
 
-Use `family/dev/*` on the dev instance.
+Use `familytree/dev/*` on the dev instance.
 
 ### 3. App configuration
 
@@ -189,7 +186,7 @@ Set repository secret `S3_PHOTOS_BUCKET` to `gideonogega-internal` (or rely on t
 "Photos": {
   "Provider": "S3",
   "S3Bucket": "gideonogega-internal",
-  "StoragePrefix": "family/prod",
+  "StoragePrefix": "familytree/prod",
   "LocalBasePath": "uploads/photos"
 }
 ```

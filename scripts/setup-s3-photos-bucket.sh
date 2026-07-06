@@ -53,4 +53,4 @@ aws s3api put-bucket-tagging --bucket "$BUCKET" \
   --tagging "TagSet=[{Key=org,Value=gideonogegaorg},{Key=purpose,Value=internal-private-assets}]"
 
 echo "Bucket $BUCKET is private (public access blocked) with AES256 default encryption."
-echo "Use path prefixes per app/env, e.g. family/prod/, family/dev/."
+echo "Use path prefixes per app/env, e.g. familytree/prod/, familytree/dev/."
