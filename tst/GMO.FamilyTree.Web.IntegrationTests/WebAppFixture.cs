@@ -18,7 +18,7 @@ namespace GMO.FamilyTree.Web.IntegrationTests;
 /// </summary>
 public sealed class WebAppFixture : WebApplicationFactory<WebAppEntry>, IDisposable
 {
-    private const string BaseConnectionString = "Host=localhost;Port=5432;Username=family;Password=family";
+    private const string BaseConnectionString = "Host=localhost;Port=5432;Username=familytree;Password=familytree";
     private string _testDatabaseName = null!;
     private string _testConnectionString = null!;
     private bool _dbDropped;
@@ -84,7 +84,7 @@ public sealed class WebAppFixture : WebApplicationFactory<WebAppEntry>, IDisposa
         if (!string.IsNullOrEmpty(_testDatabaseName))
         {
             builder.UseSetting("Photos:LocalBasePath", Path.Combine("uploads", "photos-test", _testDatabaseName));
-            builder.UseSetting("Photos:StoragePrefix", $"family/test/{_testDatabaseName}");
+            builder.UseSetting("Photos:StoragePrefix", $"familytree/test/{_testDatabaseName}");
         }
 
         // Suppress verbose EF Core and ASP.NET Core Information logs during tests

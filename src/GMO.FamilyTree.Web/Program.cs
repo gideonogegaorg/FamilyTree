@@ -124,7 +124,7 @@ builder.Services.AddMetrics(otelBuilder, telemetryOptions, _ => { });
 
 // PostgreSQL data source with OpenTelemetry enrichment (statements + parameters).
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
-    ?? "Host=localhost;Port=5432;Database=family;Username=family;Password=family";
+    ?? "Host=localhost;Port=5432;Database=familytree;Username=familytree;Password=familytree";
 var dataSourceBuilder = new NpgsqlDataSourceBuilder(connectionString);
 dataSourceBuilder.ConfigureTracing(o => o.ConfigureCommandEnrichmentCallback((activity, cmd) =>
 {
