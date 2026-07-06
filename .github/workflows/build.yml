@@ -259,6 +259,9 @@ jobs:
 
   deploy:
     if: github.event_name == 'push'
+    concurrency:
+      group: deploy-${{ github.repository }}-${{ github.ref_name }}
+      cancel-in-progress: false
     runs-on: ubuntu-latest
     needs: [build, tag]
     environment: ${{ github.ref_name }}
@@ -373,6 +376,7 @@ jobs:
           script_stop: true
           debug: false
           script: |
+            bash <<'DEPLOY_EOF'
             set -e
             DEPLOY_PATH='${{ env.DEPLOY_PATH }}'
             BRANCH='${{ env.BRANCH }}'
@@ -388,19 +392,21 @@ jobs:
             sudo bash "$STAGING/scripts/install-aspnetcore-runtime.sh"
             echo "[Deploy] Ensuring directory..."
             sudo mkdir -p "$DEPLOY_PATH/site" "$DEPLOY_PATH/logs" "$DEPLOY_PATH/uploads"
-            sudo chown -R ubuntu:www-data "$DEPLOY_PATH"
+            if ! sudo chown -R ubuntu:www-data "$DEPLOY_PATH"; then
+              echo "::error::Failed to set ownership on $DEPLOY_PATH"
+              ls -la "$DEPLOY_PATH" || true
+              exit 1
+            fi
             SERVICE_FILE="/etc/systemd/system/${SERVICE_NAME}.service"
             NEEDS_SETUP=no
             if [ "$SETUP_CHANGED" != "no" ] || [ ! -f "$SERVICE_FILE" ]; then
               NEEDS_SETUP=yes
             else
               DEPLOYED_DLL=""
-              shopt -s nullglob
-              for dll in "$STAGING/site/"*.Web.dll; do
-                DEPLOYED_DLL="$(basename "$dll")"
-                break
-              done
-              shopt -u nullglob
+              deployed_path="$(find "$STAGING/site" -maxdepth 1 -type f -name '*.Web.dll' 2>/dev/null | head -n1 || true)"
+              if [ -n "$deployed_path" ]; then
+                DEPLOYED_DLL="$(basename "$deployed_path")"
+              fi
               if [ -n "$DEPLOYED_DLL" ] && ! grep -qF "$DEPLOYED_DLL" "$SERVICE_FILE"; then
                 echo "[Deploy] Systemd unit does not reference $DEPLOYED_DLL; re-running configure-service.sh..."
                 NEEDS_SETUP=yes
@@ -411,7 +417,12 @@ jobs:
               sudo bash "$STAGING/scripts/configure-service.sh" "$FULL_HOSTNAME" "$PORT" "$SERVICE_NAME" "$CERT_DOMAIN" "$PRODUCTION_MODE"
             fi
             echo "[Deploy] Copying site output..."
-            cp -r "$STAGING/site/"* "$DEPLOY_PATH/site/"
+            if [ ! -d "$STAGING/site" ]; then
+              echo "::error::Missing staging site dir: $STAGING/site"
+              ls -la "$STAGING" || true
+              exit 1
+            fi
+            cp -r "$STAGING/site/." "$DEPLOY_PATH/site/"
             sudo chown -R ubuntu:www-data "$DEPLOY_PATH"
             echo "[Deploy] Restarting service..."
             sudo systemctl restart "$SERVICE_NAME"
@@ -436,6 +447,7 @@ jobs:
               exit 1
             fi
             echo "[Deploy] Service healthy; public health check runs from GitHub Actions."
+            DEPLOY_EOF
 
       - name: Verify public site health
         run: |
