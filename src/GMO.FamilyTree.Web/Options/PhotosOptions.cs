@@ -22,7 +22,7 @@ public sealed class PhotosOptions
 
     /// <summary>
     /// Optional path prefix inside the bucket or local base directory.
-    /// Use <c>{application}/{environment}/</c> (e.g. <c>family/dev/</c>) to share one bucket across apps and envs.
+    /// Use <c>{application}/{environment}/</c> (e.g. <c>familytree/dev/</c>) to share one bucket across apps and envs.
     /// </summary>
     public string? StoragePrefix { get; set; }
 

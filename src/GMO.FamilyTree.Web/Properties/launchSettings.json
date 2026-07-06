@@ -9,7 +9,7 @@
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development",
         "Photos__Provider": "Local",
-        "Photos__StoragePrefix": "family/local"
+        "Photos__StoragePrefix": "familytree/local"
       }
     },
     "https": {
@@ -20,7 +20,7 @@
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development",
         "Photos__Provider": "Local",
-        "Photos__StoragePrefix": "family/local"
+        "Photos__StoragePrefix": "familytree/local"
       }
     }
   }
