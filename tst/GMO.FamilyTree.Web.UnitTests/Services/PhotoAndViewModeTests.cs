@@ -164,7 +164,7 @@ public class LocalPhotoStorageServiceTests
             await using (var ms = new MemoryStream(bytes))
                 await service.SaveAsync(key, ms, "image/png");
 
-            var expectedPath = Path.Combine(root, "photos", "family", "local", "members", "1", "2.png");
+            var expectedPath = Path.Combine(root, "photos", "familytree", "local", "members", "1", "2.png");
             Assert.True(File.Exists(expectedPath));
 
             var result = await service.GetAsync(key);
