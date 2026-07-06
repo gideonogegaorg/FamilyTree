@@ -18,7 +18,7 @@ namespace GMO.FamilyTree.Web.IntegrationTests;
 /// </summary>
 public sealed class WebAppFixture : WebApplicationFactory<WebAppEntry>, IDisposable
 {
-    private const string BaseConnectionString = "Host=localhost;Port=5432;Username=family;Password=family";
+    private const string BaseConnectionString = "Host=localhost;Port=5432;Username=familytree;Password=familytree";
     private string _testDatabaseName = null!;
     private string _testConnectionString = null!;
     private bool _dbDropped;
