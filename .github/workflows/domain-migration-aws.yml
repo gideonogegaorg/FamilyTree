@@ -17,7 +17,8 @@ jobs:
   aws:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+      - name: Checkout DevOps
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
           repository: gideonogegaorg/DevOps
           path: DevOps
@@ -32,6 +33,7 @@ jobs:
       - name: Upsert Route53 and sync S3 prefixes
         if: inputs.phase == 'upsert-dns-and-s3'
         run: |
+          sudo apt-get update && sudo apt-get install -y jq
           chmod +x DevOps/aws/route53/*.sh DevOps/aws/s3/*.sh
           bash DevOps/aws/route53/upsert-a-records.sh goom.life \
             familytree.goom.life=35.172.36.171 \
@@ -42,6 +44,7 @@ jobs:
       - name: Delete old Route53 records
         if: inputs.phase == 'retire-old-dns'
         run: |
+          sudo apt-get update && sudo apt-get install -y jq
           chmod +x DevOps/aws/route53/*.sh
           bash DevOps/aws/route53/delete-a-records.sh goom.life \
             family.goom.life family-dev.goom.life
