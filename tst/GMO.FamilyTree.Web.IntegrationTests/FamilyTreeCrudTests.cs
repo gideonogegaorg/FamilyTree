@@ -71,7 +71,7 @@ public class FamilyTreeCrudTests : IClassFixture<WebAppFixture>
         var location = response.Headers.Location?.ToString() ?? "";
         Assert.True(location == "/" || location.Contains("/Home", StringComparison.OrdinalIgnoreCase),
             $"Expected redirect to Home, got {location}");
-        var homeResponse = await _client.GetAsync("/");
+        var homeResponse = await _client.GetAsync("/Home/Index");
         var html = await homeResponse.Content.ReadAsStringAsync();
         Assert.Contains(name, html);
     }
@@ -179,7 +179,7 @@ public class FamilyTreeCrudTests : IClassFixture<WebAppFixture>
         var location = response.Headers.Location?.ToString() ?? "";
         Assert.True(location == "/" || location.Contains("/Home", StringComparison.OrdinalIgnoreCase),
             $"Expected redirect to Home, got {location}");
-        var homeResponse = await _client.GetAsync("/");
+        var homeResponse = await _client.GetAsync("/Home/Index");
         var html = await homeResponse.Content.ReadAsStringAsync();
         Assert.Contains(newName, html);
     }
