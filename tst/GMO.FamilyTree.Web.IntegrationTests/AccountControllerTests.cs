@@ -166,7 +166,7 @@ public class AccountControllerTests : IClassFixture<WebAppFixture>
     }
 
     [Fact]
-    public async Task SignOut_POST_signs_out_and_redirects_to_Home()
+    public async Task SignOut_POST_signs_out_and_redirects_to_landing()
     {
         // Arrange
         var token = await GetAntiforgeryTokenAsync(_client, "/FamilyTree");
@@ -178,7 +178,7 @@ public class AccountControllerTests : IClassFixture<WebAppFixture>
         // Assert
         Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
         Assert.NotNull(response.Headers.Location);
-        Assert.StartsWith("/", response.Headers.Location.ToString());
+        Assert.Equal("/", response.Headers.Location!.ToString());
     }
 
     [Fact]
@@ -393,6 +393,15 @@ public class AccountControllerTests : IClassFixture<WebAppFixture>
     [Fact]
     public async Task UploadPhoto_POST_with_valid_image_returns_json_success()
     {
+        // Arrange: ensure signed-in user has a tree so /Home/Index renders the profile form
+        var createToken = await GetAntiforgeryTokenAsync(_client, "/FamilyTree/Create");
+        await _client.PostAsync("/FamilyTree/Create", new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["Name"] = "UploadPhotoTest " + Guid.NewGuid().ToString("N")[..6],
+            ["Uid"] = Guid.NewGuid().ToString(),
+            ["__RequestVerificationToken"] = createToken
+        }));
+
         // Arrange: minimal PNG (1x1)
         var pngBytes = new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x02, 0x00, 0x00, 0x00, 0x90, 0x77, 0x53, 0xDE, 0x00, 0x00, 0x00, 0x0C, 0x49, 0x44, 0x41, 0x54, 0x08, 0xD7, 0x63, 0xF8, 0xFF, 0xFF, 0x3F, 0x00, 0x05, 0xFE, 0x02, 0xFE, 0xDC, 0xCC, 0x59, 0xE7, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82 };
         var token = await GetAntiforgeryTokenAsync(_client, "/Home/Index");
@@ -415,7 +424,7 @@ public class AccountControllerTests : IClassFixture<WebAppFixture>
     }
 
     [Fact]
-    public async Task SwitchFamilyTree_POST_redirects_to_Home()
+    public async Task SwitchFamilyTree_POST_redirects_to_Home_Index()
     {
         // Arrange: ensure signed-in user has a tree (create one), then switch to it
         var createToken = await GetAntiforgeryTokenAsync(_client, "/FamilyTree/Create");
@@ -446,7 +455,7 @@ public class AccountControllerTests : IClassFixture<WebAppFixture>
         // Assert
         Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
         Assert.NotNull(response.Headers.Location);
-        Assert.StartsWith("/", response.Headers.Location.ToString());
+        Assert.Contains("/Home/Index", response.Headers.Location.ToString(), StringComparison.OrdinalIgnoreCase);
     }
 
     private static async Task<string> GetAntiforgeryTokenAsync(HttpClient client, string pageUrl)

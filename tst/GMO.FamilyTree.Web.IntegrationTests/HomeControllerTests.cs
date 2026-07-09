@@ -57,7 +57,7 @@ public class HomeControllerTests : IClassFixture<WebAppFixture>
         var postResponse = await _client.PostAsync("/Account/SetTreeViewOrientation", new FormUrlEncodedContent(form));
         Assert.Equal(HttpStatusCode.Redirect, postResponse.StatusCode);
         Assert.NotNull(postResponse.Headers.Location);
-        Assert.Contains("/", postResponse.Headers.Location.ToString());
+        Assert.Contains("/Home/Index", postResponse.Headers.Location.ToString(), StringComparison.OrdinalIgnoreCase);
 
         var indexResponse = await _client.GetAsync("/Home/Index");
         indexResponse.EnsureSuccessStatusCode();
@@ -81,6 +81,8 @@ public class HomeControllerTests : IClassFixture<WebAppFixture>
 
         var postResponse = await _client.PostAsync("/Account/SetLineageMode", new FormUrlEncodedContent(form));
         Assert.Equal(HttpStatusCode.Redirect, postResponse.StatusCode);
+        Assert.NotNull(postResponse.Headers.Location);
+        Assert.Contains("/Home/Index", postResponse.Headers.Location.ToString(), StringComparison.OrdinalIgnoreCase);
 
         var indexResponse = await _client.GetAsync("/Home/Index");
         indexResponse.EnsureSuccessStatusCode();
