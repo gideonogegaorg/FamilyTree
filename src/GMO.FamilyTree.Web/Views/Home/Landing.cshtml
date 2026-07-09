@@ -112,5 +112,15 @@
 </div>
 
 @section Scripts {
+    <script>
+        (function () {
+            var graph = document.getElementById('family-tree-graph');
+            if (!graph || graph.getAttribute('data-demo') !== 'true') return;
+            if (window.matchMedia('(max-width: 767px)').matches) {
+                graph.setAttribute('data-orientation', 'Vertical');
+                graph.classList.remove('ft-orientation-horizontal');
+            }
+        })();
+    </script>
     <script src="~/js/family-tree.js" asp-append-version="true"></script>
 }

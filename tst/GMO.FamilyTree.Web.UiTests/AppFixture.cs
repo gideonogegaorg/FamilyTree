@@ -148,6 +148,7 @@ public sealed class AppFixture : WebApplicationFactory<WebAppEntry>, IDisposable
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseSetting("ConnectionStrings:DefaultConnection", _testConnectionString);
+        builder.UseSetting("Photos:Provider", "Local");
         builder.UseSetting("Telemetry:Otlp:Endpoint", "http://localhost:4317");
 
         // Suppress verbose EF Core and ASP.NET Core Information logs during tests
