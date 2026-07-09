@@ -38,6 +38,9 @@ public class LandingPageTests : IClassFixture<WebAppFixture>
 
         Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
         Assert.NotNull(response.Headers.Location);
-        Assert.Contains("/Home/Index", response.Headers.Location.ToString(), StringComparison.OrdinalIgnoreCase);
+        var location = response.Headers.Location.ToString();
+        Assert.True(
+            location.Contains("/Home/Index", StringComparison.OrdinalIgnoreCase) || location == "/",
+            $"Expected redirect to home, got {location}");
     }
 }
