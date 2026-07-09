@@ -44,7 +44,7 @@ public class MemberActionPopupTests : IAsyncLifetime
 
     private async Task GotoTreeAndWaitForGraphAsync()
     {
-        await _page.GotoAsync(_fixture.ServerAddress + "/");
+        await _page.GotoAsync(_fixture.ServerAddress + AppFixture.TreePagePath);
         await _page.Locator("#family-tree-graph .family-tree-card").First.WaitForAsync();
     }
 

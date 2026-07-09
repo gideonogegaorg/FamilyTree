@@ -52,7 +52,7 @@ public class LayoutOrientationTests : IAsyncLifetime
 
     private async Task GotoTreeAndWaitForGraphAsync()
     {
-        await _page.GotoAsync(_fixture.ServerAddress + "/");
+        await _page.GotoAsync(_fixture.ServerAddress + AppFixture.TreePagePath);
         await _page.Locator("#family-tree-graph .family-tree-card").First.WaitForAsync();
     }
 
@@ -64,7 +64,7 @@ public class LayoutOrientationTests : IAsyncLifetime
         var btn = ToolbarPill(buttonText);
         await btn.WaitForAsync();
         await btn.ClickAsync();
-        await _page.WaitForURLAsync(_fixture.ServerAddress + "/");
+        await _page.WaitForURLAsync(_fixture.ServerAddress + AppFixture.TreePagePath);
         await _page.Locator("#family-tree-graph .family-tree-card").First.WaitForAsync();
     }
 
@@ -102,7 +102,7 @@ public class LayoutOrientationTests : IAsyncLifetime
         await _page.Locator(".ft-tree-picker-btn").ClickAsync();
         await _page.Locator(".ft-tree-picker-menu").WaitForAsync(new() { State = WaitForSelectorState.Visible });
         await _page.Locator(".ft-tree-picker-item").Filter(new() { HasText = treeName }).ClickAsync();
-        await _page.WaitForURLAsync(_fixture.ServerAddress + "/");
+        await _page.WaitForURLAsync(_fixture.ServerAddress + AppFixture.TreePagePath);
     }
 
     private async Task PrepareForSameSexTestAsync(LineageMode mode)
