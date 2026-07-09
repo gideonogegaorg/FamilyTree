@@ -83,7 +83,7 @@ public class AccountController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Login(LoginViewModel model, string? returnUrl = null, CancellationToken cancellationToken = default)
     {
-        returnUrl ??= Url.Content("~/");
+        returnUrl ??= Url.Content("~/Home/Index");
         ViewData["ReturnUrl"] = returnUrl;
         ViewBag.GoogleAuthEnabled = _googleAuth.CurrentValue.Enabled;
 
@@ -121,7 +121,7 @@ public class AccountController : Controller
     [HttpGet]
     public async Task<IActionResult> ExternalLoginCallback(string? returnUrl = null, string? remoteError = null, CancellationToken cancellationToken = default)
     {
-        returnUrl ??= Url.Content("~/");
+        returnUrl ??= Url.Content("~/Home/Index");
         var remoteErrorResult = HandleExternalLoginRemoteError(returnUrl, remoteError);
         if (remoteErrorResult != null)
             return remoteErrorResult;
@@ -186,7 +186,7 @@ public class AccountController : Controller
     public new async Task<IActionResult> SignOut()
     {
         await _signInManager.SignOutAsync();
-        return RedirectToAction("Index", "Home");
+        return Redirect("/");
     }
 
     [AllowAnonymous]
@@ -202,7 +202,7 @@ public class AccountController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Register(RegisterViewModel model, string? returnUrl = null, CancellationToken cancellationToken = default)
     {
-        returnUrl ??= Url.Content("~/");
+        returnUrl ??= Url.Content("~/Home/Index");
         ViewData["ReturnUrl"] = returnUrl;
 
         if (ModelState.IsValid)
@@ -302,7 +302,7 @@ public class AccountController : Controller
     [HttpGet]
     public IActionResult UploadPhoto()
     {
-        return RedirectToAction("Index", "Home");
+        return Redirect("/Home/Index");
     }
 
     [HttpPost]
@@ -313,7 +313,7 @@ public class AccountController : Controller
         if (string.IsNullOrEmpty(userId))
             return WantsJson()
                 ? Json(new { success = false, error = "You must be signed in." })
-                : RedirectToAction("Index", "Home");
+                : Redirect("/Home/Index");
 
         if (photo == null || photo.Length == 0)
             return PhotoUploadResult("Please select an image file.");
@@ -350,7 +350,7 @@ public class AccountController : Controller
             return Json(new { success = true, photoUrl = "/photos/profiles/me" });
 
         TempData["PhotoSuccess"] = "Profile picture updated.";
-        return RedirectToAction("Index", "Home");
+        return Redirect("/Home/Index");
     }
 
     private bool WantsJson() =>
@@ -363,7 +363,7 @@ public class AccountController : Controller
             return Json(new { success = false, error });
 
         TempData["PhotoError"] = error;
-        return RedirectToAction("Index", "Home");
+        return Redirect("/Home/Index");
     }
 
     [HttpPost]
@@ -374,7 +374,7 @@ public class AccountController : Controller
             ? (TreeCardViewMode)mode
             : TreeCardViewMode.Standard;
         await _treeCardViewMode.SetAsync(value, cancellationToken);
-        return RedirectToAction("Index", "Home");
+        return Redirect("/Home/Index");
     }
 
     [HttpPost]
@@ -382,7 +382,7 @@ public class AccountController : Controller
     public async Task<IActionResult> SwitchFamilyTree(long id, CancellationToken cancellationToken)
     {
         await _currentFamilyTree.SetCurrentFamilyTreeIdAsync(id, cancellationToken);
-        return RedirectToAction("Index", "Home");
+        return Redirect("/Home/Index");
     }
 
     [HttpPost]
@@ -393,7 +393,7 @@ public class AccountController : Controller
             ? (TreeViewOrientation)orientation
             : TreeViewOrientation.Horizontal;
         await _treeViewOrientation.SetOrientationAsync(value, cancellationToken);
-        return RedirectToAction("Index", "Home");
+        return Redirect("/Home/Index");
     }
 
     [HttpPost]
@@ -406,7 +406,7 @@ public class AccountController : Controller
         var result = await _familyTreeDeletion.DeleteAsync(userId, id, cancellationToken);
         return result == FamilyTreeDeleteResult.NotFound
             ? NotFound()
-            : RedirectToAction("Index", "Home");
+            : Redirect("/Home/Index");
     }
 
     [HttpPost]
@@ -417,6 +417,6 @@ public class AccountController : Controller
             ? (LineageMode)mode
             : LineageMode.Paternal;
         await _lineageMode.SetAsync(value, cancellationToken);
-        return RedirectToAction("Index", "Home");
+        return Redirect("/Home/Index");
     }
 }

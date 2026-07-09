@@ -53,7 +53,7 @@ public sealed class PhotoUploadTests : IClassFixture<WebAppFixture>
         var iconPath = Path.Combine(AppContext.BaseDirectory, "TestAssets", "HP-Explorer.png");
         Assert.True(File.Exists(iconPath), $"Test asset missing: {iconPath}");
 
-        var token = await GetAntiforgeryTokenAsync("/");
+        var token = await GetAntiforgeryTokenAsync("/Home/Index");
         await using var fileStream = File.OpenRead(iconPath);
         using var content = new MultipartFormDataContent();
         content.Add(new StringContent(token), "__RequestVerificationToken");
@@ -77,7 +77,7 @@ public sealed class PhotoUploadTests : IClassFixture<WebAppFixture>
 
     private async Task<string> GetAntiforgeryTokenFromProfileFormAsync()
     {
-        var html = await (await _client.GetAsync("/")).Content.ReadAsStringAsync();
+        var html = await (await _client.GetAsync("/Home/Index")).Content.ReadAsStringAsync();
         var formStart = html.IndexOf("id=\"profile-photo-form\"", StringComparison.Ordinal);
         Assert.True(formStart >= 0, "Profile photo form should be present on home page.");
         var slice = html[formStart..];
@@ -90,7 +90,7 @@ public sealed class PhotoUploadTests : IClassFixture<WebAppFixture>
 
     private async Task<long> EnsureMemberIdAsync()
     {
-        var indexResponse = await _client.GetAsync("/");
+        var indexResponse = await _client.GetAsync("/Home/Index");
         if (indexResponse.StatusCode == HttpStatusCode.Redirect)
         {
             var createToken = await GetAntiforgeryTokenAsync("/FamilyTree/Create");
@@ -100,7 +100,7 @@ public sealed class PhotoUploadTests : IClassFixture<WebAppFixture>
                 ["Uid"] = Guid.NewGuid().ToString(),
                 ["__RequestVerificationToken"] = createToken
             }));
-            indexResponse = await _client.GetAsync("/");
+            indexResponse = await _client.GetAsync("/Home/Index");
         }
 
         var html = await indexResponse.Content.ReadAsStringAsync();

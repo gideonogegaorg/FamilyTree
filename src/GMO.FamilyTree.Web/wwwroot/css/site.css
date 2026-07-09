@@ -34,6 +34,7 @@ html {
   --ft-danger-soft: rgba(180, 83, 74, 0.12);
 }
 
+body.ft-site-body,
 body {
   display: flex;
   flex-direction: column;
@@ -42,6 +43,18 @@ body {
   background: var(--ft-bg);
   color: var(--ft-ink);
   font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+}
+
+.ft-site-content {
+  flex: 1 0 auto;
+  display: flex;
+  flex-direction: column;
+}
+
+.ft-site-main {
+  flex: 1 0 auto;
+  display: flex;
+  flex-direction: column;
 }
 
 /* App chrome */
@@ -67,6 +80,16 @@ header .navbar.ft-navbar {
 .ft-navbar .nav-link:hover {
   color: var(--ft-accent) !important;
 }
+.ft-navbar .btn-primary {
+  background: var(--ft-accent) !important;
+  border-color: var(--ft-accent) !important;
+  border-radius: 10px;
+}
+.ft-navbar .btn-primary:hover,
+.ft-navbar .btn-primary:focus {
+  background: #735029 !important;
+  border-color: #735029 !important;
+}
 .user-menu-avatar {
   background: var(--ft-accent-soft) !important;
   color: var(--ft-accent) !important;
@@ -83,11 +106,22 @@ header .navbar.ft-navbar {
 .user-menu-dropdown .dropdown-divider {
   border-color: var(--ft-border);
 }
+footer.ft-site-footer,
 footer.footer {
   background: var(--ft-surface);
   border-top: 1px solid var(--ft-border) !important;
   color: var(--ft-muted);
+  position: static !important;
+  bottom: auto !important;
+  width: 100%;
+  line-height: inherit;
+  padding: 1rem 0;
+  margin-top: 0;
+  flex: 0 0 auto;
+  flex-shrink: 0;
+  z-index: auto;
 }
+footer.ft-site-footer a,
 footer.footer a {
   color: var(--ft-accent);
 }
@@ -223,6 +257,7 @@ main .table code {
 
 /* Login / auth shell */
 .ft-auth-page {
+  position: relative;
   min-height: 100vh;
   display: flex;
   align-items: center;
@@ -231,6 +266,17 @@ main .table code {
   background:
     linear-gradient(180deg, rgba(255, 252, 247, 0.5), transparent 120px),
     var(--ft-bg);
+}
+.ft-auth-back {
+  position: absolute;
+  top: 1rem;
+  left: 1rem;
+  color: var(--ft-muted);
+  font-size: 0.9rem;
+  text-decoration: none;
+}
+.ft-auth-back:hover {
+  color: var(--ft-accent);
 }
 .ft-auth-card {
   width: 100%;
@@ -1456,6 +1502,7 @@ body:has(.ft-tree-page) {
   height: 100vh;
   overflow: hidden;
 }
+body:has(.ft-tree-page) footer.ft-site-footer,
 body:has(.ft-tree-page) footer.footer {
   display: none;
 }
@@ -1479,7 +1526,7 @@ main:has(.ft-tree-page) {
   flex-direction: column;
   min-height: 0;
 }
-main:has(#family-tree-graph) {
+main:has(.ft-tree-page) {
   overflow: hidden;
   flex: 1;
   display: flex;
@@ -1487,7 +1534,7 @@ main:has(#family-tree-graph) {
   min-height: 0;
   padding: 0 !important;
 }
-.container:has(#family-tree-graph) {
+.container:has(.ft-tree-page) {
   overflow: hidden;
   max-width: 100%;
   padding: 0;
@@ -1659,4 +1706,187 @@ main:has(#family-tree-graph) {
 }
 .cascading-sub.has-active-panel {
   display: block;
+}
+
+/* Landing page */
+.ft-nav-signup {
+  padding: 0.25rem 0.75rem;
+}
+
+.ft-landing {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 0 0.5rem 3rem;
+}
+
+.ft-landing-hero {
+  display: grid;
+  gap: 2rem;
+  align-items: center;
+  padding: 2.5rem 0 3rem;
+}
+
+@media (min-width: 992px) {
+  .ft-landing-hero {
+    grid-template-columns: 1.1fr 0.9fr;
+  }
+}
+
+.ft-landing-eyebrow {
+  color: var(--ft-accent);
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-bottom: 0.75rem;
+}
+
+.ft-landing-title {
+  font-size: clamp(1.85rem, 4vw, 2.75rem);
+  line-height: 1.15;
+  color: var(--ft-ink);
+  margin-bottom: 1rem;
+}
+
+.ft-landing-lead,
+.ft-landing-section-lead,
+.ft-landing-cta-lead {
+  color: var(--ft-muted);
+  font-size: 1.05rem;
+  line-height: 1.6;
+  max-width: 42rem;
+}
+
+.ft-landing-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+}
+
+.ft-landing-hero-visual {
+  display: flex;
+  justify-content: center;
+}
+
+.ft-landing-hero-card {
+  background: var(--ft-surface);
+  border: 1px solid var(--ft-border);
+  border-radius: var(--ft-radius);
+  box-shadow: var(--ft-shadow);
+  padding: 1.5rem;
+  max-width: 22rem;
+}
+
+.ft-landing-hero-preview {
+  border: 1px solid var(--ft-border);
+}
+
+.ft-landing .btn-outline-secondary {
+  border-color: var(--ft-line);
+  color: var(--ft-ink);
+}
+
+.ft-landing-hero-card-label {
+  display: inline-block;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ft-accent);
+  margin-bottom: 0.5rem;
+}
+
+.ft-landing-section {
+  padding: 2.5rem 0;
+  border-top: 1px solid var(--ft-border);
+}
+
+.ft-landing-section-title,
+.ft-landing-cta-title {
+  font-size: 1.6rem;
+  color: var(--ft-ink);
+  margin-bottom: 0.75rem;
+}
+
+.ft-landing-feature {
+  background: var(--ft-surface);
+  border: 1px solid var(--ft-border);
+  border-radius: var(--ft-radius);
+  padding: 1.25rem;
+  height: 100%;
+}
+
+.ft-landing-feature h3 {
+  font-size: 1.05rem;
+  margin-bottom: 0.5rem;
+  color: var(--ft-ink);
+}
+
+.ft-landing-feature p {
+  margin: 0;
+  color: var(--ft-muted);
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.ft-landing-shot {
+  margin: 0;
+}
+
+.ft-landing-shot img {
+  border: 1px solid var(--ft-border);
+  background: var(--ft-surface);
+  width: 100%;
+  height: auto;
+  min-height: 140px;
+  object-fit: contain;
+}
+
+.ft-landing-shot figcaption {
+  margin-top: 0.5rem;
+  color: var(--ft-muted);
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.ft-landing-demo-wrap {
+  background: var(--ft-surface);
+  border: 1px solid var(--ft-border);
+  border-radius: var(--ft-radius);
+  box-shadow: var(--ft-shadow);
+  min-height: 480px;
+  overflow: auto;
+}
+
+.ft-landing-demo-wrap .family-tree-graph {
+  flex: none;
+  min-height: 460px;
+}
+
+.ft-landing-demo-wrap .family-tree-stage {
+  min-height: 460px;
+}
+
+.ft-demo-tree .family-tree-card {
+  cursor: default;
+}
+
+.ft-landing-demo-credit {
+  margin-top: 0.75rem;
+  margin-bottom: 0;
+}
+
+.ft-landing-cta {
+  margin-top: 1rem;
+  margin-bottom: 0.5rem;
+  padding: 2.5rem;
+  text-align: center;
+  background: linear-gradient(180deg, var(--ft-accent-soft), var(--ft-surface));
+  border: 1px solid var(--ft-border);
+  border-radius: var(--ft-radius);
+}
+
+body:has(.ft-landing) footer.ft-site-footer {
+  position: static !important;
 }

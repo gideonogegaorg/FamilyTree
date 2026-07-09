@@ -65,7 +65,7 @@ public class PhotosIntegrationTests : IClassFixture<WebAppFixture>
     public async Task SetTreeCardViewMode_redirects_and_applies_css_class()
     {
         await EnsureTreeWithOneMemberAsync();
-        var token = await GetAntiforgeryTokenAsync(_client, "/");
+        var token = await GetAntiforgeryTokenAsync(_client, "/Home/Index");
         var form = new Dictionary<string, string>
         {
             ["mode"] = "2", // Large
@@ -75,7 +75,7 @@ public class PhotosIntegrationTests : IClassFixture<WebAppFixture>
         var postResponse = await _client.PostAsync("/Account/SetTreeCardViewMode", new FormUrlEncodedContent(form));
         Assert.Equal(HttpStatusCode.Redirect, postResponse.StatusCode);
 
-        var indexResponse = await _client.GetAsync("/");
+        var indexResponse = await _client.GetAsync("/Home/Index");
         indexResponse.EnsureSuccessStatusCode();
         var html = await indexResponse.Content.ReadAsStringAsync();
         Assert.Contains("ft-view-large", html);
@@ -85,7 +85,7 @@ public class PhotosIntegrationTests : IClassFixture<WebAppFixture>
     public async Task SetTreeCardViewMode_photo_only_redirects_and_applies_css_class()
     {
         await EnsureTreeWithOneMemberAsync();
-        var token = await GetAntiforgeryTokenAsync(_client, "/");
+        var token = await GetAntiforgeryTokenAsync(_client, "/Home/Index");
         var form = new Dictionary<string, string>
         {
             ["mode"] = "5", // PhotoMedium
@@ -95,18 +95,18 @@ public class PhotosIntegrationTests : IClassFixture<WebAppFixture>
         var postResponse = await _client.PostAsync("/Account/SetTreeCardViewMode", new FormUrlEncodedContent(form));
         Assert.Equal(HttpStatusCode.Redirect, postResponse.StatusCode);
 
-        var indexResponse = await _client.GetAsync("/");
+        var indexResponse = await _client.GetAsync("/Home/Index");
         var html = await indexResponse.Content.ReadAsStringAsync();
         Assert.Contains("ft-view-photo-medium", html);
     }
 
     private async Task EnsureTreeWithOneMemberAsync()
     {
-        var indexResponse = await _client.GetAsync("/");
+        var indexResponse = await _client.GetAsync("/Home/Index");
         if (indexResponse.StatusCode == HttpStatusCode.Redirect)
         {
             await CreateTreeAndSetCurrentAsync();
-            indexResponse = await _client.GetAsync("/");
+            indexResponse = await _client.GetAsync("/Home/Index");
         }
 
         var html = await indexResponse.Content.ReadAsStringAsync();
@@ -160,7 +160,7 @@ public class PhotosIntegrationTests : IClassFixture<WebAppFixture>
 
     private async Task<string> GetHomeHtmlAsync()
     {
-        var response = await _client.GetAsync("/");
+        var response = await _client.GetAsync("/Home/Index");
         for (var i = 0; i < 5 && response.StatusCode == HttpStatusCode.Redirect; i++)
         {
             var location = response.Headers.Location;

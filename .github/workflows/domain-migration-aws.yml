@@ -32,6 +32,8 @@ jobs:
 
       - name: Upsert Route53 and sync S3 prefixes
         if: inputs.phase == 'upsert-dns-and-s3'
+        env:
+          ROUTE53_ZONE_ID: Z06793181SRD5TKXV643G
         run: |
           sudo apt-get update && sudo apt-get install -y jq
           chmod +x DevOps/aws/route53/*.sh DevOps/aws/s3/*.sh
@@ -43,6 +45,8 @@ jobs:
 
       - name: Delete old Route53 records
         if: inputs.phase == 'retire-old-dns'
+        env:
+          ROUTE53_ZONE_ID: Z06793181SRD5TKXV643G
         run: |
           sudo apt-get update && sudo apt-get install -y jq
           chmod +x DevOps/aws/route53/*.sh

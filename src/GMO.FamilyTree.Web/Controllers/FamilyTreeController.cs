@@ -56,7 +56,7 @@ public class FamilyTreeController : Controller
             _db.FamilyTrees.Add(model);
             await _db.SaveChangesAsync(cancellationToken);
             await _currentFamilyTree.SetCurrentFamilyTreeIdAsync(model.Id, cancellationToken);
-            return RedirectToAction("Index", "Home");
+            return Redirect("/Home/Index");
         }
         return View(model);
     }
@@ -83,7 +83,7 @@ public class FamilyTreeController : Controller
             if (entity == null || entity.OwnerId != OwnerId) return NotFound();
             entity.Name = model.Name;
             await _db.SaveChangesAsync(cancellationToken);
-            return RedirectToAction("Index", "Home");
+            return Redirect("/Home/Index");
         }
         return View(model);
     }
@@ -105,6 +105,6 @@ public class FamilyTreeController : Controller
         var result = await _familyTreeDeletion.DeleteAsync(OwnerId, id, cancellationToken);
         return result == FamilyTreeDeleteResult.NotFound
             ? NotFound()
-            : RedirectToAction("Index", "Home");
+            : Redirect("/Home/Index");
     }
 }

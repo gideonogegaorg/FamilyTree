@@ -12,6 +12,8 @@ namespace GMO.FamilyTree.Web.UiTests;
 
 public sealed class AppFixture : WebApplicationFactory<WebAppEntry>, IDisposable
 {
+    public const string TreePagePath = "/Home/Index";
+
     private const string BaseConnectionString = "Host=localhost;Port=5432;Username=familytree;Password=familytree";
     private string _testDatabaseName = null!;
     private string _testConnectionString = null!;
