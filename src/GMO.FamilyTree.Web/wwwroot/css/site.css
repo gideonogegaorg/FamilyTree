@@ -1890,3 +1890,125 @@ main:has(.ft-tree-page) {
 body:has(.ft-landing) footer.ft-site-footer {
   position: static !important;
 }
+
+/* Landing — mobile */
+body:has(.ft-landing) {
+  overflow-x: hidden;
+  max-width: 100vw;
+}
+
+body:has(.ft-landing) .ft-site-content.container {
+  max-width: 100%;
+}
+
+@media (max-width: 767.98px) {
+  body:has(.ft-landing) .ft-site-content.container {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+
+  .ft-landing {
+    padding: 0 0 2rem;
+    overflow-x: clip;
+  }
+
+  .ft-landing .row {
+    --bs-gutter-x: 1rem;
+  }
+
+  .ft-landing-hero {
+    padding: 1.5rem 0 2rem;
+    gap: 1.5rem;
+  }
+
+  .ft-landing-hero-card {
+    max-width: 100%;
+    width: 100%;
+    padding: 1rem;
+  }
+
+  .ft-landing-hero-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .ft-landing-hero-actions .btn {
+    width: 100%;
+  }
+
+  .ft-landing-section {
+    padding: 2rem 0;
+  }
+
+  .ft-landing-section-title,
+  .ft-landing-cta-title {
+    font-size: 1.35rem;
+  }
+
+  .ft-landing-cta {
+    padding: 1.5rem 1rem;
+  }
+
+  .ft-landing-demo-wrap {
+    min-height: 320px;
+    max-width: 100%;
+    overflow: hidden;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .ft-landing-demo-wrap .family-tree-world {
+    min-width: 0;
+    padding: 0.75rem 0.25rem 1rem;
+  }
+
+  .ft-landing-demo-wrap .family-tree-inner {
+    max-width: 100%;
+  }
+
+  .ft-landing-demo-wrap .family-tree-card {
+    width: 118px;
+    padding: 0.4rem 0.45rem;
+  }
+
+  .ft-landing-demo-wrap .ft-partner-unit {
+    padding-left: 0.25rem;
+    padding-right: 0.25rem;
+  }
+
+  .ft-landing-demo-wrap .family-tree-card-avatar,
+  .ft-landing-demo-wrap .family-tree-card-photo {
+    width: 30px;
+    height: 30px;
+    min-width: 30px;
+  }
+
+  .ft-landing-demo-wrap .family-tree-card-name {
+    font-size: 0.78rem;
+  }
+
+  .ft-landing-demo-wrap .family-tree-graph,
+  .ft-landing-demo-wrap .family-tree-stage {
+    min-height: 300px;
+  }
+
+  .ft-landing-lead,
+  .ft-landing-section-lead,
+  .ft-landing-cta-lead {
+    font-size: 1rem;
+  }
+}
+
+@media (max-width: 575.98px) {
+  .ft-landing-title {
+    font-size: 1.65rem;
+  }
+
+  .ft-landing-demo-wrap {
+    min-height: 280px;
+  }
+
+  .ft-landing-demo-wrap .family-tree-graph,
+  .ft-landing-demo-wrap .family-tree-stage {
+    min-height: 260px;
+  }
+}
