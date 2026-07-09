@@ -4,6 +4,8 @@
     var container = document.getElementById('family-tree-graph');
     if (!container) return;
 
+    var isDemo = container.getAttribute('data-demo') === 'true';
+
     var orientation = (container.getAttribute('data-orientation') || 'Horizontal').toString();
     if (orientation === 'Horizontal' || orientation === '0') container.classList.add('ft-orientation-horizontal');
 
@@ -44,7 +46,8 @@
             parentIds: (n.parentIds || []).map(toId),
             childIds: (n.childIds || []).map(toId),
             partnerIds: (n.partnerIds || []).map(toId),
-            hasPhoto: !!n.hasPhoto
+            hasPhoto: !!n.hasPhoto,
+            photoUrl: n.photoUrl ? n.photoUrl.toString() : null
         };
     });
 
@@ -216,12 +219,22 @@
         var content = document.createElement('div');
         content.className = 'family-tree-card-content';
 
-        var avatar = document.createElement('button');
-        avatar.type = 'button';
-        avatar.className = 'family-tree-card-avatar member-photo-trigger';
-        avatar.setAttribute('aria-label', 'Add or change picture for ' + node.label);
-        avatar.title = 'Add or change picture';
-        if (node.hasPhoto) {
+        var avatar = document.createElement(isDemo ? 'div' : 'button');
+        if (!isDemo) avatar.type = 'button';
+        avatar.className = 'family-tree-card-avatar' + (isDemo ? '' : ' member-photo-trigger');
+        if (!isDemo) {
+            avatar.setAttribute('aria-label', 'Add or change picture for ' + node.label);
+            avatar.title = 'Add or change picture';
+        } else {
+            avatar.setAttribute('aria-hidden', 'true');
+        }
+        if (node.photoUrl) {
+            var img = document.createElement('img');
+            img.src = node.photoUrl;
+            img.alt = '';
+            img.className = 'family-tree-card-photo';
+            avatar.appendChild(img);
+        } else if (node.hasPhoto) {
             var img = document.createElement('img');
             img.src = '/photos/members/' + node.id;
             img.alt = '';
@@ -259,13 +272,15 @@
         content.appendChild(text);
         card.appendChild(content);
 
-        var trigger = document.createElement('button');
-        trigger.type = 'button';
-        trigger.className = 'member-action-trigger btn btn-sm btn-link p-0';
-        trigger.setAttribute('data-member-id', node.id);
-        trigger.setAttribute('aria-label', 'Actions');
-        trigger.innerHTML = '\u22EE';
-        card.appendChild(trigger);
+        if (!isDemo) {
+            var trigger = document.createElement('button');
+            trigger.type = 'button';
+            trigger.className = 'member-action-trigger btn btn-sm btn-link p-0';
+            trigger.setAttribute('data-member-id', node.id);
+            trigger.setAttribute('aria-label', 'Actions');
+            trigger.innerHTML = '\u22EE';
+            card.appendChild(trigger);
+        }
         return card;
     }
 

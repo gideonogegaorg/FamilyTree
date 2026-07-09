@@ -48,6 +48,7 @@ public class AccountControllerTests : IClassFixture<WebAppFixture>
         response.EnsureSuccessStatusCode();
         var html = await response.Content.ReadAsStringAsync();
         Assert.Contains("Sign in", html);
+        Assert.Contains("Sign up", html);
     }
 
 

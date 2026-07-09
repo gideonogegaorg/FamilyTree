@@ -83,7 +83,7 @@ public class AccountController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Login(LoginViewModel model, string? returnUrl = null, CancellationToken cancellationToken = default)
     {
-        returnUrl ??= Url.Content("~/");
+        returnUrl ??= Url.Content("~/Home/Index");
         ViewData["ReturnUrl"] = returnUrl;
         ViewBag.GoogleAuthEnabled = _googleAuth.CurrentValue.Enabled;
 
@@ -121,7 +121,7 @@ public class AccountController : Controller
     [HttpGet]
     public async Task<IActionResult> ExternalLoginCallback(string? returnUrl = null, string? remoteError = null, CancellationToken cancellationToken = default)
     {
-        returnUrl ??= Url.Content("~/");
+        returnUrl ??= Url.Content("~/Home/Index");
         var remoteErrorResult = HandleExternalLoginRemoteError(returnUrl, remoteError);
         if (remoteErrorResult != null)
             return remoteErrorResult;
@@ -202,7 +202,7 @@ public class AccountController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Register(RegisterViewModel model, string? returnUrl = null, CancellationToken cancellationToken = default)
     {
-        returnUrl ??= Url.Content("~/");
+        returnUrl ??= Url.Content("~/Home/Index");
         ViewData["ReturnUrl"] = returnUrl;
 
         if (ModelState.IsValid)
