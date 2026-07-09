@@ -40,7 +40,7 @@ public class HomeController : Controller
     public async Task<IActionResult> Landing(CancellationToken cancellationToken)
     {
         if (User.Identity?.IsAuthenticated == true)
-            return RedirectToAction(nameof(Index));
+            return Redirect("/Home/Index");
 
         var demoPath = Path.Combine(_env.WebRootPath, "data", "demo-tree.json");
         if (!System.IO.File.Exists(demoPath))

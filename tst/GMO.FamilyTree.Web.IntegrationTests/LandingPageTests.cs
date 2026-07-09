@@ -40,7 +40,7 @@ public class LandingPageTests : IClassFixture<WebAppFixture>
         Assert.NotNull(response.Headers.Location);
         var location = response.Headers.Location.ToString();
         Assert.True(
-            location.Contains("/Home/Index", StringComparison.OrdinalIgnoreCase) || location == "/",
+            location.Contains("/Home/Index", StringComparison.OrdinalIgnoreCase),
             $"Expected redirect to home, got {location}");
     }
 }
