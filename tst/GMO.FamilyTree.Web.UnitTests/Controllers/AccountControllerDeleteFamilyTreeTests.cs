@@ -71,8 +71,8 @@ public class AccountControllerDeleteFamilyTreeTests : IClassFixture<AccountContr
 
         var result = await controller.DeleteFamilyTree(3, CancellationToken.None);
 
-        var redirect = Assert.IsType<RedirectToActionResult>(result);
-        Assert.Equal("Home", redirect.ControllerName);
+        var redirect = Assert.IsType<RedirectResult>(result);
+        Assert.Equal("/Home/Index", redirect.Url);
         deletion.Verify(s => s.DeleteAsync("user-1", 3, It.IsAny<CancellationToken>()), Times.Once);
     }
 }
