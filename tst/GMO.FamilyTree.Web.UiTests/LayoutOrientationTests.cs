@@ -106,7 +106,7 @@ public class LayoutOrientationTests : IAsyncLifetime
 
     private async Task WaitForTreeGraphReadyAsync()
     {
-        await _page.Locator("#family-tree-graph").WaitForAsync();
+        await _page.Locator("#family-tree-graph, .ft-empty-state-title").First.WaitForAsync();
         try
         {
             await _page.Locator("#family-tree-graph .family-tree-card").First.WaitForAsync(new() { Timeout = 5000 });
