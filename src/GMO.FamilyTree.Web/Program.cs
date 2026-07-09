@@ -215,8 +215,14 @@ app.MapStaticAssets().AllowAnonymous();
 app.MapHealthChecks("/health").AllowAnonymous();
 
 app.MapControllerRoute(
+    name: "landing",
+    pattern: "",
+    defaults: new { controller = "Home", action = "Landing" })
+    .WithStaticAssets();
+
+app.MapControllerRoute(
     name: "default",
-    pattern: "{controller=Home}/{action=Landing}/{id?}")
+    pattern: "{controller=Home}/{action=Index}/{id?}")
     .WithStaticAssets();
 
 
