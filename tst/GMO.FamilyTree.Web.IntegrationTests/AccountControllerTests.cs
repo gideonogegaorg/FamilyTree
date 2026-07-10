@@ -86,11 +86,13 @@ public class AccountControllerTests : IClassFixture<WebAppFixture>
 
         // Assert
         Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        Assert.Contains("RegisterConfirmation", response.Headers.Location?.ToString());
         using (var scope = _fixture.CreateScope())
         {
             var db = _fixture.GetDbContext(scope);
             var user = await db.Users.SingleOrDefaultAsync(u => u.Email == email);
             Assert.NotNull(user);
+            Assert.False(user.EmailConfirmed);
             var userId = user.Id;
             var tree = await db.FamilyTrees.SingleOrDefaultAsync(t => t.OwnerId == userId && t.Name == "Default");
             Assert.NotNull(tree);
@@ -107,14 +109,7 @@ public class AccountControllerTests : IClassFixture<WebAppFixture>
         var client = _fixture.CreateClient(signIn: false);
         var email = "login-" + Guid.NewGuid().ToString("N")[..8] + "@example.com";
         var password = "TestPassword1!";
-        var regToken = await GetAntiforgeryTokenAsync(client, "/Account/Register");
-        await client.PostAsync("/Account/Register", new FormUrlEncodedContent(new Dictionary<string, string>
-        {
-            ["Email"] = email,
-            ["Password"] = password,
-            ["ConfirmPassword"] = password,
-            ["__RequestVerificationToken"] = regToken
-        }));
+        await RegisterAndConfirmAsync(client, email, password);
         client = _fixture.CreateClient(signIn: false);
         var loginToken = await GetAntiforgeryTokenAsync(client, "/Account/Login");
         var form = new Dictionary<string, string>
@@ -139,14 +134,7 @@ public class AccountControllerTests : IClassFixture<WebAppFixture>
         var client = _fixture.CreateClient(signIn: false);
         var email = "existing-" + Guid.NewGuid().ToString("N")[..8] + "@example.com";
         var password = "TestPassword1!";
-        var regToken = await GetAntiforgeryTokenAsync(client, "/Account/Register");
-        await client.PostAsync("/Account/Register", new FormUrlEncodedContent(new Dictionary<string, string>
-        {
-            ["Email"] = email,
-            ["Password"] = password,
-            ["ConfirmPassword"] = password,
-            ["__RequestVerificationToken"] = regToken
-        }));
+        await RegisterAndConfirmAsync(client, email, password);
         client = _fixture.CreateClient(signIn: false);
         var loginToken = await GetAntiforgeryTokenAsync(client, "/Account/Login");
         var form = new Dictionary<string, string>
@@ -202,14 +190,7 @@ public class AccountControllerTests : IClassFixture<WebAppFixture>
         // Arrange
         var client = _fixture.CreateClient(signIn: false);
         var email = "forgot-" + Guid.NewGuid().ToString("N")[..8] + "@example.com";
-        var regToken = await GetAntiforgeryTokenAsync(client, "/Account/Register");
-        await client.PostAsync("/Account/Register", new FormUrlEncodedContent(new Dictionary<string, string>
-        {
-            ["Email"] = email,
-            ["Password"] = "TestPassword1!",
-            ["ConfirmPassword"] = "TestPassword1!",
-            ["__RequestVerificationToken"] = regToken
-        }));
+        await RegisterAndConfirmAsync(client, email, "TestPassword1!");
         client = _fixture.CreateClient(signIn: false);
         var token = await GetAntiforgeryTokenAsync(client, "/Account/ForgotPassword");
         var form = new Dictionary<string, string>
@@ -456,6 +437,24 @@ public class AccountControllerTests : IClassFixture<WebAppFixture>
         Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
         Assert.NotNull(response.Headers.Location);
         Assert.Contains("/Home/Index", response.Headers.Location.ToString(), StringComparison.OrdinalIgnoreCase);
+    }
+
+    private async Task RegisterAndConfirmAsync(HttpClient client, string email, string password)
+    {
+        var regToken = await GetAntiforgeryTokenAsync(client, "/Account/Register");
+        await client.PostAsync("/Account/Register", new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["Email"] = email,
+            ["Password"] = password,
+            ["ConfirmPassword"] = password,
+            ["__RequestVerificationToken"] = regToken
+        }));
+
+        using var scope = _fixture.CreateScope();
+        var db = _fixture.GetDbContext(scope);
+        var user = await db.Users.SingleAsync(u => u.Email == email);
+        user.EmailConfirmed = true;
+        await db.SaveChangesAsync();
     }
 
     private static async Task<string> GetAntiforgeryTokenAsync(HttpClient client, string pageUrl)

@@ -102,4 +102,23 @@ public class AccountControllerExternalLoginTests : IClassFixture<AccountControll
         var user = await userManager.FindByEmailAsync("new@example.com");
         Assert.NotNull(user);
     }
+
+    [Fact]
+    public async Task ExternalLoginCallback_confirms_unconfirmed_email_for_existing_user()
+    {
+        await using var db = _f.CreateDb(nameof(ExternalLoginCallback_confirms_unconfirmed_email_for_existing_user));
+        var existingUser = new IdentityUser { UserName = "squat@example.com", Email = "squat@example.com", EmailConfirmed = false };
+        var (signInManager, userManager) = _f.CreateIdentityManagers(db, existingUser);
+        var controller = _f.CreateAccountController(
+            signInManager, userManager, db,
+            _f.CreateExternalLoginInfoProvider("squat@example.com"),
+            _f.CreateUrlHelper("/home"));
+
+        var result = await controller.ExternalLoginCallback(returnUrl: "/home");
+
+        Assert.IsType<LocalRedirectResult>(result);
+        var user = await userManager.FindByEmailAsync("squat@example.com");
+        Assert.NotNull(user);
+        Assert.True(user!.EmailConfirmed);
+    }
 }

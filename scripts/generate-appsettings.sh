@@ -68,6 +68,14 @@ replace_bool "OPENTELEMETRY_ENABLED"      "${OPENTELEMETRY_ENABLED:-false}"
 replace "TELEMETRY_ENVIRONMENT_NAME"      "${TELEMETRY_ENVIRONMENT_NAME:-}"
 replace "GOOGLE_CLIENT_ID"               "${GOOGLE_CLIENT_ID:-}"
 replace "GOOGLE_CLIENT_SECRET"           "${GOOGLE_CLIENT_SECRET:-}"
+replace "EMAIL_PROVIDER"                 "${EMAIL_PROVIDER:-Logging}"
+# Prefer explicit EMAIL_FROM_ADDRESS; otherwise noreply@{EMAIL_DOMAIN} (EMAIL_DOMAIN often = FULL_HOSTNAME).
+if [ -z "${EMAIL_FROM_ADDRESS:-}" ] && [ -n "${EMAIL_DOMAIN:-}" ]; then
+  EMAIL_FROM_ADDRESS="noreply@${EMAIL_DOMAIN}"
+fi
+replace "EMAIL_FROM_ADDRESS"             "${EMAIL_FROM_ADDRESS:-}"
+replace "EMAIL_FROM_DISPLAY_NAME"        "${EMAIL_FROM_DISPLAY_NAME:-GOOM Family Tree}"
+replace "EMAIL_REGION"                   "${EMAIL_REGION:-us-east-1}"
 replace_bool "IS_PRODUCTION"              "${IS_PRODUCTION:-false}"
 
 echo "Generated $OUTPUT from $TEMPLATE"
