@@ -1,0 +1,11 @@
+@model string
+@{
+    ViewData["Title"] = "Invite unavailable";
+}
+<h1 class="ft-page-title">Invite unavailable</h1>
+<p class="ft-page-lead">@Model</p>
+<p>
+    <a asp-controller="Home" asp-action="Index" class="ft-link">Go to your trees</a>
+    &middot;
+    <a asp-controller="Account" asp-action="Login" class="ft-link">Sign in with a different account</a>
+</p>

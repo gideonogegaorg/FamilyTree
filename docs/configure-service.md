@@ -116,6 +116,25 @@ sudo systemctl restart familytree-dev
 - `https://familytree.<DEPLOY_DOMAIN>/signin-google`
 - `https://familytree-dev.<DEPLOY_DOMAIN>/signin-google`
 
+**Transactional email (AWS SES):** Password confirmation, password reset, and tree-share invites send via SES when `Email:Provider` is `Ses`.
+
+| Config | Source | Notes |
+|--------|--------|--------|
+| `Email:Provider` | var `EMAIL_PROVIDER` (default `Ses` on deploy) | Use `Logging` locally |
+| `Email:FromDisplayName` | var `EMAIL_FROM_DISPLAY_NAME` (default `GOOM Family Tree`) | Shown in the From header |
+| `Email:FromAddress` | derived as `noreply@{FULL_HOSTNAME}` unless secret `EMAIL_FROM_ADDRESS` is set | e.g. `noreply@familytree-dev.goom.life` / `noreply@familytree.goom.life` |
+| `Email:Region` | var `EMAIL_REGION` (default `us-east-1`) | Must match the SES region |
+
+SES setup checklist (region `us-east-1`):
+
+1. Verify sending domains in SES: `goom.life`, `familytree.goom.life`, `familytree-dev.goom.life` (Easy DKIM **Successful**).
+2. Publish Easy DKIM CNAMEs in Route53 (`goom.life` zone) and SPF TXT (`v=spf1 include:amazonses.com ~all`); optional DMARC.
+3. Request production access (leave the SES sandbox) so you can send to arbitrary recipients. Until approved, only verified recipient identities can receive mail.
+   - Current status (2026-07-10): **DENIED** (case `178365954000258`). CLI resubmit returns `ConflictException`.
+   - Next: AWS Console → Support Center → open/reply on that case (or SES → Account dashboard). Describe bounce/complaint handling (SES account-level suppression), recipient consent (self-registration / owner invite), DKIM+SPF on `goom.life`, and low transactional volume. Paid Support may be required to get a human review.
+4. Grant the EC2 instance role (`EC2-Certbot-Role`) `ses:SendEmail` and `ses:SendRawEmail` (inline policy `FamilyTreeSesSendPolicy`).
+5. Set GitHub environment variables on `dev` / `prod`: `EMAIL_PROVIDER=Ses`, `EMAIL_REGION=us-east-1`, `EMAIL_FROM_DISPLAY_NAME=GOOM Family Tree`; redeploy and smoke-test register confirmation, forgot-password, or a share invite.
+
 ---
 
 ## Private photo storage (S3)

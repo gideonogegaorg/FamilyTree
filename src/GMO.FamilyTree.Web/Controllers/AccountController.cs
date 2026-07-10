@@ -1,6 +1,9 @@
 using System.Security.Claims;
+using System.Text;
+using System.Text.Encodings.Web;
 
 using GMO.FamilyTree.Web.Data;
+using GMO.FamilyTree.Web.Extensions;
 using GMO.FamilyTree.Web.Models;
 using GMO.FamilyTree.Web.Options;
 using GMO.FamilyTree.Web.Services;
@@ -11,6 +14,7 @@ using Microsoft.AspNetCore.Authentication.Google;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
 
@@ -34,6 +38,9 @@ public class AccountController : Controller
     private readonly IExternalLoginInfoProvider _externalLoginInfo;
     private readonly IPhotoStorageService _photos;
     private readonly ITreeCardViewModeService _treeCardViewMode;
+    private readonly IFamilyTreeAccessService _access;
+    private readonly IEmailRateLimiter _emailRateLimiter;
+    private readonly ILogger<AccountController> _logger;
 
     public AccountController(
         SignInManager<IdentityUser> signInManager,
@@ -50,7 +57,10 @@ public class AccountController : Controller
         IOptions<PathsOptions> paths,
         IExternalLoginInfoProvider externalLoginInfo,
         IPhotoStorageService photos,
-        ITreeCardViewModeService treeCardViewMode)
+        ITreeCardViewModeService treeCardViewMode,
+        IFamilyTreeAccessService access,
+        IEmailRateLimiter emailRateLimiter,
+        ILogger<AccountController> logger)
     {
         _signInManager = signInManager;
         _userManager = userManager;
@@ -67,6 +77,9 @@ public class AccountController : Controller
         _externalLoginInfo = externalLoginInfo;
         _photos = photos;
         _treeCardViewMode = treeCardViewMode;
+        _access = access;
+        _emailRateLimiter = emailRateLimiter;
+        _logger = logger;
     }
 
     [AllowAnonymous]
@@ -89,19 +102,25 @@ public class AccountController : Controller
 
         if (ModelState.IsValid)
         {
+            var user = await _userManager.FindByEmailAsync(model.Email);
+            if (user != null)
+                await EnsureEmailTwoFactorEnabledAsync(user);
+
             var result = await _signInManager.PasswordSignInAsync(model.Email, model.Password, model.RememberMe, lockoutOnFailure: false);
             if (result.Succeeded)
+                return await CompleteSignInAsync(model.Email, returnUrl, cancellationToken);
+            if (result.RequiresTwoFactor)
+                return RedirectToAction(nameof(LoginWith2fa), new { returnUrl, model.RememberMe });
+            if (result.IsNotAllowed)
             {
-                var user = await _userManager.FindByEmailAsync(model.Email);
-                if (user != null)
-                {
-                    var defaultTreeId = await _defaultFamilyTree.EnsureDefaultFamilyTreeAsync(user.Id!, cancellationToken);
-                    if (defaultTreeId.HasValue)
-                        await _currentFamilyTree.SetCurrentFamilyTreeIdAsync(defaultTreeId.Value, cancellationToken);
-                }
-                return LocalRedirect(returnUrl);
+                ModelState.AddModelError(string.Empty, "Confirm your email before signing in.");
+                ViewBag.ShowResendConfirmation = true;
+                ViewBag.ResendEmail = model.Email;
             }
-            ModelState.AddModelError(string.Empty, "Invalid login attempt.");
+            else
+            {
+                ModelState.AddModelError(string.Empty, "Invalid login attempt.");
+            }
         }
 
         return View(model);
@@ -138,6 +157,22 @@ public class AccountController : Controller
         if (createError != null)
             return createError;
 
+        var addLogin = await _userManager.AddLoginAsync(user!, info);
+        if (!addLogin.Succeeded && addLogin.Errors.Any(e => e.Code != "LoginAlreadyAssociated"))
+        {
+            foreach (var error in addLogin.Errors)
+                ModelState.AddModelError(string.Empty, error.Description);
+            return RedirectToAction(nameof(Login), new { returnUrl });
+        }
+
+        await ConfirmEmailFromGoogleAsync(user!);
+
+        var signInResult = await _signInManager.ExternalLoginSignInAsync(
+            info.LoginProvider, info.ProviderKey, isPersistent: false, bypassTwoFactor: true);
+        if (signInResult.Succeeded)
+            return await FinishAuthenticatedSessionAsync(user!, returnUrl, cancellationToken);
+
+        // Fallback when provider login is present but ExternalLoginSignIn did not succeed (e.g. lockout).
         await SignInAndSetDefaultFamilyTreeAsync(user!, cancellationToken);
         return LocalRedirect(returnUrl);
     }
@@ -207,18 +242,104 @@ public class AccountController : Controller
 
         if (ModelState.IsValid)
         {
+            var existing = await _userManager.FindByEmailAsync(model.Email);
+            if (existing != null)
+            {
+                if (!await _userManager.HasPasswordAsync(existing))
+                {
+                    ModelState.AddModelError(string.Empty,
+                        "An account with this email already exists (for example via Google). Sign in with Google, then use Set password from your account menu.");
+                }
+                else
+                {
+                    ModelState.AddModelError(string.Empty,
+                        "An account with this email already exists. Sign in instead, or use Forgot password if you need to reset it.");
+                }
+
+                return View(model);
+            }
+
             var user = new IdentityUser { UserName = model.Email, Email = model.Email };
             var result = await _userManager.CreateAsync(user, model.Password);
             if (result.Succeeded)
             {
-                await SignInAndSetDefaultFamilyTreeAsync(user, cancellationToken);
-                return LocalRedirect(returnUrl);
+                try
+                {
+                    var defaultTreeId = await _defaultFamilyTree.EnsureDefaultFamilyTreeAsync(user.Id!, cancellationToken);
+                    if (defaultTreeId.HasValue)
+                        await _currentFamilyTree.SetCurrentFamilyTreeIdAsync(defaultTreeId.Value, cancellationToken);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Default tree creation failed for {UserId}", user.Id);
+                    await _userManager.DeleteAsync(user);
+                    ModelState.AddModelError(string.Empty, "Registration failed. Please try again.");
+                    return View(model);
+                }
+
+                if (!await SendConfirmationEmailAsync(user))
+                    TempData["EmailRateLimited"] = true;
+
+                await EnsureEmailTwoFactorEnabledAsync(user);
+
+                return RedirectToAction(nameof(RegisterConfirmation), new { email = user.Email });
             }
             foreach (var error in result.Errors)
                 ModelState.AddModelError(string.Empty, error.Description);
         }
 
         return View(model);
+    }
+
+    [AllowAnonymous]
+    [HttpGet]
+    public IActionResult RegisterConfirmation(string? email = null)
+    {
+        ViewData["Email"] = email;
+        return View();
+    }
+
+    [AllowAnonymous]
+    [HttpGet]
+    public async Task<IActionResult> ConfirmEmail(string userId, string code)
+    {
+        if (string.IsNullOrEmpty(userId) || string.IsNullOrEmpty(code))
+            return View("ConfirmEmail", "Invalid confirmation link.");
+
+        var user = await _userManager.FindByIdAsync(userId);
+        if (user == null)
+            return View("ConfirmEmail", "Invalid confirmation link.");
+
+        var token = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(code));
+        var result = await _userManager.ConfirmEmailAsync(user, token);
+        return View("ConfirmEmail", result.Succeeded
+            ? "Thank you for confirming your email. You can sign in now."
+            : "Email confirmation failed. The link may be invalid or expired.");
+    }
+
+    [AllowAnonymous]
+    [HttpGet]
+    public IActionResult ResendConfirmationEmail(string? email = null)
+    {
+        return View(new ResendConfirmationViewModel { Email = email ?? string.Empty });
+    }
+
+    [AllowAnonymous]
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ResendConfirmationEmail(ResendConfirmationViewModel model)
+    {
+        if (!ModelState.IsValid)
+            return View(model);
+
+        var user = await _userManager.FindByEmailAsync(model.Email);
+        if (user != null && !await _userManager.IsEmailConfirmedAsync(user))
+        {
+            if (!await SendConfirmationEmailAsync(user))
+                TempData["EmailRateLimited"] = true;
+        }
+
+        return RedirectToAction(nameof(RegisterConfirmation), new { email = model.Email });
     }
 
     [AllowAnonymous]
@@ -236,12 +357,19 @@ public class AccountController : Controller
         if (ModelState.IsValid)
         {
             var user = await _userManager.FindByEmailAsync(model.Email);
-            if (user == null)
+            // Only send reset when the account exists, email is confirmed, and has a password.
+            if (user == null
+                || !(await _userManager.IsEmailConfirmedAsync(user))
+                || !await _userManager.HasPasswordAsync(user))
                 return RedirectToAction(nameof(ForgotPasswordConfirmation));
 
             var token = await _userManager.GeneratePasswordResetTokenAsync(user);
             var callbackUrl = Url.Action(nameof(ResetPassword), "Account", new { token, email = user.Email }, Request.Scheme)!;
-            await _emailSender.SendEmailAsync(model.Email, "Reset your password", $"Please reset your password by <a href='{callbackUrl}'>clicking here</a>.");
+            await TrySendEmailAsync(
+                EmailRateLimitOperations.ForgotPassword,
+                model.Email,
+                "Reset your password",
+                $"Please reset your password by <a href='{callbackUrl}'>clicking here</a>.");
             return RedirectToAction(nameof(ForgotPasswordConfirmation));
         }
 
@@ -381,6 +509,10 @@ public class AccountController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> SwitchFamilyTree(long id, CancellationToken cancellationToken)
     {
+        var userId = _userManager.GetUserId(User);
+        if (userId == null || !await _access.CanViewAsync(userId, id, cancellationToken))
+            return NotFound();
+
         await _currentFamilyTree.SetCurrentFamilyTreeIdAsync(id, cancellationToken);
         return Redirect("/Home/Index");
     }
@@ -418,5 +550,321 @@ public class AccountController : Controller
             : LineageMode.Paternal;
         await _lineageMode.SetAsync(value, cancellationToken);
         return Redirect("/Home/Index");
+    }
+
+    [AllowAnonymous]
+    [HttpGet]
+    public async Task<IActionResult> LoginWith2fa(bool rememberMe, string? returnUrl = null)
+    {
+        var user = await _signInManager.GetTwoFactorAuthenticationUserAsync();
+        if (user == null)
+            return RedirectToAction(nameof(Login), new { returnUrl });
+
+        ViewBag.EmailAddress = user.Email ?? user.UserName;
+        if (await SendTwoFactorEmailAsync(user))
+            ViewBag.EmailCodeSent = true;
+        else
+            ViewBag.EmailRateLimited = true;
+
+        return View(new LoginWith2faViewModel { RememberMe = rememberMe, ReturnUrl = returnUrl });
+    }
+
+    [AllowAnonymous]
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> LoginWith2fa(LoginWith2faViewModel model, CancellationToken cancellationToken = default)
+    {
+        if (!ModelState.IsValid)
+            return View(model);
+
+        var returnUrl = model.ReturnUrl ?? Url.Content("~/Home/Index");
+        var user = await _signInManager.GetTwoFactorAuthenticationUserAsync();
+        if (user == null)
+            return RedirectToAction(nameof(Login), new { returnUrl });
+
+        var code = model.TwoFactorCode.Replace(" ", string.Empty).Replace("-", string.Empty);
+        var result = await _signInManager.TwoFactorSignInAsync(
+            TokenOptions.DefaultEmailProvider, code, model.RememberMe, model.RememberMachine);
+        if (result.Succeeded)
+        {
+            await EnsureDefaultTreeForUserAsync(user, cancellationToken);
+            return LocalRedirect(returnUrl);
+        }
+
+        ViewBag.EmailAddress = user.Email ?? user.UserName;
+        ModelState.AddModelError(string.Empty, "Invalid verification code.");
+        return View(model);
+    }
+
+    public const string AddPasswordTokenPurpose = "AddPassword";
+
+    [HttpGet]
+    public async Task<IActionResult> ManagePassword()
+    {
+        var user = await _userManager.GetUserAsync(User);
+        if (user == null)
+            return NotFound();
+
+        if (await _userManager.HasPasswordAsync(user))
+            return View("ChangePassword", new ChangePasswordViewModel());
+
+        return View("SetPassword", new SetPasswordViewModel());
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> SetPassword(SetPasswordViewModel model)
+    {
+        var user = await _userManager.GetUserAsync(User);
+        if (user == null)
+            return NotFound();
+
+        if (await _userManager.HasPasswordAsync(user))
+            return RedirectToAction(nameof(ManagePassword));
+
+        if (!ModelState.IsValid)
+            return View(model);
+
+        var result = await _userManager.AddPasswordAsync(user, model.Password);
+        if (!result.Succeeded)
+        {
+            foreach (var error in result.Errors)
+                ModelState.AddModelError(string.Empty, error.Description);
+            return View(model);
+        }
+
+        await _userManager.UpdateSecurityStampAsync(user);
+        await EnsureEmailTwoFactorEnabledAsync(user);
+        return RedirectToAction("Index", "Home");
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> RequestAddPassword()
+    {
+        var user = await _userManager.GetUserAsync(User);
+        if (user == null)
+            return NotFound();
+
+        if (await _userManager.HasPasswordAsync(user))
+            return RedirectToAction(nameof(ManagePassword));
+
+        if (!await _userManager.IsEmailConfirmedAsync(user))
+        {
+            ModelState.AddModelError(string.Empty, "Confirm your email before adding a password.");
+            return View("RequestAddPassword");
+        }
+
+        if (!await SendAddPasswordEmailAsync(user))
+        {
+            ModelState.AddModelError(string.Empty, "Too many email requests recently. Please wait a few minutes and try again.");
+            return View("RequestAddPassword");
+        }
+
+        return View("RequestAddPasswordConfirmation", user.Email);
+    }
+
+    [AllowAnonymous]
+    [HttpGet]
+    public async Task<IActionResult> ConfirmAddPassword(string userId, string code)
+    {
+        if (string.IsNullOrEmpty(userId) || string.IsNullOrEmpty(code))
+            return View("AddPasswordError", "Invalid or expired link.");
+
+        var user = await _userManager.FindByIdAsync(userId);
+        if (user == null)
+            return View("AddPasswordError", "Invalid or expired link.");
+
+        if (await _userManager.HasPasswordAsync(user))
+            return View("AddPasswordError", "This account already has a password. Sign in and use Change password instead.");
+
+        if (!await _userManager.IsEmailConfirmedAsync(user))
+            return View("AddPasswordError", "Confirm your email before adding a password.");
+
+        string token;
+        try
+        {
+            token = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(code));
+        }
+        catch (FormatException)
+        {
+            return View("AddPasswordError", "Invalid or expired link.");
+        }
+
+        if (!await _userManager.VerifyUserTokenAsync(user, TokenOptions.DefaultProvider, AddPasswordTokenPurpose, token))
+            return View("AddPasswordError", "Invalid or expired link.");
+
+        return View("AddPassword", new AddPasswordViewModel { UserId = userId, Code = code });
+    }
+
+    [AllowAnonymous]
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> AddPassword(AddPasswordViewModel model)
+    {
+        if (!ModelState.IsValid)
+            return View(model);
+
+        var user = await _userManager.FindByIdAsync(model.UserId);
+        if (user == null)
+            return View("AddPasswordError", "Invalid or expired link.");
+
+        if (await _userManager.HasPasswordAsync(user))
+            return View("AddPasswordError", "This account already has a password. Sign in and use Change password instead.");
+
+        if (!await _userManager.IsEmailConfirmedAsync(user))
+            return View("AddPasswordError", "Confirm your email before adding a password.");
+
+        string token;
+        try
+        {
+            token = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(model.Code));
+        }
+        catch (FormatException)
+        {
+            return View("AddPasswordError", "Invalid or expired link.");
+        }
+
+        if (!await _userManager.VerifyUserTokenAsync(user, TokenOptions.DefaultProvider, AddPasswordTokenPurpose, token))
+            return View("AddPasswordError", "Invalid or expired link.");
+
+        var result = await _userManager.AddPasswordAsync(user, model.Password);
+        if (!result.Succeeded)
+        {
+            foreach (var error in result.Errors)
+                ModelState.AddModelError(string.Empty, error.Description);
+            return View(model);
+        }
+
+        await _userManager.UpdateSecurityStampAsync(user);
+        await EnsureEmailTwoFactorEnabledAsync(user);
+
+        var signedIn = await _userManager.GetUserAsync(User);
+        if (signedIn != null && signedIn.Id == user.Id)
+            return RedirectToAction("Index", "Home");
+
+        return RedirectToAction(nameof(Login), new { returnUrl = "/Home/Index" });
+    }
+
+    [HttpPost]
+    [ValidateAntiForgeryToken]
+    public async Task<IActionResult> ChangePassword(ChangePasswordViewModel model)
+    {
+        var user = await _userManager.GetUserAsync(User);
+        if (user == null)
+            return NotFound();
+
+        if (!await _userManager.HasPasswordAsync(user))
+            return RedirectToAction(nameof(ManagePassword));
+
+        if (!ModelState.IsValid)
+            return View(model);
+
+        var result = await _userManager.ChangePasswordAsync(user, model.CurrentPassword, model.NewPassword);
+        if (!result.Succeeded)
+        {
+            foreach (var error in result.Errors)
+                ModelState.AddModelError(string.Empty, error.Description);
+            return View(model);
+        }
+
+        await _signInManager.RefreshSignInAsync(user);
+        model.StatusMessage = "Your password has been changed.";
+        model.CurrentPassword = string.Empty;
+        model.NewPassword = string.Empty;
+        model.ConfirmPassword = string.Empty;
+        return View(model);
+    }
+
+    private async Task ConfirmEmailFromGoogleAsync(IdentityUser user)
+    {
+        if (user.EmailConfirmed)
+            return;
+
+        user.EmailConfirmed = true;
+        var result = await _userManager.UpdateAsync(user);
+        if (!result.Succeeded)
+            _logger.LogWarning("Failed to confirm email for user {UserId} after Google sign-in", user.Id);
+    }
+
+    private async Task<bool> SendAddPasswordEmailAsync(IdentityUser user)
+    {
+        var token = await _userManager.GenerateUserTokenAsync(
+            user, TokenOptions.DefaultProvider, AddPasswordTokenPurpose);
+        var code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(token));
+        var callbackUrl = Url.Action(nameof(ConfirmAddPassword), "Account", new { userId = user.Id, code }, Request.Scheme)!;
+        return await TrySendEmailAsync(
+            EmailRateLimitOperations.AddPassword,
+            user.Email!,
+            "Confirm adding a password",
+            $"Confirm that you want to add a password to your GOOM Family Tree account by <a href='{HtmlEncoder.Default.Encode(callbackUrl)}'>clicking here</a>. If you did not request this, you can ignore this message.");
+    }
+
+    private async Task<bool> SendConfirmationEmailAsync(IdentityUser user)
+    {
+        var code = await _userManager.GenerateEmailConfirmationTokenAsync(user);
+        code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
+        var callbackUrl = Url.Action(nameof(ConfirmEmail), "Account", new { userId = user.Id, code }, Request.Scheme)!;
+        return await TrySendEmailAsync(
+            EmailRateLimitOperations.Confirmation,
+            user.Email!,
+            "Confirm your email",
+            $"Please confirm your account by <a href='{HtmlEncoder.Default.Encode(callbackUrl)}'>clicking here</a>.");
+    }
+
+    private async Task<bool> TrySendEmailAsync(string operation, string recipientEmail, string subject, string htmlMessage)
+    {
+        if (!_emailRateLimiter.TryAcquire(operation, recipientEmail, GetClientIp()))
+            return false;
+
+        await _emailSender.SendEmailAsync(recipientEmail, subject, htmlMessage);
+        return true;
+    }
+
+    private string GetClientIp() => HttpContext.GetClientIpForRateLimit();
+
+    private async Task<IActionResult> CompleteSignInAsync(string email, string returnUrl, CancellationToken cancellationToken)
+    {
+        var user = await _userManager.FindByEmailAsync(email);
+        if (user != null)
+            await EnsureDefaultTreeForUserAsync(user, cancellationToken);
+
+        return LocalRedirect(returnUrl);
+    }
+
+    private async Task<IActionResult> FinishAuthenticatedSessionAsync(IdentityUser user, string returnUrl, CancellationToken cancellationToken)
+    {
+        await EnsureDefaultTreeForUserAsync(user, cancellationToken);
+        return LocalRedirect(returnUrl);
+    }
+
+    private async Task EnsureDefaultTreeForUserAsync(IdentityUser user, CancellationToken cancellationToken)
+    {
+        var defaultTreeId = await _defaultFamilyTree.EnsureDefaultFamilyTreeAsync(user.Id!, cancellationToken);
+        if (defaultTreeId.HasValue)
+            await _currentFamilyTree.SetCurrentFamilyTreeIdAsync(defaultTreeId.Value, cancellationToken);
+    }
+
+    private async Task EnsureEmailTwoFactorEnabledAsync(IdentityUser user)
+    {
+        if (!await _userManager.HasPasswordAsync(user))
+            return;
+
+        if (!await _userManager.GetTwoFactorEnabledAsync(user))
+            await _userManager.SetTwoFactorEnabledAsync(user, true);
+    }
+
+    private async Task<bool> SendTwoFactorEmailAsync(IdentityUser user)
+    {
+        var email = user.Email ?? user.UserName;
+        if (string.IsNullOrEmpty(email))
+            return false;
+
+        var code = await _userManager.GenerateTwoFactorTokenAsync(user, TokenOptions.DefaultEmailProvider);
+        return await TrySendEmailAsync(
+            EmailRateLimitOperations.TwoFactor,
+            email,
+            "Your sign-in code",
+            $"Your sign-in code is: <strong>{HtmlEncoder.Default.Encode(code)}</strong>. It expires shortly.");
     }
 }
