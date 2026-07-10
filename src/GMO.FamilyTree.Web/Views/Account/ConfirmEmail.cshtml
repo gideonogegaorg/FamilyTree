@@ -1,0 +1,13 @@
+@model string
+@{
+    Layout = "_LayoutLogin";
+    ViewData["Title"] = "Email confirmation";
+}
+
+<div class="ft-auth-card mx-auto">
+    <h1 class="ft-page-title">Email confirmation</h1>
+    <p class="ft-auth-subtitle">@Model</p>
+    <p class="mb-0 text-center small">
+        <a asp-action="Login">Sign in</a>
+    </p>
+</div>

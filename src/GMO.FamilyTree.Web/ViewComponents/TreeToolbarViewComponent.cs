@@ -2,30 +2,29 @@ using GMO.FamilyTree.Web.Data;
 using GMO.FamilyTree.Web.Services;
 
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 
 namespace GMO.FamilyTree.Web.ViewComponents;
 
 public sealed class TreeToolbarViewComponent : ViewComponent
 {
-    private readonly AppDbContext _db;
     private readonly ICurrentFamilyTreeService _currentFamilyTree;
     private readonly ITreeViewOrientationService _treeViewOrientation;
     private readonly ILineageModeService _lineageMode;
     private readonly ITreeCardViewModeService _treeCardViewMode;
+    private readonly IFamilyTreeAccessService _access;
 
     public TreeToolbarViewComponent(
-        AppDbContext db,
         ICurrentFamilyTreeService currentFamilyTree,
         ITreeViewOrientationService treeViewOrientation,
         ILineageModeService lineageMode,
-        ITreeCardViewModeService treeCardViewMode)
+        ITreeCardViewModeService treeCardViewMode,
+        IFamilyTreeAccessService access)
     {
-        _db = db;
         _currentFamilyTree = currentFamilyTree;
         _treeViewOrientation = treeViewOrientation;
         _lineageMode = lineageMode;
         _treeCardViewMode = treeCardViewMode;
+        _access = access;
     }
 
     public async Task<IViewComponentResult> InvokeAsync(long? focusMemberId = null, bool hasMembers = true)
@@ -35,23 +34,39 @@ public sealed class TreeToolbarViewComponent : ViewComponent
 
         var userId = UserClaimsPrincipal.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
         var currentId = await _currentFamilyTree.GetCurrentFamilyTreeIdAsync();
-        var familyTrees = string.IsNullOrEmpty(userId)
-            ? new List<Data.FamilyTree>()
-            : await _db.FamilyTrees.Where(x => x.OwnerId == userId).OrderBy(x => x.Name).ToListAsync();
+        var trees = string.IsNullOrEmpty(userId)
+            ? Array.Empty<Data.FamilyTree>()
+            : await _access.GetAccessibleTreesAsync(userId);
+
+        var items = new List<TreeToolbarTreeItem>(trees.Count);
+        foreach (var tree in trees)
+        {
+            var level = string.IsNullOrEmpty(userId)
+                ? TreeAccessLevel.None
+                : await _access.GetAccessLevelAsync(userId, tree.Id);
+            items.Add(new TreeToolbarTreeItem
+            {
+                Id = tree.Id,
+                Name = tree.Name,
+                AccessLevel = level
+            });
+        }
+
         var currentTree = currentId.HasValue
-            ? familyTrees.FirstOrDefault(x => x.Id == currentId.Value)
+            ? items.FirstOrDefault(x => x.Id == currentId.Value)
             : null;
 
         var model = new TreeToolbarViewModel
         {
             CurrentTreeId = currentTree?.Id ?? 0,
             CurrentTreeName = currentTree?.Name ?? "Family Tree",
-            FamilyTrees = familyTrees,
+            FamilyTrees = items,
             TreeViewOrientation = await _treeViewOrientation.GetOrientationAsync(),
             LineageMode = await _lineageMode.GetAsync(),
             TreeCardViewMode = await _treeCardViewMode.GetAsync(),
             FocusMemberId = focusMemberId,
-            HasMembers = hasMembers
+            HasMembers = hasMembers,
+            CurrentAccessLevel = currentTree?.AccessLevel ?? TreeAccessLevel.None
         };
         return View("Default", model);
     }

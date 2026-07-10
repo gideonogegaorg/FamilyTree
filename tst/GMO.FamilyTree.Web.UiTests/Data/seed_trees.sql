@@ -1,5 +1,5 @@
 -- Seed trees: 3-gen test, empty, single-member, and large (6-gen) trees.
--- Run with: psql -h localhost -p 5432 -U family -d family -f tst/GMO.Family.Web.UiTests/Data/seed_trees.sql
+-- Run with: psql -h localhost -p 5432 -U family -d family -f tst/GMO.FamilyTree.Web.UiTests/Data/seed_trees.sql
 -- Idempotent: safe to re-run.
 
 -- ========== Variables (change these for a different environment) ==========
@@ -245,5 +245,6 @@ FROM (VALUES
 ) AS v(parent, child)
 ON CONFLICT ("FromMemberId", "ToMemberId", "RelationshipType") DO NOTHING;
 
--- Advance sequence
-SELECT setval(pg_get_serial_sequence('"FamilyMembers"', 'Id'), (SELECT COALESCE(MAX("Id"), 1) FROM "FamilyMembers"));
+-- Advance identity sequences after explicit Id inserts (keeps new registrations/trees from colliding).
+SELECT setval(pg_get_serial_sequence('"FamilyTrees"', 'Id'), COALESCE((SELECT MAX("Id") FROM "FamilyTrees"), 1));
+SELECT setval(pg_get_serial_sequence('"FamilyMembers"', 'Id'), COALESCE((SELECT MAX("Id") FROM "FamilyMembers"), 1));

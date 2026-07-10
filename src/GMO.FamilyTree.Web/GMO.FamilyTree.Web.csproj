@@ -28,6 +28,7 @@
     <PackageReference Include="Serilog.Sinks.Console" />
     <PackageReference Include="Serilog.Sinks.File" />
     <PackageReference Include="AWSSDK.S3" />
+    <PackageReference Include="AWSSDK.SimpleEmail" />
   </ItemGroup>
 
 </Project>
