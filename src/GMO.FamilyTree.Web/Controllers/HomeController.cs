@@ -22,16 +22,18 @@ public class HomeController : Controller
     private readonly ITreeViewOrientationService _treeViewOrientation;
     private readonly ILineageModeService _lineageMode;
     private readonly ITreeCardViewModeService _treeCardViewMode;
+    private readonly IFamilyTreeAccessService _access;
     private readonly IOptionsMonitor<GoogleAuthOptions> _googleAuth;
     private readonly IWebHostEnvironment _env;
 
-    public HomeController(AppDbContext db, ICurrentFamilyTreeService currentTree, ITreeViewOrientationService treeViewOrientation, ILineageModeService lineageMode, ITreeCardViewModeService treeCardViewMode, IOptionsMonitor<GoogleAuthOptions> googleAuth, IWebHostEnvironment env)
+    public HomeController(AppDbContext db, ICurrentFamilyTreeService currentTree, ITreeViewOrientationService treeViewOrientation, ILineageModeService lineageMode, ITreeCardViewModeService treeCardViewMode, IFamilyTreeAccessService access, IOptionsMonitor<GoogleAuthOptions> googleAuth, IWebHostEnvironment env)
     {
         _db = db;
         _currentTree = currentTree;
         _treeViewOrientation = treeViewOrientation;
         _lineageMode = lineageMode;
         _treeCardViewMode = treeCardViewMode;
+        _access = access;
         _googleAuth = googleAuth;
         _env = env;
     }
@@ -73,6 +75,16 @@ public class HomeController : Controller
             return RedirectToAction(nameof(FamilyTreeController.Index), "FamilyTree");
         }
 
+        var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(currentUserId)
+            || !await _access.CanViewAsync(currentUserId, treeId.Value, cancellationToken))
+        {
+            await _currentTree.SetCurrentFamilyTreeIdAsync(null, cancellationToken);
+            return RedirectToAction(nameof(FamilyTreeController.Index), "FamilyTree");
+        }
+
+        var accessLevel = await _access.GetAccessLevelAsync(currentUserId, treeId.Value, cancellationToken);
+
         var members = await _db.FamilyMembers
             .AsNoTracking()
             .Where(m => m.FamilyTreeId == treeId.Value)
@@ -88,7 +100,6 @@ public class HomeController : Controller
         var childIds = rels.Where(r => r.RelationshipType == RelationshipType.Parent).Select(r => r.ToMemberId).ToHashSet();
         var rootIds = members.Where(m => !childIds.Contains(m.Id)).Select(m => m.Id).ToList();
 
-        var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
         var meMember = members.FirstOrDefault(m => m.UserId == currentUserId);
         var focusMemberId = meMember?.Id ?? rootIds.FirstOrDefault();
 
@@ -139,6 +150,7 @@ public class HomeController : Controller
             TreeViewOrientation = orientation,
             LineageMode = lineageMode,
             TreeCardViewMode = cardViewMode,
+            AccessLevel = accessLevel,
             Members = cards,
             NodesJson = nodesJson,
             EdgesJson = edgesJson
@@ -153,6 +165,9 @@ public class HomeController : Controller
         if (!treeId.HasValue) return RedirectToAction(nameof(FamilyTreeController.Index), "FamilyTree");
         var tree = await _db.FamilyTrees.FindAsync(new object[] { treeId.Value }, cancellationToken);
         if (tree == null) return RedirectToAction(nameof(FamilyTreeController.Index), "FamilyTree");
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(userId) || !await _access.CanEditAsync(userId, treeId.Value, cancellationToken))
+            return Forbid();
         return View(new AddRelationViewModel { FamilyTreeId = treeId.Value });
     }
 
@@ -163,6 +178,9 @@ public class HomeController : Controller
         var treeId = await _currentTree.GetCurrentFamilyTreeIdAsync(cancellationToken);
         if (!treeId.HasValue || model.FamilyTreeId != treeId.Value)
             return RedirectToAction(nameof(Index));
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(userId) || !await _access.CanEditAsync(userId, treeId.Value, cancellationToken))
+            return Forbid();
         if (string.IsNullOrWhiteSpace(model.Name))
         {
             ModelState.AddModelError(nameof(model.Name), "Name is required.");

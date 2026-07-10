@@ -67,5 +67,16 @@
       "ClientSecret": "^^GOOGLE_CLIENT_SECRET^^"
     }
   },
+  "Email": {
+    "Provider": "^^EMAIL_PROVIDER^^",
+    "FromAddress": "^^EMAIL_FROM_ADDRESS^^",
+    "FromDisplayName": "^^EMAIL_FROM_DISPLAY_NAME^^",
+    "Region": "^^EMAIL_REGION^^",
+    "RateLimit": {
+      "MinIntervalSeconds": 180,
+      "MaxPerRecipientPerHour": 3,
+      "MaxPerIpPerHour": 15
+    }
+  },
   "IsProduction": ^^IS_PRODUCTION^^
 }

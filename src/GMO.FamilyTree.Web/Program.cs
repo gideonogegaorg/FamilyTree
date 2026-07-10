@@ -1,7 +1,9 @@
 using System.Diagnostics;
 using System.Net;
 
+using Amazon;
 using Amazon.S3;
+using Amazon.SimpleEmail;
 
 using GMO.FamilyTree.Web;
 using GMO.FamilyTree.Web.Data;
@@ -30,6 +32,10 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.Configure<PathsOptions>(builder.Configuration.GetSection("Paths"));
 builder.Services.Configure<PhotosOptions>(builder.Configuration.GetSection("Photos"));
+builder.Services.Configure<EmailOptions>(builder.Configuration.GetSection(EmailOptions.SectionName));
+builder.Services.Configure<EmailRateLimitOptions>(builder.Configuration.GetSection(EmailRateLimitOptions.SectionName));
+builder.Services.AddMemoryCache();
+builder.Services.AddSingleton<IEmailRateLimiter, EmailRateLimiter>();
 
 var photosProvider = builder.Configuration["Photos:Provider"] ?? "Local";
 if (photosProvider.Equals("S3", StringComparison.OrdinalIgnoreCase))
@@ -143,13 +149,32 @@ builder.Services.AddHealthChecks()
 
 // Add services to the container.
 builder.Services.AddControllersWithViews();
-builder.Services.AddScoped<IEmailSender, LoggingEmailSender>();
+
+var emailProvider = builder.Configuration["Email:Provider"] ?? "Logging";
+if (emailProvider.Equals("Ses", StringComparison.OrdinalIgnoreCase)
+    && !builder.Environment.IsEnvironment("Testing"))
+{
+    builder.Services.AddSingleton<IAmazonSimpleEmailService>(sp =>
+    {
+        var email = sp.GetRequiredService<IOptions<EmailOptions>>().Value;
+        var region = RegionEndpoint.GetBySystemName(
+            string.IsNullOrWhiteSpace(email.Region) ? "us-east-1" : email.Region);
+        return new AmazonSimpleEmailServiceClient(region);
+    });
+    builder.Services.AddScoped<IEmailSender, SesEmailSender>();
+}
+else
+{
+    builder.Services.AddScoped<IEmailSender, LoggingEmailSender>();
+}
+
 builder.Services.AddScoped<ICurrentFamilyTreeService, CurrentFamilyTreeService>();
 builder.Services.AddScoped<IFamilyTreeDeletionService, FamilyTreeDeletionService>();
 builder.Services.AddScoped<ITreeViewOrientationService, TreeViewOrientationService>();
 builder.Services.AddScoped<ILineageModeService, LineageModeService>();
 builder.Services.AddScoped<ITreeCardViewModeService, TreeCardViewModeService>();
 builder.Services.AddScoped<IFamilyTreeAccessService, FamilyTreeAccessService>();
+builder.Services.AddScoped<IFamilyTreeShareService, FamilyTreeShareService>();
 builder.Services.AddScoped<IDefaultFamilyTreeService, DefaultFamilyTreeService>();
 builder.Services.AddScoped<IExternalLoginInfoProvider, SignInManagerExternalLoginInfoProvider>();
 builder.Services.AddDistributedMemoryCache();

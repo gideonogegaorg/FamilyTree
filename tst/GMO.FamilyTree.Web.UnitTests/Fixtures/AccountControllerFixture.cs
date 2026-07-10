@@ -53,29 +53,33 @@ public sealed class AccountControllerFixture
         AppDbContext db,
         IdentityUser? existingUser = null)
     {
-        var userStore = new Microsoft.AspNetCore.Identity.EntityFrameworkCore.UserStore<IdentityUser>(db);
-        var userManager = new UserManager<IdentityUser>(
-            userStore,
-            Microsoft.Extensions.Options.Options.Create(new IdentityOptions()),
-            new PasswordHasher<IdentityUser>(),
-            Array.Empty<IUserValidator<IdentityUser>>(),
-            Array.Empty<IPasswordValidator<IdentityUser>>(),
-            new UpperInvariantLookupNormalizer(),
-            new IdentityErrorDescriber(),
-            new ServiceCollection().BuildServiceProvider(),
-            null!);
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddDataProtection();
+        services.AddSingleton<IHttpContextAccessor, HttpContextAccessor>();
+        services.AddSingleton(db);
+        services.AddScoped<AppDbContext>(_ => db);
+        services.AddIdentityCore<IdentityUser>(o =>
+            {
+                o.SignIn.RequireConfirmedEmail = true;
+            })
+            .AddEntityFrameworkStores<AppDbContext>()
+            .AddDefaultTokenProviders()
+            .AddSignInManager();
+        services.AddAuthentication(IdentityConstants.ApplicationScheme)
+            .AddCookie(IdentityConstants.ApplicationScheme)
+            .AddCookie(IdentityConstants.ExternalScheme)
+            .AddCookie(IdentityConstants.TwoFactorUserIdScheme);
+        var sp = services.BuildServiceProvider();
+
+        var userManager = sp.GetRequiredService<UserManager<IdentityUser>>();
         if (existingUser != null)
             userManager.CreateAsync(existingUser).GetAwaiter().GetResult();
 
-        var httpContext = new DefaultHttpContext();
-        var svc = new ServiceCollection();
-        svc.AddSingleton<IAuthenticationService>(new NoOpAuthService());
-        httpContext.RequestServices = svc.BuildServiceProvider();
-        var contextAccessor = new HttpContextAccessor { HttpContext = httpContext };
-        var userPrincipalFactory = new UserClaimsPrincipalFactory<IdentityUser>(
-            userManager, Microsoft.Extensions.Options.Options.Create(new IdentityOptions()));
-        var signInManager = new SignInManager<IdentityUser>(
-            userManager, contextAccessor, userPrincipalFactory, null!, null!, null!, null!);
+        var httpContext = new DefaultHttpContext { RequestServices = sp };
+        var contextAccessor = sp.GetRequiredService<IHttpContextAccessor>();
+        contextAccessor.HttpContext = httpContext;
+        var signInManager = sp.GetRequiredService<SignInManager<IdentityUser>>();
         return (signInManager, userManager);
     }
 
@@ -118,9 +122,12 @@ public sealed class AccountControllerFixture
         var urlHelperToUse = urlHelper ?? new UrlHelperMock().Object;
         var photosService = photos ?? new Mock<IPhotoStorageService>().Object;
         var treeCardViewMode = new Mock<ITreeCardViewModeService>().Object;
+        var access = new FamilyTreeAccessService(db);
 
         var emailSender = _fixture.Create<Mock<IEmailSender>>().Object;
         var googleAuth = new GoogleAuthOptionsMock().Object;
+        var rateLimiter = CreateAllowAllRateLimiter();
+        var logger = Microsoft.Extensions.Logging.Abstractions.NullLogger<AccountController>.Instance;
 
         var controller = new AccountController(
             signInManager,
@@ -137,7 +144,10 @@ public sealed class AccountControllerFixture
             Microsoft.Extensions.Options.Options.Create(paths),
             externalLoginInfo,
             photosService,
-            treeCardViewMode);
+            treeCardViewMode,
+            access,
+            rateLimiter,
+            logger);
 
         var services = new ServiceCollection();
         services.AddSingleton<IUrlHelperFactory>(new TestUrlHelperFactory(urlHelperToUse));
@@ -151,6 +161,13 @@ public sealed class AccountControllerFixture
         }
         controller.ControllerContext = new ControllerContext { HttpContext = httpContext };
         return controller;
+    }
+
+    public static IEmailRateLimiter CreateAllowAllRateLimiter()
+    {
+        var mock = new Mock<IEmailRateLimiter>();
+        mock.Setup(r => r.TryAcquire(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>())).Returns(true);
+        return mock.Object;
     }
 
     private sealed class TestUrlHelperFactory : IUrlHelperFactory

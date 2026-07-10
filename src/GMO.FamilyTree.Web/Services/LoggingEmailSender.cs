@@ -14,7 +14,7 @@ public sealed class LoggingEmailSender : IEmailSender
 
     public Task SendEmailAsync(string email, string subject, string htmlMessage)
     {
-        _logger.LogInformation("Email (not sent): To={Email}, Subject={Subject}. Body: {Body}", email, subject, htmlMessage);
+        _logger.LogInformation("Email (not sent): Subject={Subject}, BodyLength={BodyLength}", subject, htmlMessage.Length);
         return Task.CompletedTask;
     }
 }
