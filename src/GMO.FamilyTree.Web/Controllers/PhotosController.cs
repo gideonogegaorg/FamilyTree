@@ -43,7 +43,8 @@ public sealed class PhotosController : Controller
         if (string.IsNullOrEmpty(userId))
             return Unauthorized();
 
-        if (!await _access.UserOwnsMemberAsync(userId, memberId, cancellationToken))
+        var level = await _access.GetAccessLevelForMemberAsync(userId, memberId, cancellationToken);
+        if (level < TreeAccessLevel.Readonly)
             return NotFound();
 
         var member = await _db.FamilyMembers.AsNoTracking()

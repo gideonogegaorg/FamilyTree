@@ -336,7 +336,19 @@ jobs:
           PHOTOS_LOCAL_BASE_PATH: uploads/photos
           TELEMETRY_ENVIRONMENT_NAME: ${{ github.ref_name }}
           IS_PRODUCTION: ${{ vars.IS_PRODUCTION }}
-        run: bash scripts/generate-appsettings.sh
+          EMAIL_PROVIDER: ${{ vars.EMAIL_PROVIDER }}
+          EMAIL_FROM_ADDRESS: ${{ secrets.EMAIL_FROM_ADDRESS }}
+          EMAIL_FROM_DISPLAY_NAME: ${{ vars.EMAIL_FROM_DISPLAY_NAME }}
+          EMAIL_REGION: ${{ vars.EMAIL_REGION }}
+          EMAIL_DOMAIN: ${{ env.FULL_HOSTNAME }}
+        run: |
+          export EMAIL_PROVIDER="${EMAIL_PROVIDER:-Ses}"
+          export EMAIL_FROM_DISPLAY_NAME="${EMAIL_FROM_DISPLAY_NAME:-GOOM Family Tree}"
+          export EMAIL_REGION="${EMAIL_REGION:-us-east-1}"
+          if [ -z "${EMAIL_FROM_ADDRESS:-}" ] && [ -n "${EMAIL_DOMAIN:-}" ]; then
+            export EMAIL_FROM_ADDRESS="noreply@${EMAIL_DOMAIN}"
+          fi
+          bash scripts/generate-appsettings.sh
 
       - name: Generate robots.txt
         run: bash scripts/generate-robots.sh

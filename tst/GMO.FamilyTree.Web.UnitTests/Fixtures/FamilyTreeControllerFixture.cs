@@ -47,7 +47,8 @@ public sealed class FamilyTreeControllerFixture
         var currentTreeMock = currentTree ?? new CurrentFamilyTreeServiceMock();
         var deletionMock = deletion ?? new Mock<IFamilyTreeDeletionService>(MockBehavior.Loose);
 
-        var controller = new FamilyTreeController(db, userManager, currentTreeMock.Object, deletionMock.Object);
+        var controller = new FamilyTreeController(
+            db, userManager, currentTreeMock.Object, deletionMock.Object, new FamilyTreeAccessService(db));
         var identity = new ClaimsIdentity([new Claim(ClaimTypes.NameIdentifier, userId)], "test");
         controller.ControllerContext = new ControllerContext
         {

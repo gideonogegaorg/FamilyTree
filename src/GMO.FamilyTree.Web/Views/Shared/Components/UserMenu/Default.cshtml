@@ -52,6 +52,11 @@ else
                 <button type="button" class="dropdown-item profile-photo-open">Change profile picture</button>
             </li>
             <li>
+                <a class="dropdown-item" asp-controller="Account" asp-action="ManagePassword">
+                    @(Model.HasPassword ? "Change password" : "Set password")
+                </a>
+            </li>
+            <li>
                 <form asp-controller="Account" asp-action="SignOut" method="post">
                     <button type="submit" class="dropdown-item text-danger">Sign out</button>
                 </form>

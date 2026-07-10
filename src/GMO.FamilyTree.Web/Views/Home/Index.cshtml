@@ -8,7 +8,7 @@
     var hasMembers = Model.Members.Count > 0;
 }
 
-<div class="ft-tree-page">
+<div class="ft-tree-page" data-can-edit="@Model.CanEdit.ToString().ToLowerInvariant()">
     @await Component.InvokeAsync("TreeToolbar", new { focusMemberId = Model.FocusMemberId, hasMembers })
 
     @if (!hasMembers)
@@ -16,8 +16,15 @@
         <div class="ft-empty-state">
             <div class="ft-empty-state-icon" aria-hidden="true">&#127795;</div>
             <h2 class="ft-empty-state-title">Your family tree is empty</h2>
-            <p class="ft-empty-state-text">Add the first person to begin building your tree.</p>
-            <a asp-action="AddFirstMember" class="btn btn-primary ft-empty-state-btn">Add first person</a>
+            @if (Model.CanEdit)
+            {
+                <p class="ft-empty-state-text">Add the first person to begin building your tree.</p>
+                <a asp-action="AddFirstMember" class="btn btn-primary ft-empty-state-btn">Add first person</a>
+            }
+            else
+            {
+                <p class="ft-empty-state-text">This shared tree has no people yet.</p>
+            }
         </div>
     }
     else
@@ -27,13 +34,17 @@
              data-edges="@Model.EdgesJson"
              data-focus-member-id="@Model.FocusMemberId"
              data-orientation="@Model.TreeViewOrientation"
-             data-lineage-mode="@Model.LineageMode"></div>
+             data-lineage-mode="@Model.LineageMode"
+             data-can-edit="@Model.CanEdit.ToString().ToLowerInvariant()"></div>
 
-        <div id="member-action-popup" class="cascading-menu-container" style="display:none;">
-            <div class="text-muted small p-2">Loading…</div>
-        </div>
+        @if (Model.CanEdit)
+        {
+            <div id="member-action-popup" class="cascading-menu-container" style="display:none;">
+                <div class="text-muted small p-2">Loading…</div>
+            </div>
 
-        @await Html.PartialAsync("_MemberPhotoModal")
+            @await Html.PartialAsync("_MemberPhotoModal")
+        }
     }
 </div>
 
@@ -42,7 +53,10 @@
     @if (hasMembers)
     {
         <script src="~/js/family-tree.js" asp-append-version="true"></script>
-        <script src="~/js/photo-upload-common.js" asp-append-version="true"></script>
-        <script src="~/js/member-photo.js" asp-append-version="true"></script>
+        @if (Model.CanEdit)
+        {
+            <script src="~/js/photo-upload-common.js" asp-append-version="true"></script>
+            <script src="~/js/member-photo.js" asp-append-version="true"></script>
+        }
     }
 }

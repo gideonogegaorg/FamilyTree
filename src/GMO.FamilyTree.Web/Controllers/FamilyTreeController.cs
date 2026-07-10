@@ -9,19 +9,26 @@ using Microsoft.EntityFrameworkCore;
 namespace GMO.FamilyTree.Web.Controllers;
 
 [Authorize]
-public class FamilyTreeController : Controller
+public sealed class FamilyTreeController : Controller
 {
     private readonly AppDbContext _db;
     private readonly UserManager<IdentityUser> _userManager;
     private readonly ICurrentFamilyTreeService _currentFamilyTree;
     private readonly IFamilyTreeDeletionService _familyTreeDeletion;
+    private readonly IFamilyTreeAccessService _access;
 
-    public FamilyTreeController(AppDbContext db, UserManager<IdentityUser> userManager, ICurrentFamilyTreeService currentFamilyTree, IFamilyTreeDeletionService familyTreeDeletion)
+    public FamilyTreeController(
+        AppDbContext db,
+        UserManager<IdentityUser> userManager,
+        ICurrentFamilyTreeService currentFamilyTree,
+        IFamilyTreeDeletionService familyTreeDeletion,
+        IFamilyTreeAccessService access)
     {
         _db = db;
         _userManager = userManager;
         _currentFamilyTree = currentFamilyTree;
         _familyTreeDeletion = familyTreeDeletion;
+        _access = access;
     }
 
     private string? _ownerId;
@@ -30,10 +37,7 @@ public class FamilyTreeController : Controller
     public async Task<IActionResult> Index(CancellationToken cancellationToken)
     {
         if (OwnerId == null) return NotFound();
-        var list = await _db.FamilyTrees
-            .Where(x => x.OwnerId == OwnerId)
-            .OrderBy(x => x.Name)
-            .ToListAsync(cancellationToken);
+        var list = await _access.GetAccessibleTreesAsync(OwnerId, cancellationToken);
         return View(list);
     }
 

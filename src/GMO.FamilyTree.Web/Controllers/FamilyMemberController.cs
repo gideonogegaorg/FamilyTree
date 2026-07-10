@@ -35,6 +35,8 @@ public class FamilyMemberController : Controller
     {
         var treeId = await _currentTree.GetCurrentFamilyTreeIdAsync(cancellationToken);
         if (!treeId.HasValue) return RedirectToAction(nameof(HomeController.Index), "Home");
+        if (!await EnsureCanEditAsync(treeId.Value, cancellationToken))
+            return Forbid();
 
         var tree = await _db.FamilyTrees.FindAsync(new object[] { treeId.Value }, cancellationToken);
         if (tree == null) return RedirectToAction(nameof(HomeController.Index), "Home");
@@ -59,6 +61,8 @@ public class FamilyMemberController : Controller
         var treeId = await _currentTree.GetCurrentFamilyTreeIdAsync(cancellationToken);
         if (!treeId.HasValue || model.FamilyTreeId != treeId.Value)
             return RedirectToAction(nameof(HomeController.Index), "Home");
+        if (!await EnsureCanEditAsync(treeId.Value, cancellationToken))
+            return Forbid();
 
         var contextMember = await _db.FamilyMembers.FindAsync(new object[] { model.ContextMemberId }, cancellationToken);
         if (contextMember == null || contextMember.FamilyTreeId != treeId.Value)
@@ -152,6 +156,12 @@ public class FamilyMemberController : Controller
     {
         var treeId = await _currentTree.GetCurrentFamilyTreeIdAsync(cancellationToken);
         if (!treeId.HasValue) return NotFound();
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(userId) || !await _access.CanViewAsync(userId, treeId.Value, cancellationToken))
+            return NotFound();
+        if (!await _access.CanEditAsync(userId, treeId.Value, cancellationToken))
+            return Content("<div class=\"cascading-menu p-2 text-muted small\">View only — you cannot edit this tree.</div>", "text/html");
+
         var member = await _db.FamilyMembers.FindAsync(new object[] { memberId }, cancellationToken);
         if (member == null || member.FamilyTreeId != treeId.Value) return NotFound();
 
@@ -213,6 +223,8 @@ public class FamilyMemberController : Controller
     {
         var treeId = await _currentTree.GetCurrentFamilyTreeIdAsync(cancellationToken);
         if (!treeId.HasValue) return Json(new { success = false, error = "No tree" });
+        if (!await EnsureCanEditAsync(treeId.Value, cancellationToken))
+            return Json(new { success = false, error = "Forbidden" });
         var rel = await _db.FamilyMemberRelationships.FindAsync(new object[] { relationshipId }, cancellationToken);
         if (rel == null || rel.FamilyTreeId != treeId.Value) return Json(new { success = false, error = "Not found" });
 
@@ -247,6 +259,8 @@ public class FamilyMemberController : Controller
     {
         var treeId = await _currentTree.GetCurrentFamilyTreeIdAsync(cancellationToken);
         if (!treeId.HasValue) return Json(new { success = false, error = "No tree" });
+        if (!await EnsureCanEditAsync(treeId.Value, cancellationToken))
+            return Json(new { success = false, error = "Forbidden" });
         var member = await _db.FamilyMembers.FindAsync(new object[] { memberId }, cancellationToken);
         if (member == null || member.FamilyTreeId != treeId.Value) return Json(new { success = false, error = "Not found" });
         if (string.IsNullOrWhiteSpace(name)) return Json(new { success = false, error = "Name is required" });
@@ -282,7 +296,8 @@ public class FamilyMemberController : Controller
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (string.IsNullOrEmpty(userId))
             return Json(new { success = false, error = "Unauthorized" });
-        if (!await _access.UserOwnsMemberAsync(userId, memberId, cancellationToken))
+        var level = await _access.GetAccessLevelForMemberAsync(userId, memberId, cancellationToken);
+        if (level < TreeAccessLevel.Editor)
             return Json(new { success = false, error = "Not found" });
         if (photo == null || photo.Length == 0)
             return Json(new { success = false, error = "Please select an image file." });
@@ -320,7 +335,8 @@ public class FamilyMemberController : Controller
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (string.IsNullOrEmpty(userId))
             return Json(new { success = false, error = "Unauthorized" });
-        if (!await _access.UserOwnsMemberAsync(userId, memberId, cancellationToken))
+        var level = await _access.GetAccessLevelForMemberAsync(userId, memberId, cancellationToken);
+        if (level < TreeAccessLevel.Editor)
             return Json(new { success = false, error = "Not found" });
 
         var member = await _db.FamilyMembers.FindAsync(new object[] { memberId }, cancellationToken);
@@ -338,6 +354,8 @@ public class FamilyMemberController : Controller
     {
         var treeId = await _currentTree.GetCurrentFamilyTreeIdAsync(cancellationToken);
         if (!treeId.HasValue) return RedirectToAction(nameof(HomeController.Index), "Home");
+        if (!await EnsureCanEditAsync(treeId.Value, cancellationToken))
+            return Forbid();
         var tree = await _db.FamilyTrees.FindAsync(new object[] { treeId.Value }, cancellationToken);
         if (tree == null) return RedirectToAction(nameof(HomeController.Index), "Home");
         var member = await _db.FamilyMembers.FindAsync(new object[] { memberId }, cancellationToken);
@@ -400,6 +418,8 @@ public class FamilyMemberController : Controller
         var treeId = await _currentTree.GetCurrentFamilyTreeIdAsync(cancellationToken);
         if (!treeId.HasValue || model.FamilyTreeId != treeId.Value)
             return RedirectToAction(nameof(HomeController.Index), "Home");
+        if (!await EnsureCanEditAsync(treeId.Value, cancellationToken))
+            return Forbid();
         if (!model.ExistingMemberId.HasValue)
         {
             ModelState.AddModelError(nameof(model.ExistingMemberId), "Please select a person to link.");
@@ -449,6 +469,12 @@ public class FamilyMemberController : Controller
         }
         await _db.SaveChangesAsync(cancellationToken);
         return RedirectToAction(nameof(HomeController.Index), "Home");
+    }
+
+    private async Task<bool> EnsureCanEditAsync(long treeId, CancellationToken cancellationToken)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        return !string.IsNullOrEmpty(userId) && await _access.CanEditAsync(userId, treeId, cancellationToken);
     }
 
     private static HashSet<long> GetExistingParentIds(long memberId, List<FamilyMemberRelationship> rels) =>
