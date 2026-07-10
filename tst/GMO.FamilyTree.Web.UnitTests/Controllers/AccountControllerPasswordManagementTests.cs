@@ -77,6 +77,32 @@ public class AccountControllerPasswordManagementTests : IClassFixture<AccountCon
     }
 
     [Fact]
+    public async Task AddPassword_when_anonymous_redirects_to_login()
+    {
+        await using var db = _f.CreateDb(nameof(AddPassword_when_anonymous_redirects_to_login));
+        var (signIn, users) = _f.CreateIdentityManagers(db);
+        var user = new IdentityUser { UserName = "anon@example.com", Email = "anon@example.com", EmailConfirmed = true };
+        Assert.True((await users.CreateAsync(user)).Succeeded);
+
+        var token = await users.GenerateUserTokenAsync(user, TokenOptions.DefaultProvider, AccountController.AddPasswordTokenPurpose);
+        var code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(token));
+
+        var controller = CreateAnonymous(db, signIn, users, new Mock<IEmailSender>().Object);
+        var result = await controller.AddPassword(new AddPasswordViewModel
+        {
+            UserId = user.Id!,
+            Code = code,
+            Password = "TestPassword1!",
+            ConfirmPassword = "TestPassword1!"
+        });
+
+        var redirect = Assert.IsType<RedirectToActionResult>(result);
+        Assert.Equal(nameof(AccountController.Login), redirect.ActionName);
+        Assert.True(await users.HasPasswordAsync(user));
+        Assert.True(await users.GetTwoFactorEnabledAsync(user));
+    }
+
+    [Fact]
     public async Task AddPassword_with_invalid_token_fails()
     {
         await using var db = _f.CreateDb(nameof(AddPassword_with_invalid_token_fails));

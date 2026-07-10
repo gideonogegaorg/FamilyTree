@@ -139,6 +139,62 @@ public class AccountControllerTwoFactorTests : IClassFixture<AccountControllerFi
     }
 
     [Fact]
+    public async Task LoginWith2fa_POST_rejects_invalid_code()
+    {
+        await using var db = _f.CreateDb(nameof(LoginWith2fa_POST_rejects_invalid_code));
+        var (_, users) = _f.CreateIdentityManagers(db);
+        var user = new IdentityUser { UserName = "badcode@example.com", Email = "badcode@example.com", EmailConfirmed = true };
+        Assert.True((await users.CreateAsync(user, "TestPassword1!")).Succeeded);
+        Assert.True((await users.SetTwoFactorEnabledAsync(user, true)).Succeeded);
+
+        var signIn = new Mock<SignInManager<IdentityUser>>(
+            users,
+            Mock.Of<IHttpContextAccessor>(),
+            Mock.Of<IUserClaimsPrincipalFactory<IdentityUser>>(),
+            null!, null!, null!, null!);
+        signIn.Setup(s => s.GetTwoFactorAuthenticationUserAsync()).ReturnsAsync(user);
+        signIn.Setup(s => s.TwoFactorSignInAsync(TokenOptions.DefaultEmailProvider, "000000", false, false))
+            .ReturnsAsync(Microsoft.AspNetCore.Identity.SignInResult.Failed);
+
+        var controller = CreateAnonymousController(db, signIn.Object, users, new Mock<IEmailSender>().Object);
+        var result = await controller.LoginWith2fa(new LoginWith2faViewModel
+        {
+            TwoFactorCode = "000000",
+            RememberMe = false,
+            ReturnUrl = "/Home/Index"
+        });
+
+        Assert.IsType<ViewResult>(result);
+        Assert.False(controller.ModelState.IsValid);
+    }
+
+    [Fact]
+    public async Task LoginWith2fa_GET_sets_rate_limited_flag_when_email_blocked()
+    {
+        await using var db = _f.CreateDb(nameof(LoginWith2fa_GET_sets_rate_limited_flag_when_email_blocked));
+        var (_, users) = _f.CreateIdentityManagers(db);
+        var user = new IdentityUser { UserName = "rl@example.com", Email = "rl@example.com", EmailConfirmed = true };
+        Assert.True((await users.CreateAsync(user, "TestPassword1!")).Succeeded);
+        Assert.True((await users.SetTwoFactorEnabledAsync(user, true)).Succeeded);
+
+        var signIn = new Mock<SignInManager<IdentityUser>>(
+            users,
+            Mock.Of<IHttpContextAccessor>(),
+            Mock.Of<IUserClaimsPrincipalFactory<IdentityUser>>(),
+            null!, null!, null!, null!);
+        signIn.Setup(s => s.GetTwoFactorAuthenticationUserAsync()).ReturnsAsync(user);
+
+        var rateLimiter = new Mock<IEmailRateLimiter>();
+        rateLimiter.Setup(r => r.TryAcquire(EmailRateLimitOperations.TwoFactor, user.Email!, It.IsAny<string?>()))
+            .Returns(false);
+
+        var controller = CreateAnonymousController(db, signIn.Object, users, new Mock<IEmailSender>().Object, rateLimiter.Object);
+        var result = await controller.LoginWith2fa(rememberMe: false, returnUrl: "/Home/Index");
+        Assert.IsType<ViewResult>(result);
+        Assert.True((bool)controller.ViewBag.EmailRateLimited!);
+    }
+
+    [Fact]
     public async Task ExternalLoginCallback_bypasses_two_factor()
     {
         await using var db = _f.CreateDb(nameof(ExternalLoginCallback_bypasses_two_factor));
@@ -172,7 +228,8 @@ public class AccountControllerTwoFactorTests : IClassFixture<AccountControllerFi
         AppDbContext db,
         SignInManager<IdentityUser> signIn,
         UserManager<IdentityUser> users,
-        IEmailSender email)
+        IEmailSender email,
+        IEmailRateLimiter? rateLimiter = null)
     {
         var currentTree = new CurrentFamilyTreeServiceMock().Object;
         var treeViewOrientation = new Mock<ITreeViewOrientationService>().Object;
@@ -190,7 +247,7 @@ public class AccountControllerTwoFactorTests : IClassFixture<AccountControllerFi
         var controller = new AccountController(
             signIn, users, email, googleAuth, db, currentTree, treeViewOrientation, lineageMode,
             defaultTree, familyTreeDeletion, env, paths, external, photos, treeCardViewMode, access,
-            AccountControllerFixture.CreateAllowAllRateLimiter(),
+            rateLimiter ?? AccountControllerFixture.CreateAllowAllRateLimiter(),
             Microsoft.Extensions.Logging.Abstractions.NullLogger<AccountController>.Instance);
 
         controller.ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() };
