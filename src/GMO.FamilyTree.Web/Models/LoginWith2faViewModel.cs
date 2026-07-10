@@ -33,4 +33,3 @@ public class LoginWith2faViewModel
     public string? ReturnUrl { get; set; }
 
 }
-
