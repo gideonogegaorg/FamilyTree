@@ -145,4 +145,79 @@ public class FamilyTreeShareServiceTests
             Assert.Equal(2, await db.FamilyTreeAccesses.CountAsync(a => a.FamilyTreeId == treeId));
         }
     }
+
+    [Fact]
+    public async Task Accept_returns_already_owner_for_tree_owner()
+    {
+        var (db, sut, treeId) = await SeedAsync(nameof(Accept_returns_already_owner_for_tree_owner));
+        await using (db)
+        {
+            var invite = await sut.CreateLinkInviteAsync(treeId, "owner", TreeShareRole.Editor, null);
+            var result = await sut.AcceptInviteAsync(invite.Token, "owner", "owner@example.com");
+            Assert.Equal(InviteAcceptResult.AlreadyOwner, result.Result);
+            Assert.Equal(treeId, result.TreeId);
+        }
+    }
+
+    [Fact]
+    public async Task Accept_upgrades_existing_readonly_grant_to_editor()
+    {
+        var (db, sut, treeId) = await SeedAsync(nameof(Accept_upgrades_existing_readonly_grant_to_editor));
+        await using (db)
+        {
+            db.FamilyTreeAccesses.Add(new FamilyTreeAccess
+            {
+                FamilyTreeId = treeId,
+                UserId = "guest",
+                Role = TreeShareRole.Readonly,
+                GrantedAt = DateTimeOffset.UtcNow.AddDays(-1),
+                GrantedByUserId = "owner"
+            });
+            await db.SaveChangesAsync();
+
+            var invite = await sut.CreateLinkInviteAsync(treeId, "owner", TreeShareRole.Editor, null);
+            var result = await sut.AcceptInviteAsync(invite.Token, "guest", "guest@example.com");
+            Assert.Equal(InviteAcceptResult.Success, result.Result);
+            Assert.Equal(TreeShareRole.Editor, (await db.FamilyTreeAccesses.SingleAsync()).Role);
+        }
+    }
+
+    [Fact]
+    public async Task ResendEmailInvite_rotates_token_for_pending_email_invite()
+    {
+        var (db, sut, treeId) = await SeedAsync(nameof(ResendEmailInvite_rotates_token_for_pending_email_invite));
+        await using (db)
+        {
+            var invite = await sut.CreateEmailInviteAsync(treeId, "owner", "guest@example.com", TreeShareRole.Readonly, null);
+            var oldToken = invite.Token;
+
+            var resent = await sut.ResendEmailInviteAsync(invite.Id, "owner");
+            Assert.NotNull(resent);
+            Assert.NotEqual(oldToken, resent!.Token);
+            Assert.Null(await sut.ResendEmailInviteAsync(invite.Id, "guest"));
+        }
+    }
+
+    [Fact]
+    public async Task GetCollaborators_and_pending_invites_return_expected_rows()
+    {
+        var (db, sut, treeId) = await SeedAsync(nameof(GetCollaborators_and_pending_invites_return_expected_rows));
+        await using (db)
+        {
+            await sut.CreateLinkInviteAsync(treeId, "owner", TreeShareRole.Editor, null);
+            await sut.CreateEmailInviteAsync(treeId, "owner", "guest@example.com", TreeShareRole.Readonly, null);
+            db.FamilyTreeAccesses.Add(new FamilyTreeAccess
+            {
+                FamilyTreeId = treeId,
+                UserId = "guest",
+                Role = TreeShareRole.Readonly,
+                GrantedAt = DateTimeOffset.UtcNow,
+                GrantedByUserId = "owner"
+            });
+            await db.SaveChangesAsync();
+
+            Assert.Single(await sut.GetCollaboratorsAsync(treeId));
+            Assert.Equal(2, (await sut.GetPendingInvitesAsync(treeId)).Count);
+        }
+    }
 }
