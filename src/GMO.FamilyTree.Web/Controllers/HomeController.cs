@@ -23,8 +23,9 @@ public class HomeController : Controller
     private readonly ILineageModeService _lineageMode;
     private readonly ITreeCardViewModeService _treeCardViewMode;
     private readonly IOptionsMonitor<GoogleAuthOptions> _googleAuth;
+    private readonly IWebHostEnvironment _env;
 
-    public HomeController(AppDbContext db, ICurrentFamilyTreeService currentTree, ITreeViewOrientationService treeViewOrientation, ILineageModeService lineageMode, ITreeCardViewModeService treeCardViewMode, IOptionsMonitor<GoogleAuthOptions> googleAuth)
+    public HomeController(AppDbContext db, ICurrentFamilyTreeService currentTree, ITreeViewOrientationService treeViewOrientation, ILineageModeService lineageMode, ITreeCardViewModeService treeCardViewMode, IOptionsMonitor<GoogleAuthOptions> googleAuth, IWebHostEnvironment env)
     {
         _db = db;
         _currentTree = currentTree;
@@ -32,6 +33,28 @@ public class HomeController : Controller
         _lineageMode = lineageMode;
         _treeCardViewMode = treeCardViewMode;
         _googleAuth = googleAuth;
+        _env = env;
+    }
+
+    [AllowAnonymous]
+    public async Task<IActionResult> Landing(CancellationToken cancellationToken)
+    {
+        if (User.Identity?.IsAuthenticated == true)
+            return Redirect("/Home/Index");
+
+        var demoPath = Path.Combine(_env.WebRootPath, "data", "demo-tree.json");
+        if (!System.IO.File.Exists(demoPath))
+            return View(new LandingPageViewModel());
+
+        await using var stream = System.IO.File.OpenRead(demoPath);
+        var readOpts = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+        var demo = await JsonSerializer.DeserializeAsync<LandingDemoTreeDto>(stream, readOpts, cancellationToken);
+        var writeOpts = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+        return View(new LandingPageViewModel
+        {
+            DemoNodesJson = demo?.Nodes != null ? JsonSerializer.Serialize(demo.Nodes, writeOpts) : "[]",
+            DemoEdgesJson = demo?.Edges != null ? JsonSerializer.Serialize(demo.Edges, writeOpts) : "[]"
+        });
     }
 
     public async Task<IActionResult> Index(CancellationToken cancellationToken)
