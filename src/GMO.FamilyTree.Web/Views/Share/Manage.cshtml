@@ -18,7 +18,7 @@
 @if (!string.IsNullOrEmpty(Model.CreatedLinkUrl))
 {
     <div class="alert alert-info">
-        <label class="form-label fw-semibold">Share link</label>
+        <label class="form-label fw-semibold" for="created-share-link">Share link</label>
         <div class="input-group">
             <input type="text" class="form-control" id="created-share-link" value="@Model.CreatedLinkUrl" readonly />
             <button type="button" class="btn btn-outline-secondary" id="copy-share-link">Copy</button>
@@ -95,7 +95,8 @@ else
                         @Html.AntiForgeryToken()
                         <input type="hidden" name="treeId" value="@Model.TreeId" />
                         <input type="hidden" name="collaboratorUserId" value="@c.UserId" />
-                        <select class="form-select form-select-sm" name="role" onchange="this.form.submit()">
+                        <label class="visually-hidden" for="role-@c.UserId">Role for @c.Email</label>
+                        <select class="form-select form-select-sm" id="role-@c.UserId" name="role" onchange="this.form.submit()">
                             @foreach (TreeShareRole roleOption in Enum.GetValues<TreeShareRole>())
                             {
                                 if (c.Role == roleOption)
