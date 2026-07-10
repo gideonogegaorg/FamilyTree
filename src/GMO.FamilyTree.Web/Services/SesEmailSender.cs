@@ -44,6 +44,6 @@ public sealed class SesEmailSender : IEmailSender
         };
 
         var response = await _ses.SendEmailAsync(request);
-        _logger.LogInformation("SES email sent to {Email}, MessageId={MessageId}", email, response.MessageId);
+        _logger.LogInformation("SES email sent, MessageId={MessageId}", response.MessageId);
     }
 }

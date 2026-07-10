@@ -1,92 +1,46 @@
 @model GMO.FamilyTree.Web.Models.LoginWith2faViewModel
-
 @{
-
     Layout = "_LayoutLogin";
-
     ViewData["Title"] = "Two-factor authentication";
-
     var emailAddress = ViewBag.EmailAddress as string;
-
     var emailCodeSent = ViewBag.EmailCodeSent as bool? == true;
-
     var emailRateLimited = ViewBag.EmailRateLimited as bool? == true;
-
 }
-
-
 
 <div class="ft-auth-card mx-auto">
-
     <h1 class="ft-page-title">Two-factor authentication</h1>
-
     @if (emailRateLimited)
-
     {
-
         <p class="ft-auth-subtitle text-danger">Too many email requests recently. Please wait a few minutes and try again.</p>
-
     }
-
     else if (emailCodeSent && !string.IsNullOrEmpty(emailAddress))
-
     {
-
         <p class="ft-auth-subtitle">We sent a 6-digit code to <strong>@emailAddress</strong>. Enter it below to continue.</p>
-
     }
-
     else
-
     {
-
         <p class="ft-auth-subtitle">Enter the 6-digit code we sent to your email.</p>
-
     }
-
     <form asp-action="LoginWith2fa" method="post">
-
         <input type="hidden" asp-for="RememberMe" />
-
         <input type="hidden" asp-for="ReturnUrl" />
-
         <div asp-validation-summary="ModelOnly" class="text-danger mb-2" role="alert"></div>
-
         <div class="mb-3">
-
             <label asp-for="TwoFactorCode" class="form-label"></label>
-
             <input asp-for="TwoFactorCode" class="form-control" autocomplete="one-time-code" autofocus />
-
             <span asp-validation-for="TwoFactorCode" class="text-danger"></span>
-
         </div>
-
         <div class="mb-3 form-check">
-
             <input asp-for="RememberMachine" class="form-check-input" />
-
             <label asp-for="RememberMachine" class="form-check-label"></label>
-
         </div>
-
         <button type="submit" class="btn btn-primary w-100 mb-2">Verify</button>
-
     </form>
-
     <p class="mb-0 text-center small">
-
-        <a asp-action="Login" asp-route-returnUrl="@Model.ReturnUrl">Back to sign in</a>
-
+        <a asp-action="Login">Back to sign in</a>
     </p>
-
 </div>
 
-
-
 @section Scripts {
-
     <partial name="_ValidationScriptsPartial" />
-
 }
-
