@@ -41,10 +41,10 @@ public sealed class EmailRateLimiter : IEmailRateLimiter
         }
 
         var email = recipientEmail.Trim().ToLowerInvariant();
-        var recipientKey = $"email-rate:recipient:{operation}:{HashForKey(email)}";
+        var recipientKey = $"email-rate:recipient:{HashForKey(operation)}:{HashForKey(email)}";
         if (!TryAcquireRecipient(recipientKey))
         {
-            _logger.LogWarning("Email rate limit exceeded for operation {Operation}", operation);
+            _logger.LogWarning("Email rate limit exceeded for a recipient bucket");
             return false;
         }
 
