@@ -313,4 +313,63 @@ public class ShareControllerTests
             Assert.Equal("AcceptError", view.ViewName);
         }
     }
+
+    [Fact]
+    public async Task Accept_email_mismatch_and_revoked_show_errors()
+    {
+        var (controller, db, _, _, _) = await CreateAsync(nameof(Accept_email_mismatch_and_revoked_show_errors), "other");
+        db.Users.Add(new IdentityUser { Id = "other", UserName = "other@example.com", Email = "other@example.com", EmailConfirmed = true });
+        await db.SaveChangesAsync();
+
+        await using (db)
+        {
+            var share = new FamilyTreeShareService(db, new FamilyTreeAccessService(db));
+            var emailInvite = await share.CreateEmailInviteAsync(1, "owner", "guest@example.com", TreeShareRole.Readonly, null);
+            var mismatch = await controller.Accept(emailInvite.Token, CancellationToken.None);
+            var mismatchView = Assert.IsType<ViewResult>(mismatch);
+            Assert.Contains("email", Assert.IsType<string>(mismatchView.Model), StringComparison.OrdinalIgnoreCase);
+
+            var link = await share.CreateLinkInviteAsync(1, "owner", TreeShareRole.Editor, null);
+            await share.RevokeInviteAsync(link.Id, "owner");
+            // Switch principal to guest for revoked check
+            controller.ControllerContext.HttpContext.User = new ClaimsPrincipal(new ClaimsIdentity(
+                [new Claim(ClaimTypes.NameIdentifier, "guest")], "test"));
+            var revoked = await controller.Accept(link.Token, CancellationToken.None);
+            var revokedView = Assert.IsType<ViewResult>(revoked);
+            Assert.Contains("revoked", Assert.IsType<string>(revokedView.Model), StringComparison.OrdinalIgnoreCase);
+        }
+    }
+
+    [Fact]
+    public async Task Accept_already_owner_redirects_home()
+    {
+        var (controller, db, _, _, current) = await CreateAsync(nameof(Accept_already_owner_redirects_home), "owner");
+        await using (db)
+        {
+            var share = new FamilyTreeShareService(db, new FamilyTreeAccessService(db));
+            var invite = await share.CreateLinkInviteAsync(1, "owner", TreeShareRole.Editor, null);
+            var result = await controller.Accept(invite.Token, CancellationToken.None);
+            Assert.IsType<RedirectToActionResult>(result);
+            current.Verify(c => c.SetCurrentFamilyTreeIdAsync(1, It.IsAny<CancellationToken>()), Times.Once);
+        }
+    }
+
+    [Fact]
+    public async Task ResendInvite_rate_limited_does_not_send()
+    {
+        var rateLimiter = new Mock<IEmailRateLimiter>();
+        rateLimiter.Setup(r => r.TryAcquire(EmailRateLimitOperations.ShareInvite, "guest@example.com", It.IsAny<string?>()))
+            .Returns(false);
+        var (controller, db, _, email, _) = await CreateAsync(
+            nameof(ResendInvite_rate_limited_does_not_send), "owner", rateLimiter: rateLimiter.Object);
+        await using (db)
+        {
+            var share = new FamilyTreeShareService(db, new FamilyTreeAccessService(db));
+            var invite = await share.CreateEmailInviteAsync(1, "owner", "guest@example.com", TreeShareRole.Readonly, null);
+            var result = await controller.ResendInvite(1, invite.Id, CancellationToken.None);
+            var model = Assert.IsType<ShareManageViewModel>(Assert.IsType<ViewResult>(result).Model);
+            Assert.Contains("Too many emails", model.StatusMessage, StringComparison.OrdinalIgnoreCase);
+            email.Verify(e => e.SendEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()), Times.Never);
+        }
+    }
 }
