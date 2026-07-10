@@ -27,7 +27,7 @@ public class HomeControllerTests : IClassFixture<WebAppFixture>
         await EnsureTreeWithOneMemberAsync();
 
         // Act
-        var response = await _client.GetAsync("/");
+        var response = await _client.GetAsync("/Home/Index");
 
         // Assert
         response.EnsureSuccessStatusCode();
@@ -47,7 +47,7 @@ public class HomeControllerTests : IClassFixture<WebAppFixture>
     {
         await EnsureTreeWithOneMemberAsync();
 
-        var token = await GetAntiforgeryTokenAsync(_client, "/");
+        var token = await GetAntiforgeryTokenAsync(_client, "/Home/Index");
         var form = new Dictionary<string, string>
         {
             ["orientation"] = "1", // Vertical
@@ -57,9 +57,9 @@ public class HomeControllerTests : IClassFixture<WebAppFixture>
         var postResponse = await _client.PostAsync("/Account/SetTreeViewOrientation", new FormUrlEncodedContent(form));
         Assert.Equal(HttpStatusCode.Redirect, postResponse.StatusCode);
         Assert.NotNull(postResponse.Headers.Location);
-        Assert.Contains("/", postResponse.Headers.Location.ToString());
+        Assert.Contains("/Home/Index", postResponse.Headers.Location.ToString(), StringComparison.OrdinalIgnoreCase);
 
-        var indexResponse = await _client.GetAsync("/");
+        var indexResponse = await _client.GetAsync("/Home/Index");
         indexResponse.EnsureSuccessStatusCode();
         var html = await indexResponse.Content.ReadAsStringAsync();
         Assert.True(
@@ -72,7 +72,7 @@ public class HomeControllerTests : IClassFixture<WebAppFixture>
     {
         await EnsureTreeWithOneMemberAsync();
 
-        var token = await GetAntiforgeryTokenAsync(_client, "/");
+        var token = await GetAntiforgeryTokenAsync(_client, "/Home/Index");
         var form = new Dictionary<string, string>
         {
             ["mode"] = "1", // Maternal
@@ -81,8 +81,10 @@ public class HomeControllerTests : IClassFixture<WebAppFixture>
 
         var postResponse = await _client.PostAsync("/Account/SetLineageMode", new FormUrlEncodedContent(form));
         Assert.Equal(HttpStatusCode.Redirect, postResponse.StatusCode);
+        Assert.NotNull(postResponse.Headers.Location);
+        Assert.Contains("/Home/Index", postResponse.Headers.Location.ToString(), StringComparison.OrdinalIgnoreCase);
 
-        var indexResponse = await _client.GetAsync("/");
+        var indexResponse = await _client.GetAsync("/Home/Index");
         indexResponse.EnsureSuccessStatusCode();
         var html = await indexResponse.Content.ReadAsStringAsync();
         Assert.True(
@@ -92,11 +94,11 @@ public class HomeControllerTests : IClassFixture<WebAppFixture>
 
     private async Task EnsureTreeWithOneMemberAsync()
     {
-        var indexResponse = await _client.GetAsync("/");
+        var indexResponse = await _client.GetAsync("/Home/Index");
         if (indexResponse.StatusCode == HttpStatusCode.Redirect && indexResponse.Headers.Location?.ToString().Contains("FamilyTree") == true)
         {
             await CreateTreeAndSetCurrentAsync();
-            indexResponse = await _client.GetAsync("/");
+            indexResponse = await _client.GetAsync("/Home/Index");
         }
 
         var html = await indexResponse.Content.ReadAsStringAsync();

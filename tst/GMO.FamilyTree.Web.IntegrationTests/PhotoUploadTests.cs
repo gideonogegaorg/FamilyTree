@@ -22,6 +22,7 @@ public sealed class PhotoUploadTests : IClassFixture<WebAppFixture>
     [Fact]
     public async Task UploadPhoto_POST_with_png_icon_returns_json_success_and_photo_is_served()
     {
+        await EnsureMemberIdAsync();
         var iconPath = Path.Combine(AppContext.BaseDirectory, "TestAssets", "HP-Folder.png");
         Assert.True(File.Exists(iconPath), $"Test asset missing: {iconPath}");
 
@@ -53,7 +54,7 @@ public sealed class PhotoUploadTests : IClassFixture<WebAppFixture>
         var iconPath = Path.Combine(AppContext.BaseDirectory, "TestAssets", "HP-Explorer.png");
         Assert.True(File.Exists(iconPath), $"Test asset missing: {iconPath}");
 
-        var token = await GetAntiforgeryTokenAsync("/");
+        var token = await GetAntiforgeryTokenAsync("/Home/Index");
         await using var fileStream = File.OpenRead(iconPath);
         using var content = new MultipartFormDataContent();
         content.Add(new StringContent(token), "__RequestVerificationToken");
@@ -77,7 +78,7 @@ public sealed class PhotoUploadTests : IClassFixture<WebAppFixture>
 
     private async Task<string> GetAntiforgeryTokenFromProfileFormAsync()
     {
-        var html = await (await _client.GetAsync("/")).Content.ReadAsStringAsync();
+        var html = await GetPageHtmlAsync("/Home/Index");
         var formStart = html.IndexOf("id=\"profile-photo-form\"", StringComparison.Ordinal);
         Assert.True(formStart >= 0, "Profile photo form should be present on home page.");
         var slice = html[formStart..];
@@ -90,7 +91,7 @@ public sealed class PhotoUploadTests : IClassFixture<WebAppFixture>
 
     private async Task<long> EnsureMemberIdAsync()
     {
-        var indexResponse = await _client.GetAsync("/");
+        var indexResponse = await _client.GetAsync("/Home/Index");
         if (indexResponse.StatusCode == HttpStatusCode.Redirect)
         {
             var createToken = await GetAntiforgeryTokenAsync("/FamilyTree/Create");
@@ -100,7 +101,7 @@ public sealed class PhotoUploadTests : IClassFixture<WebAppFixture>
                 ["Uid"] = Guid.NewGuid().ToString(),
                 ["__RequestVerificationToken"] = createToken
             }));
-            indexResponse = await _client.GetAsync("/");
+            indexResponse = await _client.GetAsync("/Home/Index");
         }
 
         var html = await indexResponse.Content.ReadAsStringAsync();
@@ -130,10 +131,24 @@ public sealed class PhotoUploadTests : IClassFixture<WebAppFixture>
 
     private async Task<string> GetAntiforgeryTokenAsync(string pageUrl)
     {
-        var html = await (await _client.GetAsync(pageUrl)).Content.ReadAsStringAsync();
+        var html = await GetPageHtmlAsync(pageUrl);
         var start = html.IndexOf("name=\"__RequestVerificationToken\"", StringComparison.Ordinal);
         var valueStart = html.IndexOf("value=\"", start, StringComparison.Ordinal) + 7;
         var valueEnd = html.IndexOf('"', valueStart);
         return html[valueStart..valueEnd];
+    }
+
+    private async Task<string> GetPageHtmlAsync(string pageUrl)
+    {
+        var response = await _client.GetAsync(pageUrl);
+        for (var i = 0; i < 5 && response.StatusCode == HttpStatusCode.Redirect; i++)
+        {
+            var location = response.Headers.Location;
+            if (location == null) break;
+            var nextUrl = location.IsAbsoluteUri ? location.PathAndQuery : location.ToString();
+            response = await _client.GetAsync(nextUrl);
+        }
+        response.EnsureSuccessStatusCode();
+        return await response.Content.ReadAsStringAsync();
     }
 }

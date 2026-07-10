@@ -1,0 +1,126 @@
+@model GMO.FamilyTree.Web.Models.LandingPageViewModel
+@{
+    ViewData["Title"] = "Family Tree";
+    ViewData["BareMain"] = true;
+    ViewData["WideContent"] = true;
+    ViewData["PageTitle"] = "Family Tree — Build and explore your family";
+}
+
+<div class="ft-landing">
+    <section class="ft-landing-hero">
+        <div class="ft-landing-hero-copy">
+            <p class="ft-landing-eyebrow">Private family genealogy</p>
+            <h1 class="ft-landing-title">Map your family. Share memories. Keep it yours.</h1>
+            <p class="ft-landing-lead">
+                Family Tree is an interactive, photo-rich way to build multi-generation trees,
+                explore lineage, and keep member photos private — served only to people you trust.
+            </p>
+            <div class="ft-landing-hero-actions">
+                <a class="btn btn-primary btn-lg" asp-controller="Account" asp-action="Register" asp-route-returnUrl="/Home/Index">Sign up free</a>
+                <a class="btn btn-outline-secondary btn-lg" asp-controller="Account" asp-action="Login" asp-route-returnUrl="/Home/Index">Sign in</a>
+            </div>
+        </div>
+        <div class="ft-landing-hero-visual" aria-hidden="true">
+            <div class="ft-landing-hero-card">
+                <img src="~/images/landing/tree-horizontal.png" alt="" class="ft-landing-hero-preview img-fluid rounded mb-2" loading="lazy" />
+                <span class="ft-landing-hero-card-label">Example tree</span>
+                <p class="mb-0 small text-muted">Grandparents, parents, and children — with photos on every card.</p>
+            </div>
+        </div>
+    </section>
+
+    <section class="ft-landing-section">
+        <h2 class="ft-landing-section-title">What you can do</h2>
+        <div class="row g-4">
+            <div class="col-md-6 col-lg-3">
+                <article class="ft-landing-feature">
+                    <h3>Interactive tree</h3>
+                    <p>Pan and zoom across generations. Add parents, partners, and children as your tree grows.</p>
+                </article>
+            </div>
+            <div class="col-md-6 col-lg-3">
+                <article class="ft-landing-feature">
+                    <h3>Photo-rich cards</h3>
+                    <p>Upload portraits for every member. Switch view modes from compact names to large photo cards.</p>
+                </article>
+            </div>
+            <div class="col-md-6 col-lg-3">
+                <article class="ft-landing-feature">
+                    <h3>Layout control</h3>
+                    <p>Flip between horizontal and vertical orientations. Choose paternal or maternal lineage emphasis.</p>
+                </article>
+            </div>
+            <div class="col-md-6 col-lg-3">
+                <article class="ft-landing-feature">
+                    <h3>Private photos</h3>
+                    <p>Images stay in private storage and are served only through authenticated app routes.</p>
+                </article>
+            </div>
+        </div>
+    </section>
+
+    <section class="ft-landing-section">
+        <h2 class="ft-landing-section-title">See it in action</h2>
+        <p class="ft-landing-section-lead">Screenshots from the real app — trees, photos, and toolbar controls.</p>
+        <div class="row g-4 ft-landing-screenshots">
+            <div class="col-md-4">
+                <figure class="ft-landing-shot">
+                    <img src="~/images/landing/tree-horizontal.png" alt="Family tree in horizontal layout with multiple generations" class="img-fluid rounded" loading="lazy" />
+                    <figcaption>Multi-generation horizontal tree</figcaption>
+                </figure>
+            </div>
+            <div class="col-md-4">
+                <figure class="ft-landing-shot">
+                    <img src="~/images/landing/tree-photos.png" alt="Family tree with large photo view mode enabled" class="img-fluid rounded" loading="lazy" />
+                    <figcaption>Photo view modes</figcaption>
+                </figure>
+            </div>
+            <div class="col-md-4">
+                <figure class="ft-landing-shot">
+                    <img src="~/images/landing/tree-toolbar.png" alt="Tree toolbar with orientation and lineage controls" class="img-fluid rounded" loading="lazy" />
+                    <figcaption>Orientation and lineage toolbar</figcaption>
+                </figure>
+            </div>
+        </div>
+    </section>
+
+    <section class="ft-landing-section ft-landing-demo-section">
+        <h2 class="ft-landing-section-title">Try a live example</h2>
+        <p class="ft-landing-section-lead">Explore a read-only sample tree below. Sign up to build your own.</p>
+        <div class="ft-landing-demo-wrap">
+            <div id="family-tree-graph"
+                 class="family-tree-graph ft-demo-tree ft-view-standard ft-orientation-horizontal"
+                 data-demo="true"
+                 data-nodes="@Model.DemoNodesJson"
+                 data-edges="@Model.DemoEdgesJson"
+                 data-orientation="Horizontal"
+                 data-lineage-mode="Paternal"></div>
+        </div>
+        <p class="ft-landing-demo-credit small text-muted">
+            Demo portraits from <a href="https://unsplash.com" rel="noopener noreferrer" target="_blank">Unsplash</a> (illustrative only).
+        </p>
+    </section>
+
+    <section class="ft-landing-cta">
+        <h2 class="ft-landing-cta-title">Ready to start your tree?</h2>
+        <p class="ft-landing-cta-lead">Create a free account and add your first family member in minutes.</p>
+        <div class="ft-landing-hero-actions">
+            <a class="btn btn-primary btn-lg" asp-controller="Account" asp-action="Register" asp-route-returnUrl="/Home/Index">Sign up free</a>
+            <a class="btn btn-outline-secondary btn-lg" asp-controller="Account" asp-action="Login" asp-route-returnUrl="/Home/Index">Sign in</a>
+        </div>
+    </section>
+</div>
+
+@section Scripts {
+    <script>
+        (function () {
+            var graph = document.getElementById('family-tree-graph');
+            if (!graph || graph.getAttribute('data-demo') !== 'true') return;
+            if (window.matchMedia('(max-width: 767px)').matches) {
+                graph.setAttribute('data-orientation', 'Vertical');
+                graph.classList.remove('ft-orientation-horizontal');
+            }
+        })();
+    </script>
+    <script src="~/js/family-tree.js" asp-append-version="true"></script>
+}
