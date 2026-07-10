@@ -419,7 +419,11 @@ public class AccountControllerTests : IClassFixture<WebAppFixture>
         using (var scope = _fixture.CreateScope())
         {
             var db = _fixture.GetDbContext(scope);
-            var tree = await db.FamilyTrees.FirstOrDefaultAsync();
+            var testUser = await db.Users.SingleAsync(u => u.Email == Controllers.TestAuthController.TestUserEmail);
+            var tree = await db.FamilyTrees
+                .Where(t => t.OwnerId == testUser.Id)
+                .OrderByDescending(t => t.Id)
+                .FirstOrDefaultAsync();
             Assert.NotNull(tree);
             treeId = tree.Id;
         }

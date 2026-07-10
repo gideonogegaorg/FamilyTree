@@ -267,7 +267,15 @@ public class AccountController : Controller
                 {
                     var defaultTreeId = await _defaultFamilyTree.EnsureDefaultFamilyTreeAsync(user.Id!, cancellationToken);
                     if (defaultTreeId.HasValue)
-                        await _currentFamilyTree.SetCurrentFamilyTreeIdAsync(defaultTreeId.Value, cancellationToken);
+                    {
+                        // User is not signed in yet, so CurrentFamilyTreeService cannot resolve claims.
+                        _db.UserProfiles.Add(new UserProfile
+                        {
+                            UserId = user.Id!,
+                            CurrentFamilyTreeId = defaultTreeId.Value
+                        });
+                        await _db.SaveChangesAsync(cancellationToken);
+                    }
                 }
                 catch (Exception ex)
                 {
