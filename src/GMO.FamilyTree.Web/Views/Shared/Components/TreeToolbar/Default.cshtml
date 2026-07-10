@@ -20,27 +20,42 @@
                                         role="option"
                                         aria-selected="@(tree.Id == Model.CurrentTreeId ? "true" : "false")">
                                     @tree.Name
+                                    @if (!tree.IsOwner)
+                                    {
+                                        <span class="text-muted small">(@tree.AccessLevel)</span>
+                                    }
                                 </button>
                                 <input type="hidden" name="id" value="@tree.Id" />
                             </form>
-                            <a asp-controller="FamilyTree"
-                               asp-action="Edit"
-                               asp-route-id="@tree.Id"
-                               class="ft-tree-picker-edit"
-                               aria-label="Rename @tree.Name"
-                               title="Rename @tree.Name">
-                                <span aria-hidden="true">&#9998;</span>
-                            </a>
-                            <form asp-controller="Account" asp-action="DeleteFamilyTree" method="post" class="ft-tree-picker-delete-form">
-                                @Html.AntiForgeryToken()
-                                <input type="hidden" name="id" value="@tree.Id" />
-                                <button type="submit"
-                                        class="ft-tree-picker-delete"
-                                        aria-label="Delete @tree.Name"
-                                        title="Delete @tree.Name">
-                                    <span aria-hidden="true">&#128465;</span>
-                                </button>
-                            </form>
+                            @if (tree.IsOwner)
+                            {
+                                <a asp-controller="Share"
+                                   asp-action="Manage"
+                                   asp-route-treeId="@tree.Id"
+                                   class="ft-tree-picker-edit"
+                                   aria-label="Share @tree.Name"
+                                   title="Share @tree.Name">
+                                    <span aria-hidden="true">&#128279;</span>
+                                </a>
+                                <a asp-controller="FamilyTree"
+                                   asp-action="Edit"
+                                   asp-route-id="@tree.Id"
+                                   class="ft-tree-picker-edit"
+                                   aria-label="Rename @tree.Name"
+                                   title="Rename @tree.Name">
+                                    <span aria-hidden="true">&#9998;</span>
+                                </a>
+                                <form asp-controller="Account" asp-action="DeleteFamilyTree" method="post" class="ft-tree-picker-delete-form">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="id" value="@tree.Id" />
+                                    <button type="submit"
+                                            class="ft-tree-picker-delete"
+                                            aria-label="Delete @tree.Name"
+                                            title="Delete @tree.Name">
+                                        <span aria-hidden="true">&#128465;</span>
+                                    </button>
+                                </form>
+                            }
                         </div>
                     }
                     @if (Model.FamilyTrees.Count == 0)
@@ -50,6 +65,15 @@
                 </div>
             </div>
             <a asp-controller="FamilyTree" asp-action="Create" class="ft-tree-create-btn" title="Create new family tree" aria-label="Create new family tree">+</a>
+            @if (Model.CanManageSharing && Model.CurrentTreeId > 0)
+            {
+                <a asp-controller="Share"
+                   asp-action="Manage"
+                   asp-route-treeId="@Model.CurrentTreeId"
+                   class="ft-tree-create-btn"
+                   title="Share this family tree"
+                   aria-label="Share this family tree">&#128279;</a>
+            }
         </div>
         <div class="ft-toolbar-spacer"></div>
         @if (Model.HasMembers && Model.FocusMemberId.HasValue)

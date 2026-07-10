@@ -11,6 +11,8 @@ public class FamilyTreeGraphViewModel
     public TreeViewOrientation TreeViewOrientation { get; set; }
     public LineageMode LineageMode { get; set; }
     public TreeCardViewMode TreeCardViewMode { get; set; }
+    public TreeAccessLevel AccessLevel { get; set; }
+    public bool CanEdit => AccessLevel >= TreeAccessLevel.Editor;
     public IReadOnlyList<FamilyMemberCardViewModel> Members { get; set; } = new List<FamilyMemberCardViewModel>();
 
     /// <summary>JSON array of Cytoscape node objects.</summary>

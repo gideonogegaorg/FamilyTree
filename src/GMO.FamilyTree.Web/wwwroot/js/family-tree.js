@@ -5,6 +5,7 @@
     if (!container) return;
 
     var isDemo = container.getAttribute('data-demo') === 'true';
+    var canEdit = !isDemo && container.getAttribute('data-can-edit') !== 'false';
 
     var orientation = (container.getAttribute('data-orientation') || 'Horizontal').toString();
     if (orientation === 'Horizontal' || orientation === '0') container.classList.add('ft-orientation-horizontal');
@@ -966,6 +967,7 @@
     }
 
     function openPopupForCard(cardEl) {
+        if (!canEdit) return;
         var memberId = cardEl.getAttribute('data-member-id');
         if (!memberId) return;
         popup._sourceCard = cardEl;
@@ -994,6 +996,7 @@
     container.addEventListener('click', function (e) {
         var avatar = e.target.closest('.member-photo-trigger');
         if (avatar) {
+            if (!canEdit) return;
             e.preventDefault();
             e.stopPropagation();
             var card = avatar.closest('.family-tree-card');

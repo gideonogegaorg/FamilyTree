@@ -2,6 +2,7 @@ using GMO.FamilyTree.Web.Data;
 using GMO.FamilyTree.Web.UnitTests.Fixtures;
 using GMO.FamilyTree.Web.ViewComponents;
 
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ViewComponents;
 using Microsoft.EntityFrameworkCore;
@@ -10,16 +11,18 @@ using Xunit;
 
 namespace GMO.FamilyTree.Web.UnitTests.ViewComponents;
 
-public class UserMenuViewComponentTests
+public class UserMenuViewComponentTests : IClassFixture<AccountControllerFixture>
 {
-    private static AppDbContext CreateDb(string name) =>
-        new(new DbContextOptionsBuilder<AppDbContext>().UseInMemoryDatabase(name).Options);
+    private readonly AccountControllerFixture _f;
+
+    public UserMenuViewComponentTests(AccountControllerFixture fixture) => _f = fixture;
 
     [Fact]
     public async Task InvokeAsync_returns_empty_model_when_not_authenticated()
     {
-        await using var db = CreateDb(nameof(InvokeAsync_returns_empty_model_when_not_authenticated));
-        var component = new UserMenuViewComponent(db);
+        await using var db = _f.CreateDb(nameof(InvokeAsync_returns_empty_model_when_not_authenticated));
+        var users = _f.CreateIdentityManagers(db).Item2;
+        var component = new UserMenuViewComponent(db, users);
         ViewComponentTestHelper.AttachContext(component);
 
         var result = await component.InvokeAsync();
@@ -27,12 +30,14 @@ public class UserMenuViewComponentTests
         var model = GetModel(result);
         Assert.Equal(string.Empty, model.Email);
         Assert.Null(model.PhotoUrl);
+        Assert.False(model.HasPassword);
     }
 
     [Fact]
     public async Task InvokeAsync_returns_email_and_photo_from_profile()
     {
-        await using var db = CreateDb(nameof(InvokeAsync_returns_email_and_photo_from_profile));
+        await using var db = _f.CreateDb(nameof(InvokeAsync_returns_email_and_photo_from_profile));
+        var users = _f.CreateIdentityManagers(db).Item2;
         db.UserProfiles.Add(new UserProfile
         {
             UserId = "user-1",
@@ -40,7 +45,7 @@ public class UserMenuViewComponentTests
         });
         await db.SaveChangesAsync();
 
-        var component = new UserMenuViewComponent(db);
+        var component = new UserMenuViewComponent(db, users);
         ViewComponentTestHelper.AttachContext(
             component,
             ViewComponentTestHelper.AuthenticatedUser("user-1", "test@example.com"));
@@ -54,8 +59,9 @@ public class UserMenuViewComponentTests
     [Fact]
     public async Task InvokeAsync_returns_email_without_photo_when_profile_missing()
     {
-        await using var db = CreateDb(nameof(InvokeAsync_returns_email_without_photo_when_profile_missing));
-        var component = new UserMenuViewComponent(db);
+        await using var db = _f.CreateDb(nameof(InvokeAsync_returns_email_without_photo_when_profile_missing));
+        var users = _f.CreateIdentityManagers(db).Item2;
+        var component = new UserMenuViewComponent(db, users);
         ViewComponentTestHelper.AttachContext(
             component,
             ViewComponentTestHelper.AuthenticatedUser("user-1", "solo@example.com"));
@@ -64,6 +70,24 @@ public class UserMenuViewComponentTests
 
         Assert.Equal("solo@example.com", model.Email);
         Assert.Null(model.PhotoUrl);
+    }
+
+    [Fact]
+    public async Task InvokeAsync_sets_HasPassword_for_password_user()
+    {
+        await using var db = _f.CreateDb(nameof(InvokeAsync_sets_HasPassword_for_password_user));
+        var users = _f.CreateIdentityManagers(db).Item2;
+        var user = new IdentityUser { UserName = "pwd@example.com", Email = "pwd@example.com", EmailConfirmed = true };
+        Assert.True((await users.CreateAsync(user, "TestPassword1!")).Succeeded);
+
+        var component = new UserMenuViewComponent(db, users);
+        ViewComponentTestHelper.AttachContext(
+            component,
+            ViewComponentTestHelper.AuthenticatedUser(user.Id!, "pwd@example.com"));
+
+        var model = GetModel(await component.InvokeAsync());
+
+        Assert.True(model.HasPassword);
     }
 
     private static UserMenuViewModel GetModel(IViewComponentResult result)

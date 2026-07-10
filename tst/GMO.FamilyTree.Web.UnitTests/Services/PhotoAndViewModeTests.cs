@@ -188,7 +188,7 @@ public class LocalPhotoStorageServiceTests
     }
 }
 
-public class FamilyTreeAccessServiceTests
+public class FamilyTreeAccessLegacyHelperTests
 {
     [Fact]
     public async Task UserOwnsMember_returns_true_only_for_tree_owner()

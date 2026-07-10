@@ -99,6 +99,7 @@ public class HomeControllerLandingTests
             new Mock<ITreeViewOrientationService>().Object,
             new Mock<ILineageModeService>().Object,
             new Mock<ITreeCardViewModeService>().Object,
+            new FamilyTreeAccessService(db),
             googleAuth.Object,
             env.Object);
 

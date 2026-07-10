@@ -9,4 +9,6 @@ public class FamilyTree
     public string OwnerId { get; set; } = string.Empty;
 
     public ICollection<FamilyMember> Members { get; set; } = new List<FamilyMember>();
+    public ICollection<FamilyTreeAccess> AccessGrants { get; set; } = new List<FamilyTreeAccess>();
+    public ICollection<FamilyTreeInvite> Invites { get; set; } = new List<FamilyTreeInvite>();
 }
