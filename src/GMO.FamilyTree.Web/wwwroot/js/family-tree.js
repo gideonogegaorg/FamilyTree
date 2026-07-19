@@ -860,9 +860,17 @@
             zoomAt(mx, my, scale * delta);
         }, { passive: false });
 
+        function canStartPan(target, pointerType) {
+            if (isInteractiveTarget(target)) return false;
+            // Touch/pen: allow pan on cards (they fill most of a phone screen).
+            // Mouse: keep desktop card clicks for menus; pan only on empty stage.
+            if (pointerType === 'touch' || pointerType === 'pen') return true;
+            return !target.closest('.family-tree-card');
+        }
+
         stageEl.addEventListener('pointerdown', function (e) {
             if (e.pointerType === 'mouse' && e.button !== 0) return;
-            if (pointerCount === 0 && isInteractiveTarget(e.target)) return;
+            if (pointerCount === 0 && !canStartPan(e.target, e.pointerType)) return;
 
             activePointers[e.pointerId] = { id: e.pointerId, x: e.clientX, y: e.clientY };
             pointerCount++;
