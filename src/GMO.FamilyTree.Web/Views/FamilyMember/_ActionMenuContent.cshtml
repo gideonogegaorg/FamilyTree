@@ -31,6 +31,12 @@
                     <div class="invalid-feedback">Enter a valid date, e.g. 1950-07-19.</div>
                 </div>
                 <div class="mb-2">
+                    <label class="form-label small mb-0" for="@(menuId)-edit-dod">Date of death</label>
+                    <input type="text" id="@(menuId)-edit-dod" name="dod" class="form-control form-control-sm js-flex-date" inputmode="numeric" autocomplete="off" placeholder="YYYY-MM-DD" value="@(Model.DOD?.ToString("yyyy-MM-dd"))" />
+                    <div class="form-text small">Optional; the same flexible date formats are accepted.</div>
+                    <div class="invalid-feedback">Enter a valid date, e.g. 2020-07-19.</div>
+                </div>
+                <div class="mb-2">
                     <label class="form-label small mb-0">Birth order</label>
                     <input type="number" name="birthOrder" class="form-control form-control-sm" min="1" value="@Model.BirthOrder" />
                 </div>
@@ -126,6 +132,12 @@
                         <input type="text" id="@(menuId)-add-dob" name="DOB" class="form-control form-control-sm js-flex-date" inputmode="numeric" autocomplete="off" placeholder="YYYY-MM-DD" />
                         <div class="form-text small">e.g. 1950-07-19, 07/19/1950, 19 Jul 1950; missing parts default to the 1st.</div>
                         <div class="invalid-feedback">Enter a valid date, e.g. 1950-07-19.</div>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label small mb-0" for="@(menuId)-add-dod">Date of death</label>
+                        <input type="text" id="@(menuId)-add-dod" name="DOD" class="form-control form-control-sm js-flex-date" inputmode="numeric" autocomplete="off" placeholder="YYYY-MM-DD" />
+                        <div class="form-text small">Optional; the same flexible date formats are accepted.</div>
+                        <div class="invalid-feedback">Enter a valid date, e.g. 2020-07-19.</div>
                     </div>
                     <div class="mb-2 menu-birthorder-row" style="display:none;">
                         <label class="form-label small mb-0">Birth order</label>

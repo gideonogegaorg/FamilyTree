@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 
@@ -10,6 +11,7 @@ namespace GMO.FamilyTree.Web.UiTests.Controllers;
 /// </summary>
 [Route("[controller]")]
 [ApiController]
+[AllowAnonymous]
 public class TestAuthController : ControllerBase
 {
     public const string TestUserEmail = "test@example.com";

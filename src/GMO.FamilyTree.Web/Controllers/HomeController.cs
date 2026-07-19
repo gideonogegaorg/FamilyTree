@@ -115,6 +115,7 @@ public class HomeController : Controller
             Label = string.IsNullOrEmpty(c.NickName) ? c.Name : $"{c.Name} ({c.NickName})",
             c.IsMe,
             Dob = c.DOB?.ToString("yyyy-MM-dd"),
+            Dod = c.DOD?.ToString("yyyy-MM-dd"),
             Row = rowById.TryGetValue(c.Id, out var row) ? row : 0,
             VisualRank = rankById.TryGetValue(c.Id, out var rank) ? rank : 0.0,
             ParentIds = c.ParentIds,
@@ -186,6 +187,8 @@ public class HomeController : Controller
             ModelState.AddModelError(nameof(model.Name), "Name is required.");
             return View(model);
         }
+        if (!ModelState.IsValid)
+            return View(model);
         var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (model.SetAsMe && !string.IsNullOrEmpty(currentUserId))
         {
@@ -201,6 +204,7 @@ public class HomeController : Controller
             Name = model.Name.Trim(),
             NickName = string.IsNullOrWhiteSpace(model.NickName) ? null : model.NickName.Trim(),
             DOB = model.DOB,
+            DOD = model.DOD,
             IsMale = model.IsMale,
             UserId = model.SetAsMe ? currentUserId : null
         });
@@ -225,6 +229,7 @@ public class HomeController : Controller
             Name = m.Name,
             NickName = m.NickName,
             DOB = m.DOB,
+            DOD = m.DOD,
             BirthOrder = m.BirthOrder,
             IsMe = m.UserId == currentUserId,
             IsMale = m.IsMale,

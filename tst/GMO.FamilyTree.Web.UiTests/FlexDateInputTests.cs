@@ -79,4 +79,26 @@ public class FlexDateInputTests(AppFixture fixture) : PlaywrightUiTest(fixture)
         await probe.BlurAsync();
         Assert.Contains("is-invalid", await probe.GetAttributeAsync("class") ?? "");
     }
+
+    [Fact]
+    public async Task Submit_is_blocked_when_a_flexible_date_is_invalid()
+    {
+        await Page.EvaluateAsync(
+            @"() => {
+                const form = document.createElement('form');
+                form.id = 'flex-date-form';
+                const input = document.createElement('input');
+                input.className = 'js-flex-date';
+                input.value = 'not a date';
+                form.appendChild(input);
+                form.addEventListener('submit', () => { window.flexDateSubmitReached = true; });
+                document.body.appendChild(form);
+            }");
+
+        await Page.Locator("#flex-date-form").EvaluateAsync("form => form.requestSubmit()");
+
+        Assert.False(await Page.EvaluateAsync<bool>("() => !!window.flexDateSubmitReached"));
+        var className = await Page.Locator("#flex-date-form .js-flex-date").GetAttributeAsync("class");
+        Assert.Contains("is-invalid", className ?? "");
+    }
 }
