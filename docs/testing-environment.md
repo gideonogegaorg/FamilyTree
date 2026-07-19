@@ -61,7 +61,7 @@ brew install postgresql                   # macOS
 - **Database connection**: Check your local `appsettings.json` for connection details (file is git ignored)
 - **IMPORTANT**: Seed data must be loaded for meaningful UI validation.
 
-**CRITICAL**: UI layout validation needs the primary **25-member** tree from `seed_trees.sql` (tree ID **1**, members 50–74). Without it you only see a sparse tree and cannot validate:
+**CRITICAL**: UI layout validation needs the primary **26-member** tree from `seed_trees.sql` (tree ID **1**, members 50–74, 76). Without it you only see a sparse tree and cannot validate:
 - Visual rank positioning (0, 0.5, 1, 1.5, 2, …)
 - Half-rank spouse positioning
 - Multi-generation / forest layout
@@ -125,12 +125,12 @@ If you cannot run the seed script, create members via the UI or configure databa
 ### 3. Verify Seed Data
 
 ```sql
--- Primary tree members (expect 25)
+-- Primary tree members (expect 26)
 SELECT COUNT(*) AS family_members FROM "FamilyMembers" WHERE "FamilyTreeId" = 1;
 
 SELECT COUNT(*) AS relationships FROM "FamilyMemberRelationships" WHERE "FamilyTreeId" = 1;
 
-SELECT "Id", "Name" FROM "FamilyTrees" WHERE "Id" IN (1, 2, 3, 4);
+SELECT "Id", "Name" FROM "FamilyTrees" WHERE "Id" IN (1, 2, 3, 4, 5);
 ```
 
 ### 4. Create User Account
