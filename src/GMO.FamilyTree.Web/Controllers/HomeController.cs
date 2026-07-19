@@ -112,6 +112,8 @@ public class HomeController : Controller
         var nodesJson = JsonSerializer.Serialize(cards.Select(c => new
         {
             c.Id,
+            c.Name,
+            c.NickName,
             Label = string.IsNullOrEmpty(c.NickName) ? c.Name : $"{c.Name} ({c.NickName})",
             c.IsMe,
             Dob = c.DOB?.ToString("yyyy-MM-dd"),
