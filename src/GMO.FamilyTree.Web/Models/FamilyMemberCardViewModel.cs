@@ -6,6 +6,7 @@ public class FamilyMemberCardViewModel
     public string Name { get; set; } = string.Empty;
     public string? NickName { get; set; }
     public DateOnly? DOB { get; set; }
+    public DateOnly? DOD { get; set; }
     public int? BirthOrder { get; set; }
     public bool IsMe { get; set; }
     public bool IsMale { get; set; }

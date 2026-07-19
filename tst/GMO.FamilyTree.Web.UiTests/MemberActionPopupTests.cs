@@ -66,14 +66,46 @@ public class MemberActionPopupTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task MemberAction_OpenViaCardClick_ShowsPopup()
+    public async Task MemberAction_OpenViaCardClick_ShowsDetailsThenManage()
     {
         await AuthenticateAsync();
         await GotoTreeAndWaitForGraphAsync();
         var card = _page.Locator(".family-tree-card").Filter(new() { Has = _page.GetByText("Father", new() { Exact = true }) }).First;
-        await card.Locator(".family-tree-card-content").ClickAsync();
+        await card.Locator(".family-tree-card-text").ClickAsync();
+        await _page.Locator("#member-details-popup").WaitForAsync(new() { State = WaitForSelectorState.Visible });
+        Assert.Equal("Father", await _page.Locator("#member-details-popup .ft-details-name").InnerTextAsync());
+        Assert.True(await _page.Locator("#member-details-popup .ft-details-section-title")
+            .Filter(new() { HasText = "Siblings" }).CountAsync() > 0);
+        await _page.Locator("#member-details-popup .ft-details-manage-btn").ClickAsync();
         await _page.Locator("#member-action-popup").WaitForAsync(new() { State = WaitForSelectorState.Visible });
         await _page.Locator("#member-action-popup .cascading-item[data-panel=\"edit\"]").WaitForAsync();
+    }
+
+    [Fact]
+    public async Task MemberDetails_RelativeLink_FocusesRelatedMember()
+    {
+        await AuthenticateAsync();
+        await GotoTreeAndWaitForGraphAsync();
+        var father = _page.Locator(".family-tree-card").Filter(new() { Has = _page.GetByText("Father", new() { Exact = true }) }).First;
+        await father.Locator(".family-tree-card-text").ClickAsync();
+        await _page.Locator("#member-details-popup").WaitForAsync(new() { State = WaitForSelectorState.Visible });
+
+        var childLink = _page.Locator("#member-details-popup .ft-details-relative")
+            .Filter(new() { HasText = "Me" })
+            .First;
+        await childLink.WaitForAsync();
+        await childLink.ClickAsync();
+
+        await _page.Locator("#member-details-popup").WaitForAsync(new() { State = WaitForSelectorState.Hidden });
+        var meCard = _page.Locator(".family-tree-card").Filter(new() { Has = _page.GetByText("Me", new() { Exact = true }) }).First;
+        var inView = await meCard.EvaluateAsync<bool>(
+            @"el => {
+                const r = el.getBoundingClientRect();
+                return r.width > 0 && r.height > 0
+                    && r.bottom > 0 && r.top < window.innerHeight
+                    && r.right > 0 && r.left < window.innerWidth;
+            }");
+        Assert.True(inView, "Related member card should be focused into view");
     }
 
     [Fact]
