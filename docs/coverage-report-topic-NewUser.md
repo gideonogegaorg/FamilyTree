@@ -1,5 +1,7 @@
 # Coverage report: topic/NewUser vs dev (combined unit + integration)
 
+> **Historical archive** — process notes from an older topic branch. For current gaps see [`coverage-pending.md`](coverage-pending.md) and SonarCloud.
+
 This report is generated from unit, integration, and UI test coverage (OpenCover). To regenerate:
 
 1. From repo root, run: `.\scripts\run-coverage.ps1`
