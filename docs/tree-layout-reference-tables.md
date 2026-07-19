@@ -23,6 +23,7 @@ duplicated card; `[v]` ▾ children jump.
 | T1   |                         | Fathers Brother -----| FB Wife 1 -----------| Cousin 1         |
 | T1   |                         |                      |                      | Cousin 2         |
 | T1   |                         |                      | FB Wife 2 -----------| Cousin 3         |
+| T1   |                         | Fathers Brother* ----|                      | FB Solo Child    |
 | T2   | Maternal Grandpa 1 =    |                      |                      |                  |
 | T2   | Maternal Grandma   =    | Mother* [v]          |                      |                  |
 | T3   | Maternal Grandpa 2 =    | Mothers HalfSib -----| HalfSib Husband 1    |                  |
@@ -39,6 +40,11 @@ duplicated card; `[v]` ▾ children jump.
 | T9   | Maternal Grandma Wife 2 |                      |                      |                  |
 | T9   | Maternal Grandma*  =    |                      |                      |                  |
 ```
+
+`FB Solo Child` (76) is Fathers Brother's only child with no listed second
+parent — a card-less `.ft-partner-unit-single`, rendered alongside his two
+coupled `.ft-partner-unit`s. It must land in the same Rank 2 column/row as
+Cousin 1/2/3 (see `family-tree.js` `alignSingleParentBranches`).
 
 ---
 
@@ -58,6 +64,7 @@ only the screen axis mapping differs (columns become rows).
 | T1   |                         | Fathers Brother -----| FB Wife 1 -----------| Cousin 1         |
 | T1   |                         |                      |                      | Cousin 2         |
 | T1   |                         |                      | FB Wife 2 -----------| Cousin 3         |
+| T1   |                         | Fathers Brother* ----|                      | FB Solo Child    |
 | T2   | Maternal Grandpa 1 =    |                      |                      |                  |
 | T2   | Maternal Grandma   =    | Mother* [v]          |                      |                  |
 | T3   | Maternal Grandpa 2 =    | Mothers HalfSib -----| HalfSib Husband 1    |                  |
@@ -95,6 +102,7 @@ within couples; root-generation grandmas dominate their grandpas (vrank 0.5).
 | T1   |                         |                      | Fathers Brother -----| FB Wife 1 -----------| Cousin 1         |
 | T1   |                         |                      |                      |                      | Cousin 2         |
 | T1   |                         |                      |                      | FB Wife 2 -----------| Cousin 3         |
+| T1   |                         |                      | Fathers Brother* ----|                      | FB Solo Child    |
 | T2   | Maternal Grandma Wife 1 |                      |                      |                      |                  |
 | T2   | Maternal Grandma*  =    |                      |                      |                      |                  |
 | T3   | Maternal Grandma Wife 2 |                      |                      |                      |                  |
@@ -128,6 +136,7 @@ Maternal; axis mapping only differs.
 | T1   |                         |                      | Fathers Brother -----| FB Wife 1 -----------| Cousin 1         |
 | T1   |                         |                      |                      |                      | Cousin 2         |
 | T1   |                         |                      |                      | FB Wife 2 -----------| Cousin 3         |
+| T1   |                         |                      | Fathers Brother* ----|                      | FB Solo Child    |
 | T2   | Maternal Grandma Wife 1 |                      |                      |                      |                  |
 | T2   | Maternal Grandma*  =    |                      |                      |                      |                  |
 | T3   | Maternal Grandma Wife 2 |                      |                      |                      |                  |
@@ -140,6 +149,30 @@ Maternal; axis mapping only differs.
 | T7   | Paternal Grandma Wife = |                      |                      |                      |                  |
 | T7   | Paternal Grandma*  =    |                      |                      |                      |                  |
 ```
+
+---
+
+---
+
+## Half-Sibling Alignment Tree (tree ID 5)
+
+Isolated regression fixture for the production Ray/Eve/Gideon misalignment bug — see
+[`database-setup.md`](database-setup.md) for seed details. Same rank slot
+(Rank 1) in both orientations; no half-ranks exist anywhere in this tree, so
+`insertHalfRankSpacers` in `family-tree.js` never activates and only
+`alignSingleParentBranches` can keep `HS Half Child` aligned with its full siblings.
+
+```
+| Rank 0                | Rank 1        |
+|-----------------------|----------------|
+| HS Father = HS Mother | HS Child A     |
+|                       | HS Child B     |
+| HS Father* -----------| HS Half Child  |
+```
+
+`*` = duplicated card (HS Father rendered again as the sole parent of the card-less
+`.ft-partner-unit-single` holding `HS Half Child`, alongside his coupled `.ft-partner-unit`
+with HS Mother holding Child A/B).
 
 ---
 

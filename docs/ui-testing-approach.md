@@ -19,14 +19,20 @@ The UI testing strategy uses **relative positioning validation** rather than pix
 
 ## Prerequisites
 
-See [`testing-environment.md`](testing-environment.md) for database, test account, and environment setup. Required: database running, seed data (16 members), test account linked to "Me", app server running.
+See [`testing-environment.md`](testing-environment.md) for database, test account, and environment setup. Required for layout UI tests: database running, seed data (**25** members on tree **1**), test account linked to **"Me" (56)**, app server running.
 
-**Critical**: Without the 16-person family tree, tests only validate a single "Me" node and cannot test visual ranks, orientation, or lineage modes.
+**Critical**: Without the primary 25-member tree, layout tests cannot validate visual ranks, orientation, or lineage modes.
 
-### Test Files
+### UI Test Files
 
-- **Primary**: `tst/GMO.FamilyTree.Web.UiTests/LayoutOrientationTests.cs`
-- **Coverage**: Visual layout, orientation switching, lineage mode switching, positioning validation
+| File | Focus |
+|---|---|
+| `LayoutOrientationTests.cs` | Visual ranks, orientation, lineage |
+| `LandingPageTests.cs` | Public landing + demo tree + mobile overflow |
+| `MemberDetailsHoverTests.cs` | View-first details / siblings |
+| `MemberActionPopupTests.cs` | Manage / action menu |
+| `MobileTreeViewportTests.cs` | Touch pan / pinch zoom |
+| `FlexDateInputTests.cs` | Flexible DOB/DOD entry |
 
 ### Test Categories
 
@@ -34,8 +40,10 @@ See [`testing-environment.md`](testing-environment.md) for database, test accoun
 |---|---|---|
 | **Layout Orientation** | Horizontal vs Vertical layout | Axis alignment, rank ordering, half-rank positioning |
 | **Lineage Mode** | Paternal vs Maternal lineage | Primary side positioning, rank assignments |
-| **User Interaction** | Menu toggles and state changes | CSS classes, DOM attributes, page reloads |
-| **Visual Positioning** | Node placement validation | Relative alignment, rank ordering, spread validation |
+| **Member UX** | Details, manage, dates | Hover/tap details, siblings, flex dates |
+| **Mobile viewport** | Tree gestures | One-finger pan, two-finger pinch |
+| **Landing** | Anonymous marketing page | Demo tree, auth CTAs, no horizontal overflow |
+| **User Interaction** | Toolbar / menus | CSS classes, DOM attributes, reloads |
 
 ---
 
@@ -150,10 +158,11 @@ private void AssertAlignment(List<object> boxes, string generation, string axis,
 
 **Static Family Test Data:**
 ```csharp
+// Illustrative only — real seed IDs are 50–74 on tree 1 (Me = 56). See seed_trees.sql.
 private static readonly Dictionary<string, FamilyMemberTestData> FamilyTestData = new()
 {
-    { "Paternal Grandpa", new FamilyMemberTestData { Id = 2, Generation = 1, PaternalRank = 0.0, MaternalRank = 0.5, ... } },
-    { "Father", new FamilyMemberTestData { Id = 6, Generation = 2, PaternalRank = 1.0, MaternalRank = 1.5, ... } },
+    { "Paternal Grandpa", new FamilyMemberTestData { Id = 51 } },
+    { "Father", new FamilyMemberTestData { Id = 55 } },
     // ... more family members
 };
 ```
@@ -258,4 +267,4 @@ private static readonly Dictionary<string, FamilyMemberTestData> FamilyTestData 
 
 ## Future Enhancements
 
-Possible additions: visual regression (screenshot comparison), cross-browser runs, accessibility (screen reader, keyboard), responsive/mobile layout testing.
+Possible additions: visual regression (screenshot comparison), broader cross-browser runs, deeper accessibility (screen reader / keyboard). Responsive/mobile tree and landing coverage already exists in `MobileTreeViewportTests` / `LandingPageTests`.

@@ -41,10 +41,11 @@ dotnet list GMO.FamilyTree.sln package --vulnerable --include-transitive
 
 This fails CI when known vulnerabilities exist. A current transitive issue is **`OpenTelemetry.Exporter.OpenTelemetryProtocol` 1.15.0** pulled in via `GMO.OpenTelemetry` packages; resolve by updating those GMO packages when a fixed release is available.
 
-## Local commands
+## Local commands (required before PRs to `dev` / `prod`)
 
 | Check | Command |
 |-------|---------|
 | Format | `dotnet format GMO.FamilyTree.sln --verify-no-changes` |
 | JS lint | `npm ci && npm run lint:js` |
+| Tests | `dotnet test GMO.FamilyTree.sln` |
 | Coverage (local HTML) | `.\scripts\run-coverage.ps1` then open `coverage/combined/index.html` |

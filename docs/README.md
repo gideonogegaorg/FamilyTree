@@ -22,7 +22,7 @@ For local setup (appsettings, build, run, env vars) see [root README.md](../READ
 
 - **PostgreSQL**: Must be installed and running
 - **.NET 10.0+**: Required for development
-- **Seed Data**: Essential for UI validation (16-person family tree)
+- **Seed Data**: Essential for UI validation (primary tree: **25** members, IDs 50–74 on tree **1**)
 - **Test Account**: Required for UI testing (create via registration)
 
 ### Common Setup Issues
@@ -48,7 +48,8 @@ For local setup (appsettings, build, run, env vars) see [root README.md](../READ
 | [`tree-layout-orientation.md`](tree-layout-orientation.md) | **Core Feature Documentation** | Layout orientation, tree toolbar, visual ranking, lineage modes, CSS/JS implementation |
 | [`database-setup.md`](database-setup.md) | **Database Configuration** | PostgreSQL setup, seeding, migrations, MCP server integration |
 | [`configure-service.md`](configure-service.md) | **Service Configuration** | Service setup, configuration options, private S3 photo storage |
-| [`coverage-pending.md`](coverage-pending.md) | **Test Coverage Planning** | Pending test coverage areas and planning |
+| [`secrets-audit.md`](secrets-audit.md) | **Secrets hygiene** | Template/gitignore history, org Postgres secrets |
+| [`coverage-pending.md`](coverage-pending.md) | **Test Coverage Planning** | Remaining coverage gaps (snapshot; prefer Sonar) |
 
 ### Testing Documentation
 **Focus**: Testing strategy, validation approaches, and test implementation
@@ -95,11 +96,19 @@ Two display orientations with **90° rotation principle**:
 ### Profile and member photos
 Photos are stored privately (local filesystem in dev, S3 in production) and served only through authenticated routes (`GET /photos/profiles/me`, `GET /photos/members/{id}`). In the UI:
 
-- **Profile**: user menu → *Change profile picture* (modal upload)
-- **Member**: click the avatar on a tree card (modal upload/remove); the Edit panel in the actions menu also supports upload/remove
+- **Profile**: user menu → *Change profile picture*
+- **Member details (view-first)**: desktop hover or card-body click opens details (parents, siblings full/half, partners, children). Editors: avatar click opens change-picture; photo-only modes keep an interactive Manage affordance. Mobile tap opens details with **Change picture** + **Manage**.
 - **View modes**: toolbar *View* dropdown (`Standard`, `Compact`, `Photo only`, etc.) — persisted on `UserProfiles.TreeCardViewMode`
+- **Dates**: flexible text entry for DOB/DOD (partial dates normalize to the 1st); cards show lifespan years when present
+- **Avatar initials**: first nickname word when set, otherwise legal name (not characters from `Name (Nick)`)
 
 See [configure-service.md](configure-service.md#private-photo-storage-s3) for storage and deploy configuration.
+
+### Sharing
+Owners invite by **link or email** (Editor / Readonly). Pending invites render as stacked cards on small screens. SES sends invite/auth mail when configured (see [configure-service.md](configure-service.md)).
+
+### Landing page
+Anonymous `/` is a public landing page with a read-only demo tree; authenticated users go to `/Home/Index`.
 
 ### Testing Strategy
 **Relative positioning validation** with browser tolerance:
