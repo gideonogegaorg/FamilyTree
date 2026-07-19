@@ -1,6 +1,6 @@
 # GMO.FamilyTree
 
-ASP.NET Core MVC app skeleton. Solution and project live under `src/`. Uses central package management ([Directory.Packages.props](Directory.Packages.props)), Serilog, and GMO OpenTelemetry packages from the org NuGet feed.
+ASP.NET Core MVC family-tree app (solution under `src/`). Uses central package management ([Directory.Packages.props](Directory.Packages.props)), Serilog, and GMO OpenTelemetry packages from the org NuGet feed. Anonymous visitors see a public **landing** page; signed-in users work on `/Home/Index`.
 
 ## Documentation
 
@@ -42,7 +42,7 @@ bash scripts/generate-appsettings.sh
 dotnet build GMO.FamilyTree.sln
 ```
 
-Restore requires authentication to the GMO GitHub Packages feed when using `GMO.*` packages. Set `GITHUB_USERNAME` and `GITHUB_PAT` (or use [nuget.config](src/nuget.config) with `packageSourceCredentials`) so NuGet can read from `https://nuget.pkg.github.com/gideonogegaorg/index.json`.
+Restore requires authentication to the GMO GitHub Packages feed when using `GMO.*` packages. Set `GITHUB_USERNAME` and `GITHUB_PAT` (or use [nuget.config](nuget.config) with `packageSourceCredentials`) so NuGet can read from `https://nuget.pkg.github.com/gideonogegaorg/index.json`.
 
 ## Run
 
@@ -53,6 +53,18 @@ dotnet run --project src/GMO.FamilyTree.Web
 With `docker compose up -d` running, launch profiles default to **Local** filesystem storage under `Paths:UploadsPath` (see [launchSettings.json](src/GMO.FamilyTree.Web/Properties/launchSettings.json)). To exercise S3 parity with MinIO, set `Photos__Provider=S3` (MinIO at `http://localhost:9000`, bucket `gideonogega-internal`, prefix `familytree/local/`).
 
 Then open https://localhost:7295 (HTTPS) or http://localhost:5229 (HTTP) from [launchSettings](src/GMO.FamilyTree.Web/Properties/launchSettings.json), or the URL shown in the console.
+
+## Local quality gates (before PRs to `dev` / `prod`)
+
+From the repo root:
+
+```powershell
+dotnet format GMO.FamilyTree.sln --verify-no-changes
+npm run lint:js
+dotnet test GMO.FamilyTree.sln
+```
+
+If `GMO.FamilyTree.Web.exe` is locked by a running site, stop that process and re-run tests. CI is a backstop only.
 
 ## Deploy
 
@@ -98,7 +110,7 @@ To rotate the password: update the org secret only, then re-run deploy on affect
 
 Optional for OpenTelemetry (same pattern — generated on the runner, deployed to EC2 only): **OPENTELEMETRY_ENABLED**, **OPENTELEMETRY_OTLPEXPORTENDPOINT**, **OPENTELEMETRY_HEADERS**, **OPENTELEMETRY_METRICSENDPOINT**, **OPENTELEMETRY_LOGGINGENDPOINT**. `Telemetry.EnvironmentName` is set automatically to `prod` or `dev`.
 
-Optional for Google sign-in: **GOOGLE_CLIENT_ID** and **GOOGLE_CLIENT_SECRET**. When both are set, the site requires sign-in except on the home and error pages.
+Optional for Google sign-in: **GOOGLE_CLIENT_ID** and **GOOGLE_CLIENT_SECRET**. The site requires sign-in for authenticated app routes; anonymous access remains for the landing page (`/`), Privacy, Account, and `/health`. When Google secrets are set, Google sign-in is offered alongside password auth.
 
 Optional variable: **S3_PHOTOS_BUCKET** (environment variable — private bucket name for photo storage).
 
