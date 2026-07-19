@@ -726,19 +726,129 @@
         var panY = 0;
         var minScale = 0.35;
         var maxScale = 2.5;
-        var dragging = false;
+        var DRAG_THRESHOLD = 8;
+        var activePointers = Object.create(null);
+        var pointerCount = 0;
+        var panPointerId = null;
+        var panPending = false;
+        var panActive = false;
+        var panStartX = 0;
+        var panStartY = 0;
         var lastX = 0;
         var lastY = 0;
+        var pinchActive = false;
+        var pinchStartDist = 0;
+        var pinchStartScale = 1;
+        var suppressClick = false;
+        var suppressClickTimer = null;
 
         function applyTransform() {
             worldEl.style.transform = 'translate(' + panX + 'px, ' + panY + 'px) scale(' + scale + ')';
             worldEl.style.transformOrigin = '0 0';
         }
 
-        function shouldPanStart(target) {
+        function clearSuppressClickSoon() {
+            if (suppressClickTimer) clearTimeout(suppressClickTimer);
+            suppressClickTimer = setTimeout(function () {
+                suppressClick = false;
+                suppressClickTimer = null;
+            }, 400);
+        }
+
+        function clearSuppressClickNow() {
+            suppressClick = false;
+            if (suppressClickTimer) {
+                clearTimeout(suppressClickTimer);
+                suppressClickTimer = null;
+            }
+        }
+
+        function isInteractiveTarget(target) {
+            return !!(target.closest('.member-action-trigger') ||
+                target.closest('.ft-expand-down') ||
+                target.closest('.member-photo-trigger'));
+        }
+
+        function shouldDblClickReset(target) {
             return !target.closest('.family-tree-card') &&
-                !target.closest('.member-action-trigger') &&
-                !target.closest('.ft-expand-down');
+                !isInteractiveTarget(target);
+        }
+
+        function zoomAt(mx, my, newScale) {
+            newScale = Math.min(maxScale, Math.max(minScale, newScale));
+            var ratio = newScale / scale;
+            panX = mx - (mx - panX) * ratio;
+            panY = my - (my - panY) * ratio;
+            scale = newScale;
+            applyTransform();
+        }
+
+        function pointerList() {
+            var list = [];
+            for (var id in activePointers) {
+                if (Object.prototype.hasOwnProperty.call(activePointers, id)) {
+                    list.push(activePointers[id]);
+                }
+            }
+            return list;
+        }
+
+        function distanceBetween(a, b) {
+            var dx = a.x - b.x;
+            var dy = a.y - b.y;
+            return Math.sqrt(dx * dx + dy * dy);
+        }
+
+        function midpointBetween(a, b) {
+            return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+        }
+
+        function setPanningClass(on) {
+            if (on) stageEl.classList.add('ft-panning');
+            else stageEl.classList.remove('ft-panning');
+        }
+
+        function beginPinch() {
+            var pts = pointerList();
+            if (pts.length < 2) return;
+            panPending = false;
+            panActive = false;
+            panPointerId = null;
+            setPanningClass(false);
+            pinchActive = true;
+            pinchStartDist = distanceBetween(pts[0], pts[1]);
+            pinchStartScale = scale;
+            if (pinchStartDist < 1) pinchStartDist = 1;
+        }
+
+        function updatePinch() {
+            var pts = pointerList();
+            if (pts.length < 2 || !pinchActive) return;
+            var dist = distanceBetween(pts[0], pts[1]);
+            var mid = midpointBetween(pts[0], pts[1]);
+            var rect = stageEl.getBoundingClientRect();
+            var mx = mid.x - rect.left;
+            var my = mid.y - rect.top;
+            zoomAt(mx, my, pinchStartScale * (dist / pinchStartDist));
+            suppressClick = true;
+        }
+
+        function endPinchIfNeeded() {
+            if (!pinchActive) return;
+            if (pointerCount >= 2) {
+                beginPinch();
+                return;
+            }
+            pinchActive = false;
+            if (pointerCount === 1) {
+                var pts = pointerList();
+                panPointerId = pts[0].id;
+                lastX = pts[0].x;
+                lastY = pts[0].y;
+                panPending = false;
+                panActive = true;
+                setPanningClass(true);
+            }
         }
 
         stageEl.addEventListener('wheel', function (e) {
@@ -747,37 +857,111 @@
             var mx = e.clientX - rect.left;
             var my = e.clientY - rect.top;
             var delta = e.deltaY > 0 ? 0.9 : 1.1;
-            var newScale = Math.min(maxScale, Math.max(minScale, scale * delta));
-            var ratio = newScale / scale;
-            panX = mx - (mx - panX) * ratio;
-            panY = my - (my - panY) * ratio;
-            scale = newScale;
-            applyTransform();
+            zoomAt(mx, my, scale * delta);
         }, { passive: false });
 
-        stageEl.addEventListener('mousedown', function (e) {
-            if (e.button !== 0 || !shouldPanStart(e.target)) return;
-            dragging = true;
-            lastX = e.clientX;
-            lastY = e.clientY;
-            stageEl.classList.add('ft-panning');
-            e.preventDefault();
+        function canStartPan(target, pointerType) {
+            if (isInteractiveTarget(target)) return false;
+            // Touch/pen: allow pan on cards (they fill most of a phone screen).
+            // Mouse: keep desktop card clicks for menus; pan only on empty stage.
+            if (pointerType === 'touch' || pointerType === 'pen') return true;
+            return !target.closest('.family-tree-card');
+        }
+
+        stageEl.addEventListener('pointerdown', function (e) {
+            if (e.pointerType === 'mouse' && e.button !== 0) return;
+            if (pointerCount === 0 && !canStartPan(e.target, e.pointerType)) return;
+
+            activePointers[e.pointerId] = { id: e.pointerId, x: e.clientX, y: e.clientY };
+            pointerCount++;
+            try { stageEl.setPointerCapture(e.pointerId); } catch { /* ignore */ }
+
+            if (pointerCount === 2) {
+                beginPinch();
+                e.preventDefault();
+                return;
+            }
+
+            if (pointerCount === 1 && !pinchActive) {
+                panPointerId = e.pointerId;
+                panPending = true;
+                panActive = false;
+                panStartX = e.clientX;
+                panStartY = e.clientY;
+                lastX = e.clientX;
+                lastY = e.clientY;
+            }
         });
-        window.addEventListener('mousemove', function (e) {
-            if (!dragging) return;
+
+        stageEl.addEventListener('pointermove', function (e) {
+            if (!activePointers[e.pointerId]) return;
+            activePointers[e.pointerId].x = e.clientX;
+            activePointers[e.pointerId].y = e.clientY;
+
+            if (pinchActive && pointerCount >= 2) {
+                updatePinch();
+                e.preventDefault();
+                return;
+            }
+
+            if (panPointerId !== e.pointerId) return;
+
+            if (panPending && !panActive) {
+                var dx = e.clientX - panStartX;
+                var dy = e.clientY - panStartY;
+                if ((dx * dx + dy * dy) < DRAG_THRESHOLD * DRAG_THRESHOLD) return;
+                panPending = false;
+                panActive = true;
+                suppressClick = true;
+                setPanningClass(true);
+                lastX = e.clientX;
+                lastY = e.clientY;
+            }
+
+            if (!panActive) return;
             panX += e.clientX - lastX;
             panY += e.clientY - lastY;
             lastX = e.clientX;
             lastY = e.clientY;
             applyTransform();
-        });
-        window.addEventListener('mouseup', function () {
-            dragging = false;
-            stageEl.classList.remove('ft-panning');
+            e.preventDefault();
         });
 
+        function releasePointer(e) {
+            if (!activePointers[e.pointerId]) return;
+            delete activePointers[e.pointerId];
+            pointerCount = Math.max(0, pointerCount - 1);
+
+            if (panPointerId === e.pointerId) {
+                panPointerId = null;
+                panPending = false;
+                panActive = false;
+                setPanningClass(false);
+            }
+
+            if (pointerCount < 2) endPinchIfNeeded();
+            if (pointerCount === 0) {
+                panPointerId = null;
+                panPending = false;
+                panActive = false;
+                pinchActive = false;
+                setPanningClass(false);
+                if (suppressClick) clearSuppressClickSoon();
+            }
+        }
+
+        stageEl.addEventListener('pointerup', releasePointer);
+        stageEl.addEventListener('pointercancel', releasePointer);
+
+        stageEl.addEventListener('click', function (e) {
+            if (!suppressClick) return;
+            clearSuppressClickNow();
+            e.preventDefault();
+            e.stopPropagation();
+        }, true);
+
         stageEl.addEventListener('dblclick', function (e) {
-            if (!shouldPanStart(e.target)) return;
+            if (!shouldDblClickReset(e.target)) return;
             scale = 1;
             panX = 0;
             panY = 0;

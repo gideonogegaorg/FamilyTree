@@ -1,0 +1,18 @@
+---
+description: Require full local test/lint pass before PRs to dev or prod
+alwaysApply: true
+---
+
+# Local tests before PR (FamilyTree)
+
+Never open or update a PR into **dev** or **prod** until local gates are green.
+
+Required local commands (from repo root):
+
+```powershell
+dotnet format GMO.FamilyTree.sln --verify-no-changes
+npm run lint:js
+dotnet test GMO.FamilyTree.sln
+```
+
+If `GMO.FamilyTree.Web.exe` is locked by a running site, stop that process first, then re-run tests. Fix failures before `git push` / `gh pr create`. CI watch is a backstop only.
