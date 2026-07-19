@@ -109,6 +109,25 @@ These are used in two phases:
 - **Phase 2a** — Aligns satellite root branches by measuring `getBoundingClientRect()[rankPos]` and setting `style[rankMargin]`
 - **Phase 2b** — Adjusts spacer sizes by setting `spacer.style[rankDim]` so same-rank members line up
 
+### 4. Single-parent branch alignment (`alignSingleParentBranches`)
+
+A child known to **only one** parent (no co-parent row) renders in a card-less
+`.ft-partner-unit-single` next to any full-sibling `.ft-partner-unit` that has a
+partner card + couple link. Without compensation, that half-sibling starts one
+card early on the rank axis (the production Ray/Eve/Gideon bug).
+
+`alignSingleParentBranches` measures the gap between the single-unit child's card
+and a sibling unit's child card, then **adds** that delta to the existing CSS
+`marginTop` / `marginLeft` on `.ft-children` (do not replace the computed margin —
+that drops the drop-line gap and leaves a residual ~24px offset in horizontal
+mode).
+
+**Regression caveat:** `insertHalfRankSpacers` can mask this bug when any
+half-rank exists elsewhere on the page. The isolated **Half-Sibling Alignment
+Tree** (seed tree **5**, no half-ranks) is the fixture that fails without
+`alignSingleParentBranches` — see
+`LayoutOrientationTests.HalfSibling_HalfChildAlignsWithFullSiblings`.
+
 ---
 
 ## Column / Row Alignment by Rank
@@ -231,7 +250,7 @@ Each node receives a `data-visual-rank` attribute that the UI tests read to veri
 
 ## Tree Toolbar Controls
 
-Layout and lineage toggles live on the home page toolbar ([`TreeToolbar/Default.cshtml`](../src/GMO.FamilyTree.Web/Views/Shared/Components/TreeToolbar/Default.cshtml)), not in the user menu. The user menu is limited to profile photo, email, and sign out.
+Layout, lineage, **View** mode, and **Share** live on the home page toolbar ([`TreeToolbar/Default.cshtml`](../src/GMO.FamilyTree.Web/Views/Shared/Components/TreeToolbar/Default.cshtml)). The user menu covers profile photo, password management (when applicable), email, and sign out.
 
 ### Layout orientation
 

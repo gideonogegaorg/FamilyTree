@@ -61,10 +61,10 @@ brew install postgresql                   # macOS
 - **Database connection**: Check your local `appsettings.json` for connection details (file is git ignored)
 - **IMPORTANT**: Seed data must be loaded for meaningful UI validation.
 
-**CRITICAL**: UI validation requires the complete 16-person family tree from the seed script. Without it you only see "Me" and cannot validate:
-- Visual rank positioning (0, 0.5, 1, 1.5, 2)
+**CRITICAL**: UI layout validation needs the primary **26-member** tree from `seed_trees.sql` (tree ID **1**, members 50–74, 76). Without it you only see a sparse tree and cannot validate:
+- Visual rank positioning (0, 0.5, 1, 1.5, 2, …)
 - Half-rank spouse positioning
-- Multi-generation layout
+- Multi-generation / forest layout
 - Lineage mode differences (Paternal vs Maternal)
 
 ### Finding Your Database Connection
@@ -117,7 +117,7 @@ GRANT ALL PRIVILEGES ON DATABASE Family_Test TO test_user;
 Direct psql requires credentials (see [database-setup.md](database-setup.md)); appsettings.json is git ignored. Check if seed data exists, or use the application UI / MCP for data. To check state:
 
 ```bash
-psql -h localhost -p 5432 -U family -d family -c "SELECT COUNT(*) FROM \"FamilyMembers\" WHERE \"FamilyTreeId\" = 9;" 2>/dev/null || echo "Database connection failed - check credentials"
+psql -h localhost -p 5432 -U family -d family -c "SELECT COUNT(*) FROM \"FamilyMembers\" WHERE \"FamilyTreeId\" = 1;" 2>/dev/null || echo "Database connection failed - check credentials"
 ```
 
 If you cannot run the seed script, create members via the UI or configure database access.
@@ -125,245 +125,78 @@ If you cannot run the seed script, create members via the UI or configure databa
 ### 3. Verify Seed Data
 
 ```sql
--- Verify family members were created (should be 16)
-SELECT COUNT(*) as family_members FROM "FamilyMembers" WHERE "FamilyTreeId" = 9;
+-- Primary tree members (expect 26)
+SELECT COUNT(*) AS family_members FROM "FamilyMembers" WHERE "FamilyTreeId" = 1;
 
--- Verify relationships were created (should be 15)
-SELECT COUNT(*) as relationships FROM "FamilyMemberRelationships" WHERE "FamilyTreeId" = 9;
+SELECT COUNT(*) AS relationships FROM "FamilyMemberRelationships" WHERE "FamilyTreeId" = 1;
 
--- Verify family tree was created
-SELECT * FROM "FamilyTrees" WHERE "Id" = 9;
+SELECT "Id", "Name" FROM "FamilyTrees" WHERE "Id" IN (1, 2, 3, 4, 5);
 ```
 
 ### 4. Create User Account
 
-Since there's no way to recover passwords for existing users, create a new account:
-
-1. **Open application**: Navigate to `http://localhost:5229`
-2. **Register account**: Click "Create a free account"
-3. **Fill registration form**:
-   - Email: `test@familytree.local`
-   - Password: `Test123!`
-   - Confirm password: `Test123!`
-   - Check "This is me (link to my account)"
-4. **Submit registration**
+1. Open `http://localhost:5229` (landing for anonymous users)
+2. Sign up with email + password
+3. Prefer email `test@example.com` so re-running `seed_trees.sql` picks that owner automatically
 
 ### 5. Link User to Family Data
 
-The seed script automatically links the first user to "Me" (ID: 56). If you created a new account, link it manually:
+The seed script links the owner to **"Me" (56)** on tree **1**. To attach another account:
 
 ```sql
--- Link your user to "Me" family member
-UPDATE "FamilyMembers" 
-SET "UserId" = (SELECT "Id" FROM "AspNetUsers" WHERE "UserName" = 'test@familytree.local')
-WHERE "Id" = 56 AND "FamilyTreeId" = 9;
+UPDATE "FamilyMembers"
+SET "UserId" = (SELECT "Id" FROM "AspNetUsers" WHERE "Email" = 'your-email@example.com')
+WHERE "Id" = 56 AND "FamilyTreeId" = 1;
 ```
 
 ---
 
 ## Test Account Configuration
 
-### 1. Create Test User Script
+Prefer registering through the UI (Identity hashes passwords correctly). Do **not** invent columns like `AspNetUsers.FamilyMemberId` — the link is `FamilyMembers.UserId`.
 
-Create `scripts/create-test-user.sql`:
+UI tests use `TestAuth/SignIn` (Testing environment only) against the in-process host; they do not require the SQL user script below.
 
-```sql
--- Test user for automated testing
-INSERT INTO "AspNetUsers" (
-    "Id", 
-    "UserName", 
-    "NormalizedUserName", 
-    "Email", 
-    "NormalizedEmail",
-    "EmailConfirmed", 
-    "PasswordHash", 
-    "SecurityStamp", 
-    "ConcurrencyStamp",
-    "LockoutEnabled",
-    "AccessFailedCount",
-    "TwoFactorEnabled",
-    "PhoneNumberConfirmed",
-    "FamilyMemberId"
-) VALUES (
-    'test-user-12345',
-    'test@familytree.local',
-    'TEST@FAMILYTREE.LOCAL',
-    'test@familytree.local',
-    'TEST@FAMILYTREE.LOCAL',
-    true,
-    'AQAAAAIAAYagAAAAENa1r5EGgAAAAEAh...',  -- Hashed password for "Test123!"
-    'test-security-stamp',
-    'test-concurrency-stamp',
-    false,
-    0,
-    false,
-    false,
-    13  -- Associated with "Me" family member
-) ON CONFLICT ("Id") DO NOTHING;
-
--- Create user profile
-INSERT INTO "UserProfiles" (
-    "UserId", 
-    "TreeViewOrientation", 
-    "LineageMode"
-) VALUES (
-    'test-user-12345',
-    0,  -- Horizontal
-    0   -- Paternal
-) ON CONFLICT ("UserId") DO NOTHING;
-```
-
-### 2. Execute Test User Creation
-
-```bash
-# Run the script
-psql -h localhost -U test_user -d FamilyTree_Test -f scripts/create-test-user.sql
-
-# Verify user creation
-psql -h localhost -U test_user -d FamilyTree_Test -c "SELECT \"UserName\", \"FamilyMemberId\" FROM \"AspNetUsers\" WHERE \"Id\" = 'test-user-12345';"
-```
-
-### 3. Test Authentication Endpoint
-
-The application provides a test authentication endpoint for automated testing:
+### Test Authentication Endpoint
 
 ```csharp
-// POST /TestAuth/SignIn
-// Automatically signs in the first available user
+// Testing host only — signs in the fixture user
+await page.GotoAsync(serverAddress + "/TestAuth/SignIn");
 ```
-
-**Usage in Tests:**
-```csharp
-private async Task AuthenticateAsync()
-{
-    await _page.GotoAsync(_fixture.ServerAddress + "/TestAuth/SignIn");
-}
-```
-
-**Note**: The test authentication endpoint signs in the first available user account. For consistent testing, create a dedicated test user and link it to the seeded data.
 
 ---
 
-## MCP Server Setup for Testing
+## MCP / Database Inspection
 
-### 1. PostgreSQL MCP Server Configuration
+Use Cursor’s postgres MCP **`query`** tool (read-only) against the same DB as local `appsettings.json`, or `psql` for writes. Example:
 
-The MCP server provides database operations for testing:
-
-```javascript
-// mcp-config.json
-{
-  "mcpServers": {
-    "postgres": {
-      "command": "node",
-      "args": ["mcp-postgres-server.js"],
-      "env": {
-        "POSTGRES_HOST": "localhost",
-        "POSTGRES_PORT": "5432",
-        "POSTGRES_DB": "FamilyTree_Test",
-        "POSTGRES_USER": "test_user",
-        "POSTGRES_PASSWORD": "test_password"
-      }
-    }
-  }
-}
-```
-
-### 2. Available MCP Operations
-
-| Operation | Use Case | Example |
-|---|---|---|
-| `mcp2_query` | Read-only SQL queries | Verify test data state |
-| `mcp0_get_schema` | Schema inspection | Validate table structure |
-| `mcp0_get_table_data` | Data retrieval | Get specific test data |
-| `mcp0_describe_table` | Table details | Check column types |
-
-### 3. MCP Usage in Testing
-
-```javascript
-// Verify test data exists
-const familyMembers = await mcp2_query({
-  sql: "SELECT COUNT(*) as count FROM \"FamilyMembers\""
-});
-
-// Get specific test data
-const testData = await mcp0_get_table_data({
-  tableName: "FamilyMembers",
-  whereClause: "\"Name\" IN ('Paternal Grandpa', 'Maternal Grandma')",
-  limit: 10
-});
+```sql
+SELECT COUNT(*) FROM "FamilyMembers" WHERE "FamilyTreeId" = 1;
 ```
 
 ---
 
 ## Test Data Validation
 
-### 1. Verify Seeded Data Structure
-
 ```sql
--- Check family member hierarchy
-SELECT 
-    fm."Id",
-    fm."Name", 
-    fm."Generation",
-    fm."IsMale",
-    COUNT(fr."ChildId") as ChildCount
-FROM "FamilyMembers" fm
-LEFT JOIN "FamilyRelationships" fr ON fm."Id" = fr."ParentId"
-GROUP BY fm."Id", fm."Name", fm."Generation", fm."IsMale"
-ORDER BY fm."Generation", fm."Name";
+-- Parent edges (RelationshipType Parent = 0)
+SELECT parent."Name" AS parent, child."Name" AS child
+FROM "FamilyMemberRelationships" r
+JOIN "FamilyMembers" parent ON parent."Id" = r."FromMemberId"
+JOIN "FamilyMembers" child ON child."Id" = r."ToMemberId"
+WHERE r."FamilyTreeId" = 1 AND r."RelationshipType" = 0
+ORDER BY parent."Name", child."Name";
+
+-- Couple edges (RelationshipType Couple = 2)
+SELECT a."Name" AS member_a, b."Name" AS member_b
+FROM "FamilyMemberRelationships" r
+JOIN "FamilyMembers" a ON a."Id" = r."FromMemberId"
+JOIN "FamilyMembers" b ON b."Id" = r."ToMemberId"
+WHERE r."FamilyTreeId" = 1 AND r."RelationshipType" = 2
+ORDER BY a."Name", b."Name";
 ```
 
-**Expected Results:**
-```
-Id | Name              | Generation | IsMale | ChildCount
----|-------------------|------------|--------|-----------
-2  | Paternal Grandpa  | 1          | true   | 2
-1  | Paternal Grandma  | 1          | false  | 0
-3  | Maternal Grandma  | 1          | false  | 3
-4  | Maternal Grandpa 1| 1          | true   | 0
-5  | Maternal Grandpa 2| 1          | true   | 0
-6  | Father            | 2          | true   | 1
-7  | Mother            | 2          | false  | 1
-8  | Fathers Brother   | 2          | true   | 2
-11 | Mothers HalfSib   | 2          | false  | 1
-13 | Me                | 3          | true   | 0
-```
-
-### 2. Verify Relationship Structure
-
-```sql
--- Check parent-child relationships
-SELECT 
-    parent."Name" as Parent,
-    child."Name" as Child,
-    fr."RelationshipType"
-FROM "FamilyRelationships" fr
-JOIN "FamilyMembers" parent ON fr."ParentId" = parent."Id"
-JOIN "FamilyMembers" child ON fr."ChildId" = child."Id"
-ORDER BY parent."Generation", parent."Name", child."Name";
-```
-
-### 3. Verify Visual Rank Assignments
-
-```sql
--- Check visual rank calculations (Paternal mode)
-WITH PaternalRanks AS (
-    SELECT 
-        fm."Id",
-        fm."Name",
-        fm."Generation",
-        CASE 
-            WHEN fm."Id" = 2 THEN 0.0  -- Paternal Grandpa (primary male)
-            WHEN fm."Id" = 1 THEN 0.5  -- Paternal Grandma (secondary partner)
-            WHEN fm."Id" IN (6, 8) THEN 1.0  -- Father, Fathers Brother (primary males)
-            WHEN fm."Id" IN (7, 9, 10, 11, 12) THEN 1.5  -- Secondary partners
-            WHEN fm."Id" IN (13, 14, 15, 16) THEN 2.0  -- Children generation
-        END as PaternalRank
-    FROM "FamilyMembers" fm
-)
-SELECT * FROM PaternalRanks ORDER BY PaternalRank, "Name";
-```
+Visual ranks are computed in app code (C# / JS), not stored as a `Generation` column. Validate ranks in the UI via `data-visual-rank` (see [`ui-testing-approach.md`](ui-testing-approach.md) and [`tree-layout-reference-tables.md`](tree-layout-reference-tables.md)).
 
 ---
 
@@ -388,7 +221,7 @@ psql -h localhost -p 5432 -U family -d family -c "SELECT COUNT(*) FROM \"FamilyM
 dotnet run --project src/GMO.FamilyTree.Web
 
 # Test application health (dev URL from launchSettings.json)
-curl http://localhost:5229/
+curl -s http://localhost:5229/health
 ```
 
 ### 3. UI Test Validation
@@ -407,16 +240,16 @@ dotnet test tst/GMO.FamilyTree.Web.UiTests --filter "FullyQualifiedName~Horizont
 
 ```sql
 -- Check if seed data exists
-SELECT COUNT(*) FROM "FamilyMembers" WHERE "FamilyTreeId" = 9;
+SELECT COUNT(*) FROM "FamilyMembers" WHERE "FamilyTreeId" = 1;
 
 -- Check if user is linked to family data
 SELECT fm."Name", u."UserName" 
 FROM "FamilyMembers" fm
 JOIN "AspNetUsers" u ON fm."UserId" = u."Id"
-WHERE fm."FamilyTreeId" = 9 AND fm."Id" = 56;
+WHERE fm."FamilyTreeId" = 1 AND fm."Id" = 56;
 
 -- Verify relationships
-SELECT COUNT(*) FROM "FamilyRelationships" WHERE "FamilyTreeId" = 9;
+SELECT COUNT(*) FROM "FamilyMemberRelationships" WHERE "FamilyTreeId" = 1;
 ```
 
 ---
@@ -454,7 +287,7 @@ playwright install
 dotnet test tst/GMO.FamilyTree.Web.UiTests --logger "console;verbosity=detailed"
 
 # Check test data state
-psql -h localhost -U family -d family -c "SELECT \"Name\", \"Generation\" FROM \"FamilyMembers\" WHERE \"FamilyTreeId\" = 9 ORDER BY \"Generation\", \"Name\";"
+psql -h localhost -U family -d family -c "SELECT \"Id\", \"Name\" FROM \"FamilyMembers\" WHERE \"FamilyTreeId\" = 1 ORDER BY \"Id\";"
 ```
 
 ---
@@ -484,7 +317,7 @@ psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -f tst/GMO.FamilyTree.Web.U
 
 # Verify setup
 echo "Verifying setup..."
-psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -c "SELECT COUNT(*) as family_members FROM \"FamilyMembers\" WHERE \"FamilyTreeId\" = 9;"
+psql -h $DB_HOST -p $DB_PORT -U $DB_USER -d $DB_NAME -c "SELECT COUNT(*) as family_members FROM \"FamilyMembers\" WHERE \"FamilyTreeId\" = 1;"
 
 echo "Test environment setup complete!"
 echo "NOTE: Update connection details in this script to match your appsettings.json"
@@ -508,7 +341,7 @@ else
 fi
 
 # Check test data
-member_count=$(psql -h localhost -p 5432 -U family -d family -t -c "SELECT COUNT(*) FROM \"FamilyMembers\" WHERE \"FamilyTreeId\" = 9;")
+member_count=$(psql -h localhost -p 5432 -U family -d family -t -c "SELECT COUNT(*) FROM \"FamilyMembers\" WHERE \"FamilyTreeId\" = 1;")
 if [ "$member_count" -eq "16" ]; then
     echo "Family members data: OK ($member_count members)"
 else
@@ -517,7 +350,7 @@ else
 fi
 
 # Check relationships
-relationship_count=$(psql -h localhost -p 5432 -U family -d family -t -c "SELECT COUNT(*) FROM \"FamilyRelationships\" WHERE \"FamilyTreeId\" = 9;")
+relationship_count=$(psql -h localhost -p 5432 -U family -d family -t -c "SELECT COUNT(*) FROM \"FamilyMemberRelationships\" WHERE \"FamilyTreeId\" = 1;")
 if [ "$relationship_count" -eq "15" ]; then
     echo "Family relationships: OK ($relationship_count relationships)"
 else

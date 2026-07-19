@@ -1,6 +1,6 @@
 # Coverage report – what’s still pending (all code)
 
-Generated after running `.\scripts\run-coverage.ps1`. Percentages below are from a prior local HTML report; **SonarCloud is the authoritative coverage gate in CI** (≥80% line and new-code coverage).
+Snapshot guidance after local `.\scripts\run-coverage.ps1`. **SonarCloud is the authoritative coverage gate in CI** (≥80% line and new-code coverage).
 
 Open **coverage/combined/index.html** for the local HTML report.
 
@@ -8,64 +8,51 @@ Open **coverage/combined/index.html** for the local HTML report.
 
 ## Coverage exclusions (coverlet + SonarCloud)
 
-The following paths are excluded from coverage metrics to reduce noise from design-time or vendor code:
-
 | Path | Reason |
 |------|--------|
 | `**/Migrations/**` | EF migration `Down()` methods are not exercised in tests |
 | `**/AppDbContextFactory.cs` | Design-time EF tooling only |
 | `**/wwwroot/lib/**` | Vendored third-party assets (SonarCloud only) |
 
-CI enforces coverage via the **SonarCloud quality gate** (≥80% line and new-code coverage); see [`code-quality-setup.md`](code-quality-setup.md).
+CI enforces coverage via the **SonarCloud quality gate**; see [`code-quality-setup.md`](code-quality-setup.md).
 
-Sonar coverage exclusions (in `build.yml`) omit Razor views, S3 photo storage (not used in CI), and `FamilyMemberController` until dedicated integration tests land below.
+Sonar exclusions in `build.yml` still omit Razor views and S3 photo storage (not used in CI). Revisit `FamilyMemberController` exclusions as integration coverage grows.
 
 ---
 
-## Zero coverage (not exercised by tests)
+## Remaining gaps (high level)
 
-### Controllers
+### Controllers / auth
 
-| File | What’s not covered |
-|------|--------------------|
-| **HomeController.cs** | Entire controller: **Index()**, **Privacy()**, **Error()**, constructor. No integration test hits `/`, `/Home`, `/Home/Privacy`, or the error page. |
-| **AccountController.cs** | **SignIn (GET)** – Google OAuth challenge (no test calls it). **ExternalLoginCallback** – full external-login flow (would need mocked external auth). |
+| Area | What’s thin |
+|------|-------------|
+| **AccountController** | Google OAuth challenge / **ExternalLoginCallback** (needs mocked external auth) |
+| **HomeController.Error** | Error page / **ErrorViewModel** still lightly hit |
 
-### Views (Razor)
-
-| View | Note |
-|------|------|
-| **Views/Home/Index.cshtml** | Rendered only when Home/Index is called. |
-| **Views/Home/Privacy.cshtml** | Rendered only when Home/Privacy is called. |
-| **Views/Shared/Error.cshtml** | Rendered only when the error page is shown (e.g. developer exception or Error action). |
+**Already covered (do not treat as zero):** `HomeController` Index / Landing / AddFirstMember paths via unit + integration + UI tests; `/Home/Privacy`; `/health` (`HealthEndpointTests`); Share flows (`ShareControllerTests` / share service tests); flexible dates / DOD validation; member details UI tests.
 
 ### Data / tooling
 
 | File | Note |
 |------|------|
-| **AppDbContextFactory.cs** | **CreateDbContext** – design-time only (e.g. `dotnet ef`). Not run in app or tests. |
-| **ErrorViewModel.cs** | **RequestId**, **ShowRequestId** – only used when the Error view is rendered. |
-| **Migrations** | Various **Down()** methods – never run in tests (only **Up()** when applying migrations). |
+| **AppDbContextFactory.cs** | Design-time only |
+| **Migrations `Down()`** | Not run in tests |
 
 ---
 
 ## Low or partial coverage
 
-- **Migrations** – Some migration classes show &lt; 100% line coverage (e.g. **AddCurrentFamilyTreeIdToUserProfile**, **MakeOwnerIdRequiredAndAddFk**); only **Up()** is run at runtime.
-- **AccountController** – Remaining uncovered: SignIn GET, ExternalLoginCallback (and some branches in other actions).
-- **ConfigurationExtensions** – ~82% line, 50% branch (some config paths not hit in Testing).
-- **AuthenticationExtensions** – ~97% line, ~67% branch (e.g. non-Testing fallback policy not hit).
-- **UserMenuViewComponent** – ~96% line, ~56% branch (some branches for null/empty cases).
-- **Login/Register views** – Some branches (e.g. Google button visibility) not fully covered.
+- **AccountController** – SignIn GET / ExternalLoginCallback branches
+- **ConfigurationExtensions** / **AuthenticationExtensions** – some env-specific branches
+- **UserMenuViewComponent** – null/empty branches
+- **Login/Register views** – Google button visibility branches
 
 ---
 
-## Summary: what to add for higher coverage
+## Summary: useful next tests
 
-1. **HomeController** – Integration tests for GET `/`, `/Home/Privacy`, and optionally the error page.
-2. **Error view / ErrorViewModel** – Covered indirectly by (1).
-3. **AccountController** – SignIn GET and ExternalLoginCallback only with mocked external auth.
-4. **AppDbContextFactory** – Usually excluded (design-time only).
-5. **Migration Down()** – Typically not tested (manual rollback).
+1. Mocked Google external-login callback
+2. Explicit Error page / ErrorViewModel assertion
+3. Broader FamilyMemberController integration coverage if Sonar exclusions are tightened
 
-Everything else is well or partially covered (branches: error paths, env-specific, views).
+Everything else is well or partially covered; prefer Sonar new-code coverage over chasing this snapshot.
