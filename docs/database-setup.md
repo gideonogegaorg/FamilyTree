@@ -73,12 +73,18 @@ Seed data is **deterministic SQL** in the UI test project. Default tree IDs (ove
 
 | Tree ID | Name | Purpose |
 |---|---|---|
-| **1** | 3-Gen Test Tree | Primary layout/UI seed (**25** members, IDs 50–74) |
+| **1** | 3-Gen Test Tree | Primary layout/UI seed (**26** members, IDs 50–74 + 76) |
 | **2** | Empty Tree | Empty-tree flows |
 | **3** | Single Member Tree | One member (ID 75) |
 | **4** | Large Tree (6 Gen) | Stress / large-layout spot checks |
+| **5** | Half-Sibling Alignment Tree | Isolated half-sibling regression (5 members, IDs 90–94, **no half-ranks**) |
 
 Owner preference: `test@example.com` if present, otherwise the first `AspNetUsers` row. **"Me"** is member **56** on tree **1** (`UserId` + sample `DOB` set by the script).
+
+Tree **5** reproduces the production half-sibling misalignment bug (a child known to only one
+parent rendering out of alignment with full siblings) in isolation, deliberately with zero
+half-rank members anywhere, so it only passes when `alignSingleParentBranches` in
+`family-tree.js` is working (see `LayoutOrientationTests.HalfSibling_HalfChildAlignsWithFullSiblings`).
 
 ### Seed Data Location
 
@@ -86,7 +92,7 @@ Owner preference: `test@example.com` if present, otherwise the first `AspNetUser
 tst/GMO.FamilyTree.Web.UiTests/Data/seed_trees.sql
 ```
 
-### Seed Data Structure (primary tree IDs 50–74)
+### Seed Data Structure (primary tree IDs 50–74, 76)
 
 ```
 Grandparents: Paternal Grandma/Grandpa (50–51), Maternal Grandma + Grandpa 1/2 (52–54),
@@ -94,11 +100,26 @@ Grandparents: Paternal Grandma/Grandpa (50–51), Maternal Grandma + Grandpa 1/2
 Parents:      Father (55), Mother (57), Fathers Brother (58) + FB Wife 1/2 (59–60),
               Mothers HalfSib (61) + husbands (66–67)
 Focus:        Me (56) — linked to seed owner
-Cousins:      Cousin 1–3 (62–64), Wife2 Only Child (65)
+Cousins:      Cousin 1–3 (62–64), Wife2 Only Child (65), FB Solo Child (76, Fathers Brother's
+              only child with no listed second parent)
 Single-own:   SingleOwnWife/Husband/Other/Child (71–74) — extra couple forest
 ```
 
 Layout expectations for this tree: [`tree-layout-reference-tables.md`](tree-layout-reference-tables.md).
+
+### Half-Sibling Alignment Tree (tree ID 5, IDs 90–94)
+
+```
+HS Father (90) = HS Mother (91) — couple inferred only from shared children, no Couple row
+  |-- HS Child A (92)
+  |-- HS Child B (93)
+HS Father (90) -- HS Half Child (94)   (HS Father's only listed parent; no HS Mother row)
+```
+
+Isolated regression fixture for the production half-sibling misalignment bug: no half-rank
+members exist anywhere in this tree, so it only passes when `alignSingleParentBranches` in
+`family-tree.js` is correcting `.ft-partner-unit-single` offsets (see
+`LayoutOrientationTests.HalfSibling_HalfChildAlignsWithFullSiblings`).
 ### Running the Seed Script
 
 **Full steps:** [`testing-environment.md`](testing-environment.md#2-run-seed-script)
@@ -109,8 +130,8 @@ psql -h localhost -p 5432 -U family -d family -f tst/GMO.FamilyTree.Web.UiTests/
 
 #### What the Script Does
 
-1. Creates trees **1–4** (primary, empty, single, large)
-2. Inserts **25** members on tree **1** (IDs 50–74) plus single/large-tree members
+1. Creates trees **1–5** (primary, empty, single, large, half-sibling)
+2. Inserts **26** members on tree **1** (IDs 50–74, 76) plus single/large/half-sibling-tree members
 3. Links **"Me" (56)** to the seed owner (`test@example.com` preferred)
 4. Creates parent and couple rows in `FamilyMemberRelationships`
 5. Advances Postgres sequences; **idempotent** (safe to re-run)
@@ -118,7 +139,7 @@ psql -h localhost -p 5432 -U family -d family -f tst/GMO.FamilyTree.Web.UiTests/
 #### Verification
 
 ```sql
-SELECT COUNT(*) AS family_members FROM "FamilyMembers" WHERE "FamilyTreeId" = 1;  -- expect 25
+SELECT COUNT(*) AS family_members FROM "FamilyMembers" WHERE "FamilyTreeId" = 1;  -- expect 26
 SELECT fm."Name", u."Email"
 FROM "FamilyMembers" fm
 JOIN "AspNetUsers" u ON fm."UserId" = u."Id"

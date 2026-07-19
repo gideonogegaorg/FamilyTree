@@ -1126,6 +1126,46 @@
         }, 50);
     })();
 
+    // A single-parent family (e.g. a half-sibling known to only one parent) renders
+    // its children in a card-less ".ft-partner-unit-single" alongside its full-sibling
+    // counterpart's card-bearing ".ft-partner-unit". Without a card+couple-link taking
+    // up space before them, that branch's children start one card-width/height early,
+    // landing on the wrong rank axis position relative to same-rank full siblings.
+    // Measure the gap the sibling unit's card+couple-link occupies and apply it as
+    // margin so both branches' children align on the shared rank axis.
+    (function alignSingleParentBranches() {
+        var singleUnits = container.querySelectorAll('.ft-partner-unit-single');
+        if (singleUnits.length === 0) return;
+
+        setTimeout(function () {
+            singleUnits.forEach(function (unit) {
+                var unitChildren = unit.querySelector('.ft-children');
+                var unitCard = unitChildren && unitChildren.querySelector('.family-tree-card[data-visual-rank]');
+                var partnerUnits = unit.parentElement;
+                if (!unitCard || !partnerUnits || !partnerUnits.classList.contains('ft-partner-units')) return;
+
+                var sibling = null;
+                Array.prototype.forEach.call(partnerUnits.children, function (candidate) {
+                    if (!sibling && candidate !== unit && candidate.classList.contains('ft-partner-unit'))
+                        sibling = candidate;
+                });
+                var siblingCard = sibling && sibling.querySelector('.ft-children .family-tree-card[data-visual-rank]');
+                if (!siblingCard) return;
+
+                // Compare actual rendered card positions (not container positions), since
+                // ".ft-partner-unit-single > .ft-children" also strips its own padding/margin,
+                // which would otherwise be double-counted against the sibling's container.
+                var diff = siblingCard.getBoundingClientRect()[rankPos] - unitCard.getBoundingClientRect()[rankPos];
+                if (diff > 1) {
+                    // Add to (not replace) the existing CSS margin - ".ft-children" already
+                    // carries its own base margin/padding for the drop-line gap.
+                    var currentMargin = parseFloat(getComputedStyle(unitChildren)[rankMargin]) || 0;
+                    unitChildren.style[rankMargin] = (currentMargin + diff) + 'px';
+                }
+            });
+        }, 50);
+    })();
+
     // --- Details panel, hover preview, and action menu ---
 
     var popup = document.getElementById('member-action-popup');
