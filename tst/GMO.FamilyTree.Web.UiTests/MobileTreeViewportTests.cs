@@ -226,7 +226,7 @@ public class MobileTreeViewportTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Mobile_short_tap_on_card_opens_action_popup()
+    public async Task Mobile_short_tap_on_card_opens_details_popup()
     {
         var (page, context) = await OpenMobileTreeAsync();
         try
@@ -241,10 +241,74 @@ public class MobileTreeViewportTests : IAsyncLifetime
 
             await page.Touchscreen.TapAsync(box!.X + box.Width / 2, box.Y + box.Height / 2);
 
+            var details = page.Locator("#member-details-popup");
+            await details.WaitForAsync(new() { State = WaitForSelectorState.Visible, Timeout = 10000 });
+            Assert.Equal("Father", await details.Locator(".ft-details-name").InnerTextAsync());
+            Assert.False(await page.Locator("#member-hover-card").IsVisibleAsync());
+            Assert.True(await details.Locator(".ft-details-photo-btn").IsVisibleAsync());
+            Assert.True(await details.Locator(".ft-details-manage-btn").IsVisibleAsync());
+            Assert.True(await details.Locator(".ft-details-section-title")
+                .Filter(new() { HasText = "Siblings" }).CountAsync() > 0);
+
+            await details.Locator(".ft-details-manage-btn").ClickAsync();
             await page.Locator("#member-action-popup")
                 .WaitForAsync(new() { State = WaitForSelectorState.Visible, Timeout = 10000 });
             await page.Locator("#member-action-popup .cascading-item[data-panel=\"edit\"]")
                 .WaitForAsync();
+        }
+        finally
+        {
+            await context.CloseAsync();
+        }
+    }
+
+    [Fact]
+    public async Task Mobile_details_change_picture_opens_photo_modal()
+    {
+        var (page, context) = await OpenMobileTreeAsync();
+        try
+        {
+            var card = page.Locator(".family-tree-card")
+                .Filter(new() { Has = page.GetByText("Father", new() { Exact = true }) })
+                .First;
+            await card.WaitForAsync();
+            var content = card.Locator(".family-tree-card-content");
+            var box = await content.BoundingBoxAsync();
+            Assert.NotNull(box);
+
+            await page.Touchscreen.TapAsync(box!.X + box.Width / 2, box.Y + box.Height / 2);
+            var details = page.Locator("#member-details-popup");
+            await details.WaitForAsync(new() { State = WaitForSelectorState.Visible, Timeout = 10000 });
+            await details.Locator(".ft-details-photo-btn").ClickAsync();
+            await page.Locator("#memberPhotoModal.show")
+                .WaitForAsync(new() { State = WaitForSelectorState.Visible, Timeout = 10000 });
+        }
+        finally
+        {
+            await context.CloseAsync();
+        }
+    }
+
+    [Fact]
+    public async Task Mobile_short_tap_on_avatar_opens_details_not_photo_modal()
+    {
+        var (page, context) = await OpenMobileTreeAsync();
+        try
+        {
+            var card = page.Locator(".family-tree-card")
+                .Filter(new() { Has = page.GetByText("Father", new() { Exact = true }) })
+                .First;
+            await card.WaitForAsync();
+            var avatar = card.Locator(".member-details-trigger, .member-photo-trigger");
+            var box = await avatar.BoundingBoxAsync();
+            Assert.NotNull(box);
+
+            await page.Touchscreen.TapAsync(box!.X + box.Width / 2, box.Y + box.Height / 2);
+
+            await page.Locator("#member-details-popup")
+                .WaitForAsync(new() { State = WaitForSelectorState.Visible, Timeout = 10000 });
+            Assert.Equal(0, await page.Locator("#memberPhotoModal.show, .modal.show").CountAsync());
+            Assert.True(await page.Locator("#member-details-popup .ft-details-photo-btn").IsVisibleAsync());
         }
         finally
         {

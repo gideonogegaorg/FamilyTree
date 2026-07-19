@@ -41,6 +41,9 @@ public class AppDbContext : IdentityDbContext<IdentityUser>
             e.Property(x => x.Name).HasMaxLength(200).IsRequired();
             e.Property(x => x.NickName).HasMaxLength(100);
             e.Property(x => x.UserId).HasMaxLength(450);
+            e.ToTable(t => t.HasCheckConstraint(
+                "CK_FamilyMember_DOD_After_DOB",
+                "\"DOD\" IS NULL OR \"DOB\" IS NULL OR \"DOD\" >= \"DOB\""));
             e.HasOne(x => x.FamilyTree)
                 .WithMany(x => x.Members)
                 .HasForeignKey(x => x.FamilyTreeId)

@@ -1,0 +1,15 @@
+@model GMO.FamilyTree.Web.Models.AddRelationViewModel
+<div class="mb-3">
+    <label asp-for="DOB" class="form-label">Date of birth</label>
+    <input asp-for="DOB" class="form-control js-flex-date" type="text" inputmode="numeric" autocomplete="off" placeholder="YYYY-MM-DD" asp-format="{0:yyyy-MM-dd}" />
+    <div class="form-text">Examples: 1950-07-19, 07/19/1950, or 19 Jul 1950. A missing month or day defaults to the 1st.</div>
+    <span asp-validation-for="DOB" class="text-danger"></span>
+    <div class="invalid-feedback">Enter a valid date, e.g. 1950-07-19.</div>
+</div>
+<div class="mb-3">
+    <label asp-for="DOD" class="form-label">Date of death</label>
+    <input asp-for="DOD" class="form-control js-flex-date" type="text" inputmode="numeric" autocomplete="off" placeholder="YYYY-MM-DD" asp-format="{0:yyyy-MM-dd}" />
+    <div class="form-text">Optional. The same flexible date formats are accepted.</div>
+    <span asp-validation-for="DOD" class="text-danger"></span>
+    <div class="invalid-feedback">Enter a valid date, e.g. 2020-07-19.</div>
+</div>

@@ -25,8 +25,16 @@
                     <input type="text" name="nickName" class="form-control form-control-sm" value="@Model.NickName" />
                 </div>
                 <div class="mb-2">
-                    <label class="form-label small mb-0">Date of birth</label>
-                    <input type="date" name="dob" class="form-control form-control-sm" value="@(Model.DOB?.ToString("yyyy-MM-dd"))" />
+                    <label class="form-label small mb-0" for="@(menuId)-edit-dob">Date of birth</label>
+                    <input type="text" id="@(menuId)-edit-dob" name="dob" class="form-control form-control-sm js-flex-date" inputmode="numeric" autocomplete="off" placeholder="YYYY-MM-DD" value="@(Model.DOB?.ToString("yyyy-MM-dd"))" />
+                    <div class="form-text small">e.g. 1950-07-19, 07/19/1950, 19 Jul 1950; missing parts default to the 1st.</div>
+                    <div class="invalid-feedback">Enter a valid date, e.g. 1950-07-19.</div>
+                </div>
+                <div class="mb-2">
+                    <label class="form-label small mb-0" for="@(menuId)-edit-dod">Date of death</label>
+                    <input type="text" id="@(menuId)-edit-dod" name="dod" class="form-control form-control-sm js-flex-date" inputmode="numeric" autocomplete="off" placeholder="YYYY-MM-DD" value="@(Model.DOD?.ToString("yyyy-MM-dd"))" />
+                    <div class="form-text small">Optional; the same flexible date formats are accepted.</div>
+                    <div class="invalid-feedback">Enter a valid date, e.g. 2020-07-19.</div>
                 </div>
                 <div class="mb-2">
                     <label class="form-label small mb-0">Birth order</label>
@@ -120,8 +128,16 @@
                         <input type="text" name="NickName" class="form-control form-control-sm" />
                     </div>
                     <div class="mb-2">
-                        <label class="form-label small mb-0">Date of birth</label>
-                        <input type="date" name="DOB" class="form-control form-control-sm" />
+                        <label class="form-label small mb-0" for="@(menuId)-add-dob">Date of birth</label>
+                        <input type="text" id="@(menuId)-add-dob" name="DOB" class="form-control form-control-sm js-flex-date" inputmode="numeric" autocomplete="off" placeholder="YYYY-MM-DD" />
+                        <div class="form-text small">e.g. 1950-07-19, 07/19/1950, 19 Jul 1950; missing parts default to the 1st.</div>
+                        <div class="invalid-feedback">Enter a valid date, e.g. 1950-07-19.</div>
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label small mb-0" for="@(menuId)-add-dod">Date of death</label>
+                        <input type="text" id="@(menuId)-add-dod" name="DOD" class="form-control form-control-sm js-flex-date" inputmode="numeric" autocomplete="off" placeholder="YYYY-MM-DD" />
+                        <div class="form-text small">Optional; the same flexible date formats are accepted.</div>
+                        <div class="invalid-feedback">Enter a valid date, e.g. 2020-07-19.</div>
                     </div>
                     <div class="mb-2 menu-birthorder-row" style="display:none;">
                         <label class="form-label small mb-0">Birth order</label>

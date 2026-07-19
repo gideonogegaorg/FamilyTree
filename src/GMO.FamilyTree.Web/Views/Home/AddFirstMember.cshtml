@@ -16,10 +16,7 @@
         <label asp-for="NickName" class="form-label">Nickname</label>
         <input asp-for="NickName" class="form-control" />
     </div>
-    <div class="mb-3">
-        <label asp-for="DOB" class="form-label">Date of birth</label>
-        <input asp-for="DOB" class="form-control" type="date" />
-    </div>
+    <partial name="_DateOfBirthField" />
     <div class="mb-3 form-check">
         <input asp-for="IsMale" class="form-check-input" />
         <label asp-for="IsMale" class="form-check-label">Male</label>
