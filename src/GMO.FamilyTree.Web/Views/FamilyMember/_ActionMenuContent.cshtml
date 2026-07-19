@@ -26,7 +26,9 @@
                 </div>
                 <div class="mb-2">
                     <label class="form-label small mb-0">Date of birth</label>
-                    <input type="date" name="dob" class="form-control form-control-sm" value="@(Model.DOB?.ToString("yyyy-MM-dd"))" />
+                    <input type="text" name="dob" class="form-control form-control-sm js-flex-date" inputmode="numeric" autocomplete="off" placeholder="YYYY-MM-DD" value="@(Model.DOB?.ToString("yyyy-MM-dd"))" />
+                    <div class="form-text small">e.g. 1950-07-19, 07/19/1950, 19 Jul 1950; missing parts default to the 1st.</div>
+                    <div class="invalid-feedback">Enter a valid date, e.g. 1950-07-19.</div>
                 </div>
                 <div class="mb-2">
                     <label class="form-label small mb-0">Birth order</label>
@@ -121,7 +123,9 @@
                     </div>
                     <div class="mb-2">
                         <label class="form-label small mb-0">Date of birth</label>
-                        <input type="date" name="DOB" class="form-control form-control-sm" />
+                        <input type="text" name="DOB" class="form-control form-control-sm js-flex-date" inputmode="numeric" autocomplete="off" placeholder="YYYY-MM-DD" />
+                        <div class="form-text small">e.g. 1950-07-19, 07/19/1950, 19 Jul 1950; missing parts default to the 1st.</div>
+                        <div class="invalid-feedback">Enter a valid date, e.g. 1950-07-19.</div>
                     </div>
                     <div class="mb-2 menu-birthorder-row" style="display:none;">
                         <label class="form-label small mb-0">Birth order</label>
