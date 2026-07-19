@@ -38,6 +38,8 @@
         var id = toId(n.id);
         nodeById[id] = {
             id: id,
+            name: (n.name || '').toString(),
+            nickName: (n.nickName || '').toString(),
             label: (n.label || '').toString(),
             isMe: !!n.isMe,
             isMale: !!n.isMale,
@@ -174,11 +176,25 @@
     }
 
     function initials(name) {
-        var parts = name.split(/\s+/).filter(Boolean);
+        var parts = String(name || '').split(/\s+/).filter(Boolean);
         if (parts.length >= 2) {
             return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
         }
         return parts[0] ? parts[0].slice(0, 2).toUpperCase() : '?';
+    }
+
+    /** Prefer first nickname word for avatar letters; else legal name (not "Name (Nick)"). */
+    function avatarInitials(node) {
+        var nick = (node && node.nickName) ? String(node.nickName).trim() : '';
+        if (nick) {
+            var firstNick = nick.split(/\s+/).filter(Boolean)[0];
+            return initials(firstNick || nick);
+        }
+        var name = (node && node.name) ? String(node.name).trim() : '';
+        if (name) return initials(name);
+        var label = (node && node.label) ? String(node.label).trim() : '';
+        var withoutParen = label.replace(/\s*\([^)]*\)\s*$/, '').trim();
+        return initials(withoutParen || label);
     }
 
     function dateYear(date) {
@@ -248,7 +264,7 @@
             img.className = 'family-tree-card-photo';
             avatar.appendChild(img);
         } else {
-            avatar.textContent = initials(node.label);
+            avatar.textContent = avatarInitials(node);
         }
 
         var text = document.createElement('div');
@@ -321,7 +337,7 @@
             img.className = 'family-tree-card-photo';
             avatar.appendChild(img);
         } else {
-            avatar.textContent = node ? initials(node.label) : '?';
+            avatar.textContent = node ? avatarInitials(node) : '?';
         }
     }
 
@@ -1212,6 +1228,8 @@
         window.MemberPhoto.open({
             memberId: memberId,
             label: node ? node.label : cardEl.getAttribute('aria-label') || '',
+            name: node ? node.name : '',
+            nickName: node ? node.nickName : '',
             hasPhoto: node ? !!node.hasPhoto : !!(avatar && avatar.querySelector('.family-tree-card-photo')),
             sourceCard: cardEl
         });
@@ -1276,7 +1294,7 @@
             photo.alt = '';
             avatar.appendChild(photo);
         } else {
-            avatar.textContent = initials(node.label);
+            avatar.textContent = avatarInitials(node);
         }
         header.appendChild(avatar);
 
