@@ -91,6 +91,12 @@ tree. This mirrors production's per-marriage island behavior.
 | Row (generation depth) + visual rank incl. half-ranks | `src/GMO.FamilyTree.Web/Services/TreeLayoutRanking.cs` (server-side, ground truth) |
 | Marriage-tree forest placement | `src/GMO.FamilyTree.Web/wwwroot/js/family-tree.js` (`buildBranchBottomUp`, `getPartnerFamilies`) |
 | Card rendering, orientation wiring | `src/GMO.FamilyTree.Web/wwwroot/js/family-tree.js` |
+| Single-parent (half-sibling) rank-axis alignment | `src/GMO.FamilyTree.Web/wwwroot/js/family-tree.js` (`alignSingleParentBranches`) |
+
+A child with only one listed parent renders under `.ft-partner-unit-single`. Couples
+may be **inferred** from shared children with no explicit `Couple` relationship row
+(production David/Esther). Rank-axis alignment for that card-less unit is a client
+layout concern — see [`tree-layout-orientation.md`](tree-layout-orientation.md#4-single-parent-branch-alignment-alignsingleparentbranches).
 
 The client **must not** re-derive dominance in a way that can disagree with
 the server's `visualRank`. The server's half-rank assignment is the ground

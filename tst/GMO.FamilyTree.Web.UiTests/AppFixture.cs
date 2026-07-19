@@ -146,6 +146,12 @@ public sealed class AppFixture : WebApplicationFactory<WebAppEntry>, IDisposable
             if (count4 < 85)
                 throw new InvalidOperationException($"Seed incomplete: expected at least 85 members in tree 4 (large), got {count4}.");
         }
+        await using (var verify5 = new NpgsqlCommand("SELECT COUNT(*) FROM \"FamilyMembers\" WHERE \"FamilyTreeId\" = 5", conn))
+        {
+            var count5 = Convert.ToInt64(await verify5.ExecuteScalarAsync() ?? 0);
+            if (count5 != 5)
+                throw new InvalidOperationException($"Seed incomplete: expected 5 members in tree 5 (half-sibling), got {count5}.");
+        }
     }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
