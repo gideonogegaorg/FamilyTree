@@ -866,7 +866,7 @@
 
             activePointers[e.pointerId] = { id: e.pointerId, x: e.clientX, y: e.clientY };
             pointerCount++;
-            try { stageEl.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+            try { stageEl.setPointerCapture(e.pointerId); } catch { /* ignore */ }
 
             if (pointerCount === 2) {
                 beginPinch();
