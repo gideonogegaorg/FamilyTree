@@ -1,5 +1,3 @@
-using Microsoft.Playwright;
-
 using Xunit;
 
 namespace GMO.FamilyTree.Web.UiTests;
@@ -9,39 +7,18 @@ namespace GMO.FamilyTree.Web.UiTests;
 /// default to the 1st, and unparseable input is flagged.
 /// </summary>
 [Collection("AppFixture Collection")]
-public class FlexDateInputTests : IAsyncLifetime
+public class FlexDateInputTests(AppFixture fixture) : PlaywrightUiTest(fixture)
 {
-    private readonly AppFixture _fixture;
-    private IPlaywright _playwright = null!;
-    private IBrowser _browser = null!;
-    private IBrowserContext _context = null!;
-    private IPage _page = null!;
-
-    public FlexDateInputTests(AppFixture fixture) => _fixture = fixture;
-
-    public async Task InitializeAsync()
+    protected override async Task OnPageReadyAsync()
     {
-        _playwright = await Playwright.CreateAsync();
-        _browser = await _playwright.Chromium.LaunchAsync(new BrowserTypeLaunchOptions { Headless = true });
-        _context = await _browser.NewContextAsync(new() { ViewportSize = new() { Width = 1280, Height = 720 } });
-        _page = await _context.NewPageAsync();
-        await _page.GotoAsync(_fixture.ServerAddress + "/TestAuth/SignIn");
-        await _page.GotoAsync(_fixture.ServerAddress + AppFixture.TreePagePath);
-        await _page.Locator("#family-tree-graph .family-tree-card").First.WaitForAsync();
-        await _page.WaitForFunctionAsync("() => !!window.FlexDate");
-    }
-
-    public async Task DisposeAsync()
-    {
-        if (_browser != null)
-        {
-            await _browser.CloseAsync();
-            _playwright?.Dispose();
-        }
+        await Page.GotoAsync(Fixture.ServerAddress + "/TestAuth/SignIn");
+        await Page.GotoAsync(Fixture.ServerAddress + AppFixture.TreePagePath);
+        await Page.Locator("#family-tree-graph .family-tree-card").First.WaitForAsync();
+        await Page.WaitForFunctionAsync("() => !!window.FlexDate");
     }
 
     private async Task<string?> ParseAsync(string input) =>
-        await _page.EvaluateAsync<string?>(
+        await Page.EvaluateAsync<string?>(
             "(v) => { const r = window.FlexDate.parse(v); return r === undefined ? '' : r; }",
             input);
 
@@ -75,7 +52,7 @@ public class FlexDateInputTests : IAsyncLifetime
     [InlineData("13/40/2000")]
     public async Task Parse_returns_null_for_unparseable(string input)
     {
-        var result = await _page.EvaluateAsync<bool>(
+        var result = await Page.EvaluateAsync<bool>(
             "(v) => window.FlexDate.parse(v) === null", input);
         Assert.True(result, $"Expected '{input}' to be unparseable");
     }
@@ -83,7 +60,7 @@ public class FlexDateInputTests : IAsyncLifetime
     [Fact]
     public async Task Blur_normalizes_field_and_clears_invalid_state()
     {
-        await _page.EvaluateAsync(
+        await Page.EvaluateAsync(
             @"() => {
                 const input = document.createElement('input');
                 input.type = 'text';
@@ -92,7 +69,7 @@ public class FlexDateInputTests : IAsyncLifetime
                 document.body.appendChild(input);
             }");
 
-        var probe = _page.Locator("#flex-date-probe");
+        var probe = Page.Locator("#flex-date-probe");
         await probe.FillAsync("07/19/1950");
         await probe.BlurAsync();
         Assert.Equal("1950-07-19", await probe.InputValueAsync());
