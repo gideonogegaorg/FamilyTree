@@ -92,6 +92,42 @@ public class HomeControllerTests : IClassFixture<WebAppFixture>
             "After setting Maternal, page should contain data-lineage-mode Maternal");
     }
 
+    [Fact]
+    public async Task AddFirstMember_persists_and_serializes_life_dates()
+    {
+        await CreateTreeAndSetCurrentAsync();
+        var getResponse = await _client.GetAsync("/Home/AddFirstMember");
+        getResponse.EnsureSuccessStatusCode();
+        var html = await getResponse.Content.ReadAsStringAsync();
+        var token = GetAntiforgeryTokenFromHtml(html);
+        var familyTreeId = GetInputValue(html, "FamilyTreeId");
+        var name = "Life Dates " + Guid.NewGuid().ToString("N")[..6];
+
+        var postResponse = await _client.PostAsync("/Home/AddFirstMember", new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["FamilyTreeId"] = familyTreeId,
+            ["Name"] = name,
+            ["DOB"] = "1950-07-19",
+            ["DOD"] = "2020-03-02",
+            ["__RequestVerificationToken"] = token
+        }));
+
+        Assert.Equal(HttpStatusCode.Redirect, postResponse.StatusCode);
+        using (var scope = _fixture.CreateScope())
+        {
+            var db = _fixture.GetDbContext(scope);
+            var member = await db.FamilyMembers.SingleAsync(m => m.Name == name);
+            Assert.Equal(new DateOnly(1950, 7, 19), member.DOB);
+            Assert.Equal(new DateOnly(2020, 3, 2), member.DOD);
+        }
+
+        var indexResponse = await _client.GetAsync("/Home/Index");
+        indexResponse.EnsureSuccessStatusCode();
+        var indexHtml = await indexResponse.Content.ReadAsStringAsync();
+        Assert.Contains("1950-07-19", indexHtml);
+        Assert.Contains("2020-03-02", indexHtml);
+    }
+
     private async Task EnsureTreeWithOneMemberAsync()
     {
         var indexResponse = await _client.GetAsync("/Home/Index");
@@ -139,11 +175,7 @@ public class HomeControllerTests : IClassFixture<WebAppFixture>
         getResponse.EnsureSuccessStatusCode();
         var html = await getResponse.Content.ReadAsStringAsync();
         var token = GetAntiforgeryTokenFromHtml(html);
-        var familyTreeIdStart = html.IndexOf("value=\"", html.IndexOf("FamilyTreeId", StringComparison.Ordinal), StringComparison.Ordinal) + 7;
-        var familyTreeIdEnd = html.IndexOf('"', familyTreeIdStart);
-        var familyTreeId = familyTreeIdStart >= 7 && familyTreeIdEnd > familyTreeIdStart
-            ? html[familyTreeIdStart..familyTreeIdEnd]
-            : "";
+        var familyTreeId = GetInputValue(html, "FamilyTreeId");
 
         await _client.PostAsync("/Home/AddFirstMember", new FormUrlEncodedContent(new Dictionary<string, string>
         {
@@ -152,6 +184,16 @@ public class HomeControllerTests : IClassFixture<WebAppFixture>
             ["IsMale"] = "true",
             ["__RequestVerificationToken"] = token
         }));
+    }
+
+    private static string GetInputValue(string html, string inputName)
+    {
+        var inputStart = html.IndexOf($"name=\"{inputName}\"", StringComparison.Ordinal);
+        var valueStart = html.IndexOf("value=\"", inputStart, StringComparison.Ordinal) + 7;
+        var valueEnd = html.IndexOf('"', valueStart);
+        return inputStart >= 0 && valueStart >= 7 && valueEnd > valueStart
+            ? html[valueStart..valueEnd]
+            : string.Empty;
     }
 
     private static async Task<string> GetAntiforgeryTokenAsync(HttpClient client, string pageUrl)

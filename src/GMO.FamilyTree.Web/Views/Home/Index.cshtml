@@ -37,6 +37,8 @@
              data-lineage-mode="@Model.LineageMode"
              data-can-edit="@Model.CanEdit.ToString().ToLowerInvariant()"></div>
 
+        <div id="member-details-popup" class="cascading-menu-container ft-details-popup" style="display:none;" hidden></div>
+
         @if (Model.CanEdit)
         {
             <div id="member-action-popup" class="cascading-menu-container" style="display:none;">

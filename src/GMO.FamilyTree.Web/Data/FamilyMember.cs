@@ -9,6 +9,7 @@ public class FamilyMember
     public string Name { get; set; } = string.Empty;
     public string? NickName { get; set; }
     public DateOnly? DOB { get; set; }
+    public DateOnly? DOD { get; set; }
     /// <summary>Birth order among full siblings (1 = first born, 2 = second, etc.).</summary>
     public int? BirthOrder { get; set; }
     public bool IsMale { get; set; }

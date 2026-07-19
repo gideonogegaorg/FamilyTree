@@ -70,6 +70,9 @@ public sealed class AppFixture : WebApplicationFactory<WebAppEntry>, IDisposable
         // 2. Now spin up the Kestrel server on a random port for Playwright
         builder.ConfigureWebHost(webHostBuilder =>
         {
+            // Ambient ASPNETCORE_ENVIRONMENT (e.g. Development) must not override Testing,
+            // or TestAuth/SignIn is blocked by the fallback auth policy.
+            webHostBuilder.UseEnvironment("Testing");
             webHostBuilder.UseStaticWebAssets();
             webHostBuilder.UseKestrel();
             webHostBuilder.UseUrls(ServerAddress);
