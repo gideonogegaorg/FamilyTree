@@ -8,10 +8,25 @@
 
     function initials(label) {
         if (!label) return '?';
-        var parts = label.trim().split(/\s+/);
+        var parts = String(label).trim().split(/\s+/).filter(Boolean);
         if (parts.length >= 2)
             return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
-        return label.trim().slice(0, 2).toUpperCase();
+        return parts[0] ? parts[0].slice(0, 2).toUpperCase() : '?';
+    }
+
+    /** Prefer first nickname word; else name; else label without trailing "(nick)". */
+    function avatarInitials(options) {
+        options = options || {};
+        var nick = options.nickName ? String(options.nickName).trim() : '';
+        if (nick) {
+            var firstNick = nick.split(/\s+/).filter(Boolean)[0];
+            return initials(firstNick || nick);
+        }
+        var name = options.name ? String(options.name).trim() : '';
+        if (name) return initials(name);
+        var label = options.label ? String(options.label).trim() : '';
+        var withoutParen = label.replace(/\s*\([^)]*\)\s*$/, '').trim();
+        return initials(withoutParen || label);
     }
 
     function postMultipart(url, formData) {
@@ -74,6 +89,7 @@
     window.PhotoUpload = {
         getAntiforgeryToken: getAntiforgeryToken,
         initials: initials,
+        avatarInitials: avatarInitials,
         uploadMemberPhoto: uploadMemberPhoto,
         removeMemberPhoto: removeMemberPhoto
     };
