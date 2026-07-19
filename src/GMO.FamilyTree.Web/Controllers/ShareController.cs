@@ -273,11 +273,17 @@ public sealed class ShareController : Controller
 
         try
         {
+            var inviter = await _userManager.FindByIdAsync(invite.CreatedByUserId);
+            var inviterEmail = string.IsNullOrWhiteSpace(inviter?.Email)
+                ? "A family tree member"
+                : inviter.Email;
+            var inviterLabel = System.Net.WebUtility.HtmlEncode(inviterEmail);
+            var treeNameEncoded = System.Net.WebUtility.HtmlEncode(treeName);
             var url = AcceptUrl(invite.Token);
             var roleLabel = invite.Role == TreeShareRole.Editor ? "edit" : "view";
-            var subject = $"You're invited to {roleLabel} the \"{treeName}\" family tree";
+            var subject = $"{inviterEmail} invited you to {roleLabel} the \"{treeName}\" family tree";
             var body = $"""
-                <p>You've been invited to <strong>{roleLabel}</strong> the family tree <strong>{System.Net.WebUtility.HtmlEncode(treeName)}</strong>.</p>
+                <p>{inviterLabel} invited you to <strong>{roleLabel}</strong> the family tree <strong>{treeNameEncoded}</strong>.</p>
                 <p><a href="{url}">Accept the invite</a></p>
                 <p>You'll need to sign in or create an account. This link was sent to {System.Net.WebUtility.HtmlEncode(invite.Email)}.</p>
                 """;
