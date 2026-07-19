@@ -231,7 +231,7 @@ Each node receives a `data-visual-rank` attribute that the UI tests read to veri
 
 ## Tree Toolbar Controls
 
-Layout and lineage toggles live on the home page toolbar ([`TreeToolbar/Default.cshtml`](../src/GMO.FamilyTree.Web/Views/Shared/Components/TreeToolbar/Default.cshtml)), not in the user menu. The user menu is limited to profile photo, email, and sign out.
+Layout, lineage, **View** mode, and **Share** live on the home page toolbar ([`TreeToolbar/Default.cshtml`](../src/GMO.FamilyTree.Web/Views/Shared/Components/TreeToolbar/Default.cshtml)). The user menu covers profile photo, password management (when applicable), email, and sign out.
 
 ### Layout orientation
 
