@@ -99,6 +99,19 @@
         return true;
     }
 
+    function normalizeForm(form) {
+        var valid = true;
+        var firstInvalid = null;
+        form.querySelectorAll('.js-flex-date').forEach(function (input) {
+            if (!normalizeInput(input)) {
+                valid = false;
+                if (!firstInvalid) firstInvalid = input;
+            }
+        });
+        if (firstInvalid) firstInvalid.focus();
+        return valid;
+    }
+
     document.addEventListener('focusout', function (e) {
         var t = e.target;
         if (t && t.classList && t.classList.contains('js-flex-date')) {
@@ -109,10 +122,11 @@
     document.addEventListener('submit', function (e) {
         var form = e.target;
         if (!form || !form.querySelectorAll) return;
-        form.querySelectorAll('.js-flex-date').forEach(function (input) {
-            normalizeInput(input);
-        });
+        if (!normalizeForm(form)) {
+            e.preventDefault();
+            e.stopImmediatePropagation();
+        }
     }, true);
 
-    window.FlexDate = { parse: parse, normalizeInput: normalizeInput };
+    window.FlexDate = { parse: parse, normalizeInput: normalizeInput, normalizeForm: normalizeForm };
 })();
