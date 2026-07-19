@@ -16,13 +16,7 @@
         <label asp-for="NickName" class="form-label">Nickname</label>
         <input asp-for="NickName" class="form-control" />
     </div>
-    <div class="mb-3">
-        <label asp-for="DOB" class="form-label">Date of birth</label>
-        <input asp-for="DOB" class="form-control js-flex-date" type="text" inputmode="numeric" autocomplete="off" placeholder="YYYY-MM-DD" asp-format="{0:yyyy-MM-dd}" />
-        <div class="form-text">Examples: 1950-07-19, 07/19/1950, or 19 Jul 1950. A missing month or day defaults to the 1st.</div>
-        <span asp-validation-for="DOB" class="text-danger"></span>
-        <div class="invalid-feedback">Enter a valid date, e.g. 1950-07-19.</div>
-    </div>
+    <partial name="_DateOfBirthField" />
     <div class="mb-3 form-check">
         <input asp-for="IsMale" class="form-check-input" />
         <label asp-for="IsMale" class="form-check-label">Male</label>
