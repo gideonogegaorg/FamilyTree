@@ -377,6 +377,7 @@ main .table code {
   min-height: 0;
   overflow: hidden;
   cursor: grab;
+  touch-action: none;
   background:
     linear-gradient(180deg, rgba(255, 252, 247, 0.5), transparent 120px),
     var(--ft-bg);
