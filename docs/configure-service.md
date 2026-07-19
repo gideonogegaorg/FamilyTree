@@ -128,12 +128,12 @@ sudo systemctl restart familytree-dev
 SES setup checklist (region `us-east-1`):
 
 1. Verify sending domains in SES: `goom.life`, `familytree.goom.life`, `familytree-dev.goom.life` (Easy DKIM **Successful**).
-2. Publish Easy DKIM CNAMEs in Route53 (`goom.life` zone) and SPF TXT (`v=spf1 include:amazonses.com ~all`); optional DMARC.
-3. Request production access (leave the SES sandbox) so you can send to arbitrary recipients. Until approved, only verified recipient identities can receive mail.
-   - Current status (2026-07-10): **DENIED** (case `178365954000258`). CLI resubmit returns `ConflictException`.
-   - Next: AWS Console → Support Center → open/reply on that case (or SES → Account dashboard). Describe bounce/complaint handling (SES account-level suppression), recipient consent (self-registration / owner invite), DKIM+SPF on `goom.life`, and low transactional volume. Paid Support may be required to get a human review.
-4. Grant the EC2 instance role (`EC2-Certbot-Role`) `ses:SendEmail` and `ses:SendRawEmail` (inline policy `FamilyTreeSesSendPolicy`).
-5. Set GitHub environment variables on `dev` / `prod`: `EMAIL_PROVIDER=Ses`, `EMAIL_REGION=us-east-1`, `EMAIL_FROM_DISPLAY_NAME=GOOM Family Tree`; redeploy and smoke-test register confirmation, forgot-password, or a share invite.
+2. Publish Easy DKIM CNAMEs in Route53 (`goom.life` zone) and SPF TXT (`v=spf1 include:amazonses.com ~all`).
+3. Publish DMARC monitor-only TXT at `_dmarc.goom.life`: `v=DMARC1; p=none;`.
+4. Production access: **GRANTED** (case `178365954000258`). Account is out of the SES sandbox (`ProductionAccessEnabled=true`, enforcement `HEALTHY`).
+5. Enable account-level suppression for `BOUNCE` and `COMPLAINT` (`aws sesv2 put-account-suppression-attributes`). Monitor reputation and the suppression list in the SES Console; remove an address from the list before re-inviting if a bounce/complaint was a false positive.
+6. Grant the EC2 instance role (`EC2-Certbot-Role`) `ses:SendEmail` and `ses:SendRawEmail` (inline policy `FamilyTreeSesSendPolicy`).
+7. Set GitHub environment variables on `dev` / `prod`: `EMAIL_PROVIDER=Ses`, `EMAIL_REGION=us-east-1`, `EMAIL_FROM_DISPLAY_NAME=GOOM Family Tree`; redeploy and smoke-test register confirmation, forgot-password, or a share invite.
 
 ---
 
