@@ -616,19 +616,19 @@ public class FamilyMemberController : Controller
             RelationshipType.Couple => GetExistingPartnerIds(model.ContextMemberId, rels),
             _ => new HashSet<long>()
         };
-        if (model.RelationshipType == RelationshipType.Parent && model.IsChild == true)
+        if (model.RelationshipType == RelationshipType.Parent && model.IsChild is true)
             existingIds = GetExistingChildIds(model.ContextMemberId, rels);
         model.Candidates = allInTree.Where(m => !existingIds.Contains(m.Id)).Select(m => new LinkExistingCandidateViewModel { Id = m.Id, DisplayName = string.IsNullOrEmpty(m.NickName) ? m.Name : $"{m.Name} ({m.NickName})" }).ToList();
     }
 
     private async Task<bool> RelationshipExistsAsync(long treeId, long contextId, long existingId, RelationshipType type, bool isChild, CancellationToken ct)
     {
-        return type == RelationshipType.Couple
-            ? await _db.FamilyMemberRelationships.AnyAsync(r => r.FamilyTreeId == treeId && r.RelationshipType == RelationshipType.Couple && ((r.FromMemberId == contextId && r.ToMemberId == existingId) || (r.FromMemberId == existingId && r.ToMemberId == contextId)), ct)
-            : type != RelationshipType.Parent
-                ? false
-                : isChild
-                    ? await _db.FamilyMemberRelationships.AnyAsync(r => r.FamilyTreeId == treeId && r.FromMemberId == contextId && r.ToMemberId == existingId && r.RelationshipType == RelationshipType.Parent, ct)
-                    : await _db.FamilyMemberRelationships.AnyAsync(r => r.FamilyTreeId == treeId && r.FromMemberId == existingId && r.ToMemberId == contextId && r.RelationshipType == RelationshipType.Parent, ct);
+        if (type == RelationshipType.Couple)
+            return await _db.FamilyMemberRelationships.AnyAsync(r => r.FamilyTreeId == treeId && r.RelationshipType == RelationshipType.Couple && ((r.FromMemberId == contextId && r.ToMemberId == existingId) || (r.FromMemberId == existingId && r.ToMemberId == contextId)), ct);
+        if (type != RelationshipType.Parent)
+            return false;
+        if (isChild)
+            return await _db.FamilyMemberRelationships.AnyAsync(r => r.FamilyTreeId == treeId && r.FromMemberId == contextId && r.ToMemberId == existingId && r.RelationshipType == RelationshipType.Parent, ct);
+        return await _db.FamilyMemberRelationships.AnyAsync(r => r.FamilyTreeId == treeId && r.FromMemberId == existingId && r.ToMemberId == contextId && r.RelationshipType == RelationshipType.Parent, ct);
     }
 }

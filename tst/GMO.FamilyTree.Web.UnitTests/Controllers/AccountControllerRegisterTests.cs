@@ -65,6 +65,7 @@ public class AccountControllerRegisterTests : IClassFixture<AccountControllerFix
         email.Setup(e => e.SendEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
             .Returns(Task.CompletedTask);
 
+        var httpContext = new Microsoft.AspNetCore.Http.DefaultHttpContext();
         var controller = new AccountController(
             AccountControllerFixture.CreateDependencies(
                 signIn,
@@ -82,15 +83,12 @@ public class AccountControllerRegisterTests : IClassFixture<AccountControllerFix
                 Mock.Of<ITreeCardViewModeService>(),
                 new FamilyTreeAccessService(db),
                 AccountControllerFixture.CreateAllowAllRateLimiter()),
-            NullLogger<AccountController>.Instance);
-        controller.ControllerContext = new()
+            NullLogger<AccountController>.Instance)
         {
-            HttpContext = new Microsoft.AspNetCore.Http.DefaultHttpContext()
+            ControllerContext = new() { HttpContext = httpContext },
+            Url = AccountControllerFixture.CreateUrlHelper("/Home/Index"),
+            TempData = new TempDataDictionary(httpContext, Mock.Of<ITempDataProvider>())
         };
-        controller.Url = AccountControllerFixture.CreateUrlHelper("/Home/Index");
-        controller.TempData = new TempDataDictionary(
-            controller.ControllerContext.HttpContext,
-            Mock.Of<ITempDataProvider>());
 
         var result = await controller.Register(new RegisterViewModel
         {

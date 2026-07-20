@@ -237,12 +237,14 @@ public class ControllerModelStateValidationTests : IClassFixture<AccountControll
             photos.Object,
             new FamilyTreeAccessService(db),
             new WebHostEnvironmentMock().Object,
-            Microsoft.Extensions.Options.Options.Create(new PathsOptions()));
-        controller.ControllerContext = new()
+            Microsoft.Extensions.Options.Options.Create(new PathsOptions()))
         {
-            HttpContext = new DefaultHttpContext
+            ControllerContext = new()
             {
-                User = new ClaimsPrincipal(new ClaimsIdentity([new Claim(ClaimTypes.NameIdentifier, "owner-1")], "test"))
+                HttpContext = new DefaultHttpContext
+                {
+                    User = new ClaimsPrincipal(new ClaimsIdentity([new Claim(ClaimTypes.NameIdentifier, "owner-1")], "test"))
+                }
             }
         };
         Invalidate(controller);
@@ -261,12 +263,14 @@ public class ControllerModelStateValidationTests : IClassFixture<AccountControll
             db,
             currentTree.Object,
             new Mock<IPhotoStorageService>().Object,
-            new FamilyTreeAccessService(db));
-        controller.ControllerContext = new()
+            new FamilyTreeAccessService(db))
         {
-            HttpContext = new DefaultHttpContext
+            ControllerContext = new()
             {
-                User = new ClaimsPrincipal(new ClaimsIdentity([new Claim(ClaimTypes.NameIdentifier, "owner-1")], "test"))
+                HttpContext = new DefaultHttpContext
+                {
+                    User = new ClaimsPrincipal(new ClaimsIdentity([new Claim(ClaimTypes.NameIdentifier, "owner-1")], "test"))
+                }
             }
         };
         return controller;
@@ -297,17 +301,19 @@ public class ControllerModelStateValidationTests : IClassFixture<AccountControll
         var share = new FamilyTreeShareService(db, access);
         var current = new Mock<ICurrentFamilyTreeService>();
         var email = new Mock<IEmailSender>();
-        var controller = new ShareController(
-            new ShareControllerDependencies(
-                db, userManager, access, share, current.Object, email.Object,
-                AccountControllerFixture.CreateAllowAllRateLimiter()),
-            Microsoft.Extensions.Logging.Abstractions.NullLogger<ShareController>.Instance);
         var http = new DefaultHttpContext { Request = { Scheme = "https" } };
         http.User = new ClaimsPrincipal(new ClaimsIdentity([new Claim(ClaimTypes.NameIdentifier, "owner")], "test"));
         var url = new Mock<IUrlHelper>();
         url.Setup(u => u.Action(It.IsAny<UrlActionContext>())).Returns("/Share/Accept/token");
-        controller.ControllerContext = new() { HttpContext = http };
-        controller.Url = url.Object;
+        var controller = new ShareController(
+            new ShareControllerDependencies(
+                db, userManager, access, share, current.Object, email.Object,
+                AccountControllerFixture.CreateAllowAllRateLimiter()),
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<ShareController>.Instance)
+        {
+            ControllerContext = new() { HttpContext = http },
+            Url = url.Object
+        };
         return (controller, db, userManager, email, current);
     }
 }

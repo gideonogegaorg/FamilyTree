@@ -68,10 +68,9 @@ public sealed class FamilyTreeController : Controller
 
     public async Task<IActionResult> Edit(long? id, CancellationToken cancellationToken)
     {
-        if (!ModelState.IsValid)
-            return BadRequest();
-
-        return await ShowOwnedTreeFormAsync(id, cancellationToken);
+        return !ModelState.IsValid
+            ? BadRequest()
+            : await ShowOwnedTreeFormAsync(id, cancellationToken);
     }
 
     [HttpPost]
@@ -97,10 +96,9 @@ public sealed class FamilyTreeController : Controller
 
     public async Task<IActionResult> Delete(long? id, CancellationToken cancellationToken)
     {
-        if (!ModelState.IsValid)
-            return BadRequest();
-
-        return await ShowOwnedTreeFormAsync(id, cancellationToken, viewName: "Delete");
+        return !ModelState.IsValid
+            ? BadRequest()
+            : await ShowOwnedTreeFormAsync(id, cancellationToken, viewName: "Delete");
     }
 
     [HttpPost, ActionName("Delete")]
@@ -125,8 +123,10 @@ public sealed class FamilyTreeController : Controller
 
         if (id == null || OwnerId == null) return NotFound();
         var entity = await _db.FamilyTrees.FindAsync(new object[] { id.Value }, cancellationToken);
-        return entity == null || entity.OwnerId != OwnerId
-            ? NotFound()
-            : viewName == null ? View(entity) : View(viewName, entity);
+        if (entity == null || entity.OwnerId != OwnerId)
+            return NotFound();
+        if (viewName == null)
+            return View(entity);
+        return View(viewName, entity);
     }
 }
