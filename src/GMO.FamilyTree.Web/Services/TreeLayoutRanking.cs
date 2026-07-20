@@ -143,10 +143,9 @@ public static class TreeLayoutRanking
 
             bool bloodlineA = nodeA.ParentIds.Count > 0;
             bool bloodlineB = nodeB.ParentIds.Count > 0;
-            if (bloodlineA != bloodlineB)
-                return bloodlineA;
-
-            return isPrimary(nodeA) && !isPrimary(nodeB);
+            return bloodlineA != bloodlineB
+                ? bloodlineA
+                : isPrimary(nodeA) && !isPrimary(nodeB);
         }
 
         foreach (var primary in cards.Where(c => c.PartnerIds.Count > 1))

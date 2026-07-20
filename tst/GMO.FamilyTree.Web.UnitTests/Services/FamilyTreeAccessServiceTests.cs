@@ -66,6 +66,14 @@ public class FamilyTreeAccessServiceTests
     }
 
     [Fact]
+    public async Task GetAccessLevelForMember_returns_none_for_empty_user()
+    {
+        await using var db = CreateDb(nameof(GetAccessLevelForMember_returns_none_for_empty_user));
+        var sut = new FamilyTreeAccessService(db);
+        Assert.Equal(TreeAccessLevel.None, await sut.GetAccessLevelForMemberAsync(string.Empty, 1));
+    }
+
+    [Fact]
     public async Task GetAccessLevelForMember_returns_none_when_member_missing()
     {
         await using var db = CreateDb(nameof(GetAccessLevelForMember_returns_none_when_member_missing));
