@@ -107,8 +107,9 @@ public class SesEmailSenderTests
         var options = Microsoft.Extensions.Options.Options.Create(new EmailOptions { FromAddress = "noreply@example.com" });
         var sut = new SesEmailSender(ses.Object, options, CreateProtector(), logger);
 
-        await Assert.ThrowsAsync<AmazonSimpleEmailServiceException>(() =>
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(() =>
             sut.SendEmailAsync("to@example.com", "S", "<p>x</p>", "x", EmailRateLimitOperations.Confirmation));
+        Assert.IsType<AmazonSimpleEmailServiceException>(ex.InnerException);
 
         var message = Assert.Single(logger.Messages);
         Assert.Contains("Operation=", message, StringComparison.Ordinal);

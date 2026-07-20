@@ -17,7 +17,7 @@
                                 @Html.AntiForgeryToken()
                                 <button type="submit"
                                         class="ft-tree-picker-item @(tree.Id == Model.CurrentTreeId ? "active" : "")"
-                                        aria-selected="@(tree.Id == Model.CurrentTreeId ? "true" : "false")">
+                                        @(tree.Id == Model.CurrentTreeId ? "aria-current=\"true\"" : null)>
                                     @tree.Name
                                     @if (!tree.IsOwner)
                                     {

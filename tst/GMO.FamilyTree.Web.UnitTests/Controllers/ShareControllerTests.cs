@@ -58,8 +58,9 @@ public class ShareControllerTests
         var email = new Mock<IEmailSender>();
 
         var controller = new ShareController(
-            db, userManager, access, share, current.Object, email.Object,
-            rateLimiter ?? AccountControllerFixture.CreateAllowAllRateLimiter(),
+            new ShareControllerDependencies(
+                db, userManager, access, share, current.Object, email.Object,
+                rateLimiter ?? AccountControllerFixture.CreateAllowAllRateLimiter()),
             Microsoft.Extensions.Logging.Abstractions.NullLogger<ShareController>.Instance);
         var http = new DefaultHttpContext();
         http.Request.Scheme = "https";

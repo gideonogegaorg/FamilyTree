@@ -66,21 +66,22 @@ public class AccountControllerRegisterTests : IClassFixture<AccountControllerFix
             .Returns(Task.CompletedTask);
 
         var controller = new AccountController(
-            signIn,
-            users,
-            email.Object,
-            new GoogleAuthOptionsMock().Object,
-            db,
-            new CurrentFamilyTreeServiceMock().Object,
-            Mock.Of<ITreeViewOrientationService>(),
-            Mock.Of<ILineageModeService>(),
-            new DefaultFamilyTreeService(db),
-            Mock.Of<IFamilyTreeDeletionService>(),
-            _f.CreateExternalLoginInfoProvider("user@example.com"),
-            Mock.Of<IPhotoStorageService>(),
-            Mock.Of<ITreeCardViewModeService>(),
-            new FamilyTreeAccessService(db),
-            AccountControllerFixture.CreateAllowAllRateLimiter(),
+            new AccountControllerDependencies(
+                signIn,
+                users,
+                email.Object,
+                new GoogleAuthOptionsMock().Object,
+                db,
+                new CurrentFamilyTreeServiceMock().Object,
+                Mock.Of<ITreeViewOrientationService>(),
+                Mock.Of<ILineageModeService>(),
+                new DefaultFamilyTreeService(db),
+                Mock.Of<IFamilyTreeDeletionService>(),
+                _f.CreateExternalLoginInfoProvider("user@example.com"),
+                Mock.Of<IPhotoStorageService>(),
+                Mock.Of<ITreeCardViewModeService>(),
+                new FamilyTreeAccessService(db),
+                AccountControllerFixture.CreateAllowAllRateLimiter()),
             NullLogger<AccountController>.Instance);
         controller.ControllerContext = new ControllerContext
         {

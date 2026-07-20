@@ -11,7 +11,7 @@ set -euo pipefail
 
 OUTPUT="src/GMO.FamilyTree.Web/wwwroot/robots.txt"
 
-if [ "${IS_PRODUCTION:-false}" = "true" ]; then
+if [[ "${IS_PRODUCTION:-false}" = "true" ]]; then
   cat > "$OUTPUT" <<'EOF'
 User-agent: *
 Allow: /

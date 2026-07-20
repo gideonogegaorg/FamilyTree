@@ -127,7 +127,7 @@ public sealed class AccountControllerFixture
         var rateLimiter = CreateAllowAllRateLimiter();
         var logger = Microsoft.Extensions.Logging.Abstractions.NullLogger<AccountController>.Instance;
 
-        var controller = new AccountController(
+        var deps = new AccountControllerDependencies(
             signInManager,
             userManager,
             emailSender,
@@ -142,8 +142,9 @@ public sealed class AccountControllerFixture
             photosService,
             treeCardViewMode,
             access,
-            rateLimiter,
-            logger);
+            rateLimiter);
+
+        var controller = new AccountController(deps, logger);
 
         var services = new ServiceCollection();
         services.AddSingleton<IUrlHelperFactory>(new TestUrlHelperFactory(urlHelperToUse));

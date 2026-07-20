@@ -94,14 +94,15 @@ public class HomeControllerLandingTests
         googleAuth.Setup(g => g.CurrentValue).Returns(new GoogleAuthOptions());
 
         var controller = new HomeController(
-            db,
-            new Mock<ICurrentFamilyTreeService>().Object,
-            new Mock<ITreeViewOrientationService>().Object,
-            new Mock<ILineageModeService>().Object,
-            new Mock<ITreeCardViewModeService>().Object,
-            new FamilyTreeAccessService(db),
-            googleAuth.Object,
-            env.Object);
+            new HomeControllerDependencies(
+                db,
+                new Mock<ICurrentFamilyTreeService>().Object,
+                new Mock<ITreeViewOrientationService>().Object,
+                new Mock<ILineageModeService>().Object,
+                new Mock<ITreeCardViewModeService>().Object,
+                new FamilyTreeAccessService(db),
+                googleAuth.Object,
+                env.Object));
 
         var identity = authenticated
             ? new ClaimsIdentity([new Claim(ClaimTypes.Name, "test@example.com")], "test")

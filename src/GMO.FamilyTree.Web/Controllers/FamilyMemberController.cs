@@ -139,7 +139,7 @@ public class FamilyMemberController : Controller
             DOD = model.DOD,
             IsMale = model.IsMale,
             UserId = model.SetAsMe ? currentUserId : null,
-            BirthOrder = model.RelationshipType == RelationshipType.Parent || model.RelationshipType == RelationshipType.Couple
+            BirthOrder = model.RelationshipType is RelationshipType.Parent or RelationshipType.Couple
                 ? null
                 : model.BirthOrder
         };
@@ -151,7 +151,7 @@ public class FamilyMemberController : Controller
         FamilyMember newMember,
         CancellationToken cancellationToken)
     {
-        switch (model.RelationshipType)
+        switch (model.RelationshipType!.Value)
         {
             case RelationshipType.Parent:
                 _db.FamilyMembers.Add(newMember);
@@ -326,7 +326,7 @@ public class FamilyMemberController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> EditMember(long memberId, string name, string? nickName, DateOnly? dob, DateOnly? dod, int? birthOrder, bool isMale, bool setAsMe, CancellationToken cancellationToken = default)
+    public async Task<IActionResult> EditMember([FromForm] EditMemberRequest request, CancellationToken cancellationToken = default)
     {
         if (!ModelState.IsValid)
             return EditMemberError("Invalid input.");
@@ -335,20 +335,20 @@ public class FamilyMemberController : Controller
         if (!treeId.HasValue) return EditMemberError("No tree");
         if (!await EnsureCanEditAsync(treeId.Value, cancellationToken))
             return EditMemberError("Forbidden");
-        var member = await _db.FamilyMembers.FindAsync(new object[] { memberId }, cancellationToken);
+        var member = await _db.FamilyMembers.FindAsync(new object[] { request.MemberId }, cancellationToken);
         if (member == null || member.FamilyTreeId != treeId.Value) return EditMemberError("Not found");
-        if (string.IsNullOrWhiteSpace(name)) return EditMemberError("Name is required");
-        if (dob.HasValue && dod.HasValue && dod < dob)
+        if (string.IsNullOrWhiteSpace(request.Name)) return EditMemberError("Name is required");
+        if (request.Dob.HasValue && request.Dod.HasValue && request.Dod < request.Dob)
             return EditMemberError("Date of death cannot be before date of birth.");
 
-        member.Name = name.Trim();
-        member.NickName = string.IsNullOrWhiteSpace(nickName) ? null : nickName.Trim();
-        member.DOB = dob;
-        member.DOD = dod;
-        member.BirthOrder = birthOrder;
-        member.IsMale = isMale;
+        member.Name = request.Name.Trim();
+        member.NickName = string.IsNullOrWhiteSpace(request.NickName) ? null : request.NickName.Trim();
+        member.DOB = request.Dob;
+        member.DOD = request.Dod;
+        member.BirthOrder = request.BirthOrder;
+        member.IsMale = request.IsMale ?? false;
 
-        await ApplySetAsMeAsync(memberId, member, setAsMe, cancellationToken);
+        await ApplySetAsMeAsync(request.MemberId, member, request.SetAsMe ?? false, cancellationToken);
 
         await _db.SaveChangesAsync(cancellationToken);
         return Json(new { success = true });
@@ -562,7 +562,7 @@ public class FamilyMemberController : Controller
             }
         }
 
-        if (await RelationshipExistsAsync(model.FamilyTreeId, model.ContextMemberId, model.ExistingMemberId.Value, model.RelationshipType, model.IsChild, cancellationToken))
+        if (await RelationshipExistsAsync(model.FamilyTreeId, model.ContextMemberId, model.ExistingMemberId.Value, model.RelationshipType!.Value, model.IsChild, cancellationToken))
         {
             ModelState.AddModelError("", "This relationship already exists.");
             await RepopulateLinkExistingCandidatesAsync(model, cancellationToken);
@@ -574,7 +574,7 @@ public class FamilyMemberController : Controller
 
     private void AddLinkExistingRelationship(LinkExistingViewModel model, FamilyMember contextMember, FamilyMember existingMember)
     {
-        switch (model.RelationshipType)
+        switch (model.RelationshipType!.Value)
         {
             case RelationshipType.Parent:
                 if (model.IsChild)
@@ -607,7 +607,7 @@ public class FamilyMemberController : Controller
     {
         var allInTree = await _db.FamilyMembers.AsNoTracking().Where(m => m.FamilyTreeId == model.FamilyTreeId && m.Id != model.ContextMemberId).OrderBy(m => m.Name).ToListAsync(ct);
         var rels = await _db.FamilyMemberRelationships.AsNoTracking().Where(r => r.FamilyTreeId == model.FamilyTreeId).ToListAsync(ct);
-        HashSet<long> existingIds = model.RelationshipType switch
+        HashSet<long> existingIds = model.RelationshipType!.Value switch
         {
             RelationshipType.Parent => GetExistingParentIds(model.ContextMemberId, rels),
             RelationshipType.Couple => GetExistingPartnerIds(model.ContextMemberId, rels),

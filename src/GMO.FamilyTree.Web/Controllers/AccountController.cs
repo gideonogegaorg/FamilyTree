@@ -39,39 +39,23 @@ public class AccountController : Controller
     private readonly IEmailRateLimiter _emailRateLimiter;
     private readonly ILogger<AccountController> _logger;
 
-    public AccountController(
-        SignInManager<IdentityUser> signInManager,
-        UserManager<IdentityUser> userManager,
-        IEmailSender emailSender,
-        IOptionsMonitor<GoogleAuthOptions> googleAuth,
-        AppDbContext db,
-        ICurrentFamilyTreeService currentFamilyTree,
-        ITreeViewOrientationService treeViewOrientation,
-        ILineageModeService lineageMode,
-        IDefaultFamilyTreeService defaultFamilyTree,
-        IFamilyTreeDeletionService familyTreeDeletion,
-        IExternalLoginInfoProvider externalLoginInfo,
-        IPhotoStorageService photos,
-        ITreeCardViewModeService treeCardViewMode,
-        IFamilyTreeAccessService access,
-        IEmailRateLimiter emailRateLimiter,
-        ILogger<AccountController> logger)
+    public AccountController(AccountControllerDependencies deps, ILogger<AccountController> logger)
     {
-        _signInManager = signInManager;
-        _userManager = userManager;
-        _emailSender = emailSender;
-        _googleAuth = googleAuth;
-        _db = db;
-        _currentFamilyTree = currentFamilyTree;
-        _treeViewOrientation = treeViewOrientation;
-        _lineageMode = lineageMode;
-        _defaultFamilyTree = defaultFamilyTree;
-        _familyTreeDeletion = familyTreeDeletion;
-        _externalLoginInfo = externalLoginInfo;
-        _photos = photos;
-        _treeCardViewMode = treeCardViewMode;
-        _access = access;
-        _emailRateLimiter = emailRateLimiter;
+        _signInManager = deps.SignInManager;
+        _userManager = deps.UserManager;
+        _emailSender = deps.EmailSender;
+        _googleAuth = deps.GoogleAuth;
+        _db = deps.Db;
+        _currentFamilyTree = deps.CurrentFamilyTree;
+        _treeViewOrientation = deps.TreeViewOrientation;
+        _lineageMode = deps.LineageMode;
+        _defaultFamilyTree = deps.DefaultFamilyTree;
+        _familyTreeDeletion = deps.FamilyTreeDeletion;
+        _externalLoginInfo = deps.ExternalLoginInfo;
+        _photos = deps.Photos;
+        _treeCardViewMode = deps.TreeCardViewMode;
+        _access = deps.Access;
+        _emailRateLimiter = deps.EmailRateLimiter;
         _logger = logger;
     }
 
@@ -348,10 +332,11 @@ public class AccountController : Controller
             return View(model);
 
         var user = await _userManager.FindByEmailAsync(model.Email);
-        if (user != null && !await _userManager.IsEmailConfirmedAsync(user))
+        if (user != null
+            && !await _userManager.IsEmailConfirmedAsync(user)
+            && !await SendConfirmationEmailAsync(user))
         {
-            if (!await SendConfirmationEmailAsync(user))
-                TempData["EmailRateLimited"] = true;
+            TempData["EmailRateLimited"] = true;
         }
 
         return RedirectToAction(nameof(RegisterConfirmation), new { email = model.Email });

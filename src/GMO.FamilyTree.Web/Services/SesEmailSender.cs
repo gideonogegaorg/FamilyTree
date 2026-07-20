@@ -73,7 +73,7 @@ public sealed class SesEmailSender : IEmailSender
                 "SES email failed, Operation={Operation}, ToProtected={ToProtected}",
                 operation,
                 toProtected);
-            throw;
+            throw new InvalidOperationException($"SES email failed for operation '{operation}'.", ex);
         }
     }
 }

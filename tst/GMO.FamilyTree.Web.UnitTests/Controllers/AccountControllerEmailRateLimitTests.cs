@@ -100,21 +100,22 @@ public class AccountControllerEmailRateLimitTests : IClassFixture<AccountControl
         IEmailRateLimiter rateLimiter)
     {
         var controller = new AccountController(
-            signIn,
-            users,
-            emailSender,
-            new GoogleAuthOptionsMock().Object,
-            db,
-            new CurrentFamilyTreeServiceMock().Object,
-            new Mock<ITreeViewOrientationService>().Object,
-            new Mock<ILineageModeService>().Object,
-            new DefaultFamilyTreeService(db),
-            new Mock<IFamilyTreeDeletionService>().Object,
-            new AccountControllerFixture().CreateExternalLoginInfoProvider("user@example.com"),
-            new Mock<IPhotoStorageService>().Object,
-            new Mock<ITreeCardViewModeService>().Object,
-            new FamilyTreeAccessService(db),
-            rateLimiter,
+            new AccountControllerDependencies(
+                signIn,
+                users,
+                emailSender,
+                new GoogleAuthOptionsMock().Object,
+                db,
+                new CurrentFamilyTreeServiceMock().Object,
+                new Mock<ITreeViewOrientationService>().Object,
+                new Mock<ILineageModeService>().Object,
+                new DefaultFamilyTreeService(db),
+                new Mock<IFamilyTreeDeletionService>().Object,
+                new AccountControllerFixture().CreateExternalLoginInfoProvider("user@example.com"),
+                new Mock<IPhotoStorageService>().Object,
+                new Mock<ITreeCardViewModeService>().Object,
+                new FamilyTreeAccessService(db),
+                rateLimiter),
             Microsoft.Extensions.Logging.Abstractions.NullLogger<AccountController>.Instance);
 
         controller.ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() };
