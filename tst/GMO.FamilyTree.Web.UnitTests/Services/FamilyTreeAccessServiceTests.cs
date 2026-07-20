@@ -66,6 +66,31 @@ public class FamilyTreeAccessServiceTests
     }
 
     [Fact]
+    public async Task GetAccessLevelForMember_returns_none_when_member_missing()
+    {
+        await using var db = CreateDb(nameof(GetAccessLevelForMember_returns_none_when_member_missing));
+        db.Users.Add(new IdentityUser { Id = "owner", UserName = "o@example.com", Email = "o@example.com" });
+        await db.SaveChangesAsync();
+
+        var sut = new FamilyTreeAccessService(db);
+        Assert.Equal(TreeAccessLevel.None, await sut.GetAccessLevelForMemberAsync("owner", 999));
+    }
+
+    [Fact]
+    public async Task GetAccessLevelForMember_delegates_to_tree_access()
+    {
+        await using var db = CreateDb(nameof(GetAccessLevelForMember_delegates_to_tree_access));
+        db.Users.Add(new IdentityUser { Id = "owner", UserName = "o@example.com", Email = "o@example.com" });
+        db.FamilyTrees.Add(new FamilyTreeEntity { Id = 1, Name = "T", OwnerId = "owner", Uid = Guid.NewGuid() });
+        db.FamilyMembers.Add(new FamilyMember { Id = 10, FamilyTreeId = 1, Name = "Self" });
+        await db.SaveChangesAsync();
+
+        var sut = new FamilyTreeAccessService(db);
+        Assert.Equal(TreeAccessLevel.Owner, await sut.GetAccessLevelForMemberAsync("owner", 10));
+        Assert.True(await sut.UserOwnsMemberAsync("owner", 10));
+    }
+
+    [Fact]
     public async Task GetAccessibleTrees_includes_owned_and_shared()
     {
         await using var db = CreateDb(nameof(GetAccessibleTrees_includes_owned_and_shared));

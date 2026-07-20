@@ -243,7 +243,7 @@ public class AccountControllerPasswordManagementTests : IClassFixture<AccountCon
             e => e.ErrorMessage.Contains("Set password", StringComparison.OrdinalIgnoreCase));
     }
 
-    private AccountController CreateAuthenticated(
+    private static AccountController CreateAuthenticated(
         AppDbContext db,
         SignInManager<IdentityUser> signIn,
         UserManager<IdentityUser> users,

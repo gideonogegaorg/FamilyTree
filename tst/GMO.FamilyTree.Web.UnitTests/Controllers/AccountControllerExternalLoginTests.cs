@@ -21,6 +21,20 @@ public class AccountControllerExternalLoginTests : IClassFixture<AccountControll
     public AccountControllerExternalLoginTests(AccountControllerFixture fixture) => _f = fixture;
 
     [Fact]
+    public void SignIn_returns_google_challenge()
+    {
+        using var db = _f.CreateDb(nameof(SignIn_returns_google_challenge));
+        var (signInManager, userManager) = AccountControllerFixture.CreateIdentityManagers(db);
+        var controller = _f.CreateAccountController(
+            signInManager, userManager, db,
+            AccountControllerFixture.CreateExternalLoginInfoProvider(null));
+
+        var result = controller.SignIn(returnUrl: "/Home/Index");
+
+        Assert.IsType<ChallengeResult>(result);
+    }
+
+    [Fact]
     public async Task ExternalLoginCallback_redirects_to_Login_when_remoteError_is_set()
     {
         await using var db = _f.CreateDb(nameof(ExternalLoginCallback_redirects_to_Login_when_remoteError_is_set));

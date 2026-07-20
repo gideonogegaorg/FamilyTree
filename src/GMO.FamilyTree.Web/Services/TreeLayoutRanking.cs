@@ -143,8 +143,8 @@ public static class TreeLayoutRanking
 
             bool bloodlineA = nodeA.ParentIds.Count > 0;
             bool bloodlineB = nodeB.ParentIds.Count > 0;
-            if (bloodlineA && !bloodlineB) return true;
-            if (bloodlineB && !bloodlineA) return false;
+            if (bloodlineA != bloodlineB)
+                return bloodlineA;
 
             return isPrimary(nodeA) && !isPrimary(nodeB);
         }
