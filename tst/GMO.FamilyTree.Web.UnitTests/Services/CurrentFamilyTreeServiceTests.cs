@@ -22,7 +22,7 @@ public class CurrentFamilyTreeServiceTests
         return new AppDbContext(options);
     }
 
-    private static IHttpContextAccessor CreateHttpContextAccessor(
+    private static HttpContextAccessor CreateHttpContextAccessor(
         TestSession? session = null,
         string? userId = null)
     {

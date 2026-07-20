@@ -15,8 +15,13 @@ namespace GMO.FamilyTree.Web.UiTests;
 internal readonly record struct BoxBounds(float X, float Y, float Width, float Height);
 
 [Collection("AppFixture Collection")]
-public class LayoutOrientationTests : IAsyncLifetime
+public partial class LayoutOrientationTests : IAsyncLifetime
 {
+    private static readonly string[] FbSoloChildRank2Names = ["FB Solo Child", "Cousin 1", "Cousin 2"];
+    private static readonly string[] HsHalfSiblingRank1Names = ["HS Half Child", "HS Child A", "HS Child B"];
+
+    [GeneratedRegex(@"^member-\d+$")]
+    private static partial Regex MainMemberIdRegex();
     private readonly AppFixture _fixture;
     private IPlaywright _playwright = null!;
     private IBrowser _browser = null!;
@@ -176,7 +181,7 @@ public class LayoutOrientationTests : IAsyncLifetime
             Assert.NotNull(locator);
             await locator.ScrollIntoViewIfNeededAsync();
             var rankStr = await locator.GetAttributeAsync("data-visual-rank");
-            Assert.True(!string.IsNullOrEmpty(rankStr), $"Large tree spot-check: {name} should have data-visual-rank");
+            Assert.False(string.IsNullOrEmpty(rankStr), $"Large tree spot-check: {name} should have data-visual-rank");
             Assert.True(double.TryParse(rankStr, out var rankVal), $"Large tree spot-check: {name} data-visual-rank should be numeric");
             var box = await locator.BoundingBoxAsync();
             Assert.NotNull(box);
@@ -256,13 +261,12 @@ public class LayoutOrientationTests : IAsyncLifetime
     {
         var exactText = new Regex($"^{Regex.Escape(name)}$", RegexOptions.Multiline);
         var all = _page.Locator(".family-tree-card").Filter(new() { Has = _page.GetByText(exactText) });
-        var mainIdPattern = new Regex("^member-\\d+$");
         var n = await all.CountAsync();
         for (var i = 0; i < n; i++)
         {
             var loc = all.Nth(i);
             var id = await loc.GetAttributeAsync("id");
-            if (id != null && mainIdPattern.IsMatch(id))
+            if (id != null && MainMemberIdRegex().IsMatch(id))
                 return loc;
         }
         return requireMainOnly ? null : all.First;
@@ -385,7 +389,7 @@ public class LayoutOrientationTests : IAsyncLifetime
                 var gen2Ranks = allNodeBoxes.Where(x => Gen2Names.Contains(x.name)).Select(x => x.rank).Distinct().ToList();
                 var gen3Ranks = allNodeBoxes.Where(x => Gen3Names.Contains(x.name)).Select(x => x.rank).Distinct().ToList();
 
-                if (gen2Ranks.Any() && gen3Ranks.Any())
+                if (gen2Ranks.Count > 0 && gen3Ranks.Count > 0)
                 {
                     var maxGen2Rank = gen2Ranks.Max();
                     var minGen3Rank = gen3Ranks.Min();
@@ -477,7 +481,7 @@ public class LayoutOrientationTests : IAsyncLifetime
             $"{generation} {axis} positions vary too much: range [{min}, {max}] (max difference: {max - min}, tolerance: {tolerance})");
     }
 
-    private static void AssertSpread(List<BoxBounds> boxes, string generation, string axis, float minSpread)
+    private static void AssertSpread(List<BoxBounds> boxes, string generation, string _, float minSpread)
     {
         if (boxes.Count <= 1) return;
         float minX = boxes.Min(b => b.X), maxX = boxes.Max(b => b.X);
@@ -501,20 +505,20 @@ public class LayoutOrientationTests : IAsyncLifetime
         var maternalBtn = ToolbarPill("Maternal");
         if (isInitiallyPaternal)
         {
-            Assert.True((await maternalBtn.GetAttributeAsync("class"))?.Contains("active") == true);
-            Assert.False((await paternalBtn.GetAttributeAsync("class"))?.Contains("active") == true);
+            Assert.True((await maternalBtn.GetAttributeAsync("class"))?.Contains("active") is true);
+            Assert.False((await paternalBtn.GetAttributeAsync("class"))?.Contains("active") is true);
         }
         else
         {
-            Assert.True((await paternalBtn.GetAttributeAsync("class"))?.Contains("active") == true);
-            Assert.False((await maternalBtn.GetAttributeAsync("class"))?.Contains("active") == true);
+            Assert.True((await paternalBtn.GetAttributeAsync("class"))?.Contains("active") is true);
+            Assert.False((await maternalBtn.GetAttributeAsync("class"))?.Contains("active") is true);
         }
 
         await ClickToolbarPillAndWaitForReloadAsync(isInitiallyPaternal ? "Paternal" : "Maternal");
 
         paternalBtn = ToolbarPill("Paternal");
         maternalBtn = ToolbarPill("Maternal");
-        Assert.True((await (isInitiallyPaternal ? paternalBtn : maternalBtn).GetAttributeAsync("class"))?.Contains("active") == true);
+        Assert.True((await (isInitiallyPaternal ? paternalBtn : maternalBtn).GetAttributeAsync("class"))?.Contains("active") is true);
     }
 
     private async Task AssertPrimarySideAndHalfRankAsync(LineageMode mode, string[] halfRankNames, bool assertHalfRankBetweenGen2AndGen3)
@@ -744,7 +748,7 @@ public class LayoutOrientationTests : IAsyncLifetime
         await AssertVisualRankAsync("Cousin 1", "2");
         await AssertVisualRankAsync("Cousin 2", "2");
 
-        var boxes = await GetBoxesAsync(new[] { "FB Solo Child", "Cousin 1", "Cousin 2" });
+        var boxes = await GetBoxesAsync(FbSoloChildRank2Names);
         AssertAlignment(boxes, "Rank2 (FB Solo Child + Cousins)", alignmentAxis, tolerance: 30f);
     }
 
@@ -769,7 +773,7 @@ public class LayoutOrientationTests : IAsyncLifetime
         await AssertVisualRankAsync("HS Child A", "1");
         await AssertVisualRankAsync("HS Child B", "1");
 
-        var boxes = await GetBoxesAsync(new[] { "HS Half Child", "HS Child A", "HS Child B" });
+        var boxes = await GetBoxesAsync(HsHalfSiblingRank1Names);
         AssertAlignment(boxes, "Rank1 (HS Half Child + full siblings)", alignmentAxis, tolerance: 30f);
     }
 
@@ -784,5 +788,9 @@ public class LayoutOrientationTests : IAsyncLifetime
         await _page.Locator(".ft-subbar .ft-pills button", new() { HasText = "Paternal" }).WaitForAsync();
         await _page.Locator(".ft-subbar .ft-pills button", new() { HasText = "Maternal" }).WaitForAsync();
         await _page.Locator(".ft-tree-picker-btn").WaitForAsync();
+
+        Assert.True(await _page.Locator(".ft-subbar .ft-pills button", new() { HasText = "Vertical" }).IsVisibleAsync());
+        Assert.True(await _page.Locator(".ft-subbar .ft-pills button", new() { HasText = "Horizontal" }).IsVisibleAsync());
+        Assert.True(await _page.Locator(".ft-tree-picker-btn").IsVisibleAsync());
     }
 }

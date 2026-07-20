@@ -49,7 +49,7 @@ public sealed class WebAppFixture : WebApplicationFactory<WebAppEntry>, IDisposa
     /// </summary>
     public IServiceScope CreateScope() => Services.CreateScope();
 
-    public AppDbContext GetDbContext(IServiceScope scope) => scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    public static AppDbContext GetDbContext(IServiceScope scope) => scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
     private void EnsureDatabaseCreated()
     {
@@ -69,12 +69,10 @@ public sealed class WebAppFixture : WebApplicationFactory<WebAppEntry>, IDisposa
         _testDatabaseName = "family_test_" + Guid.NewGuid().ToString("N")[..12];
         _testConnectionString = $"{BaseConnectionString};Database={_testDatabaseName}";
 
-        await using (var conn = new NpgsqlConnection(BaseConnectionString + ";Database=postgres"))
-        {
-            await conn.OpenAsync();
-            await using (var cmd = new NpgsqlCommand($"CREATE DATABASE \"{_testDatabaseName}\"", conn))
-                await cmd.ExecuteNonQueryAsync();
-        }
+        await using var conn = new NpgsqlConnection(BaseConnectionString + ";Database=postgres");
+        await conn.OpenAsync();
+        await using var cmd = new NpgsqlCommand($"CREATE DATABASE \"{_testDatabaseName}\"", conn);
+        await cmd.ExecuteNonQueryAsync();
     }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -119,8 +117,8 @@ public sealed class WebAppFixture : WebApplicationFactory<WebAppEntry>, IDisposa
             await using var conn = new NpgsqlConnection(BaseConnectionString + ";Database=postgres");
             await conn.OpenAsync();
             await TerminateConnectionsAsync(conn, _testDatabaseName);
-            await using (var cmd = new NpgsqlCommand($"DROP DATABASE IF EXISTS \"{_testDatabaseName}\"", conn))
-                await cmd.ExecuteNonQueryAsync();
+            await using var cmd = new NpgsqlCommand($"DROP DATABASE IF EXISTS \"{_testDatabaseName}\"", conn);
+            await cmd.ExecuteNonQueryAsync();
         }
         catch
         {

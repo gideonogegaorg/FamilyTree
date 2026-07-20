@@ -31,8 +31,7 @@ public sealed class FamilyTreeController : Controller
         _access = access;
     }
 
-    private string? _ownerId;
-    private string? OwnerId => _ownerId ??= _userManager.GetUserId(User);
+    private string? OwnerId { get => field ??= _userManager.GetUserId(User); }
 
     public async Task<IActionResult> Index(CancellationToken cancellationToken)
     {
@@ -51,6 +50,8 @@ public sealed class FamilyTreeController : Controller
     public async Task<IActionResult> Create(Data.FamilyTree model, CancellationToken cancellationToken)
     {
         if (OwnerId == null) return NotFound();
+        ModelState.Remove(nameof(Data.FamilyTree.Id));
+        ModelState.Remove(nameof(Data.FamilyTree.OwnerId));
         if (string.IsNullOrWhiteSpace(model.Name))
             ModelState.AddModelError(nameof(Data.FamilyTree.Name), "Name is required.");
         if (ModelState.IsValid)
@@ -67,10 +68,9 @@ public sealed class FamilyTreeController : Controller
 
     public async Task<IActionResult> Edit(long? id, CancellationToken cancellationToken)
     {
-        if (id == null || OwnerId == null) return NotFound();
-        var entity = await _db.FamilyTrees.FindAsync(new object[] { id.Value }, cancellationToken);
-        if (entity == null || entity.OwnerId != OwnerId) return NotFound();
-        return View(entity);
+        return !ModelState.IsValid
+            ? BadRequest()
+            : await ShowOwnedTreeFormAsync(id, cancellationToken);
     }
 
     [HttpPost]
@@ -79,6 +79,8 @@ public sealed class FamilyTreeController : Controller
     {
         if (OwnerId == null) return NotFound();
         if (id != model.Id) return NotFound();
+        ModelState.Remove(nameof(Data.FamilyTree.OwnerId));
+        ModelState.Remove(nameof(Data.FamilyTree.Uid));
         if (string.IsNullOrWhiteSpace(model.Name))
             ModelState.AddModelError(nameof(Data.FamilyTree.Name), "Name is required.");
         if (ModelState.IsValid)
@@ -94,16 +96,18 @@ public sealed class FamilyTreeController : Controller
 
     public async Task<IActionResult> Delete(long? id, CancellationToken cancellationToken)
     {
-        if (id == null || OwnerId == null) return NotFound();
-        var entity = await _db.FamilyTrees.FindAsync(new object[] { id.Value }, cancellationToken);
-        if (entity == null || entity.OwnerId != OwnerId) return NotFound();
-        return View(entity);
+        return !ModelState.IsValid
+            ? BadRequest()
+            : await ShowOwnedTreeFormAsync(id, cancellationToken, viewName: "Delete");
     }
 
     [HttpPost, ActionName("Delete")]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> DeleteConfirmed(long id, CancellationToken cancellationToken)
     {
+        if (!ModelState.IsValid)
+            return BadRequest();
+
         if (OwnerId == null) return NotFound();
 
         var result = await _familyTreeDeletion.DeleteAsync(OwnerId, id, cancellationToken);
@@ -111,4 +115,19 @@ public sealed class FamilyTreeController : Controller
             ? NotFound()
             : Redirect("/Home/Index");
     }
+
+    private async Task<IActionResult> ShowOwnedTreeFormAsync(long? id, CancellationToken cancellationToken, string? viewName = null)
+    {
+        if (!ModelState.IsValid)
+            return BadRequest();
+
+        if (id == null || OwnerId == null) return NotFound();
+        var entity = await _db.FamilyTrees.FindAsync(new object[] { id.Value }, cancellationToken);
+        return entity is null || entity.OwnerId != OwnerId
+            ? NotFound()
+            : GetTreeFormView(entity, viewName);
+    }
+
+    private ViewResult GetTreeFormView(Data.FamilyTree entity, string? viewName)
+        => viewName == null ? View(entity) : View(viewName, entity);
 }

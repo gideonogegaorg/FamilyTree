@@ -13,6 +13,9 @@ namespace GMO.FamilyTree.Web.Controllers;
 [Authorize]
 public sealed class ShareController : Controller
 {
+    private const string ManageViewName = "Manage";
+    private const string AcceptErrorView = "AcceptError";
+
     private readonly AppDbContext _db;
     private readonly UserManager<IdentityUser> _userManager;
     private readonly IFamilyTreeAccessService _access;
@@ -22,34 +25,28 @@ public sealed class ShareController : Controller
     private readonly IEmailRateLimiter _emailRateLimiter;
     private readonly ILogger<ShareController> _logger;
 
-    public ShareController(
-        AppDbContext db,
-        UserManager<IdentityUser> userManager,
-        IFamilyTreeAccessService access,
-        IFamilyTreeShareService share,
-        ICurrentFamilyTreeService currentTree,
-        IEmailSender emailSender,
-        IEmailRateLimiter emailRateLimiter,
-        ILogger<ShareController> logger)
+    public ShareController(ShareControllerDependencies deps, ILogger<ShareController> logger)
     {
-        _db = db;
-        _userManager = userManager;
-        _access = access;
-        _share = share;
-        _currentTree = currentTree;
-        _emailSender = emailSender;
-        _emailRateLimiter = emailRateLimiter;
+        _db = deps.Db;
+        _userManager = deps.UserManager;
+        _access = deps.Access;
+        _share = deps.Share;
+        _currentTree = deps.CurrentTree;
+        _emailSender = deps.EmailSender;
+        _emailRateLimiter = deps.EmailRateLimiter;
         _logger = logger;
     }
 
     [HttpGet]
     public async Task<IActionResult> Manage(long treeId, CancellationToken cancellationToken)
     {
-        var userId = _userManager.GetUserId(User);
-        if (userId == null || !await _access.CanManageSharingAsync(userId, treeId, cancellationToken))
-            return NotFound();
+        if (!ModelState.IsValid)
+            return BadRequest();
 
-        return View(await BuildManageModelAsync(treeId, cancellationToken));
+        var userId = _userManager.GetUserId(User);
+        return userId == null || !await _access.CanManageSharingAsync(userId, treeId, cancellationToken)
+            ? NotFound()
+            : View(await BuildManageModelAsync(treeId, cancellationToken));
     }
 
     [HttpPost]
@@ -60,12 +57,19 @@ public sealed class ShareController : Controller
         if (userId == null || !await _access.CanManageSharingAsync(userId, treeId, cancellationToken))
             return NotFound();
 
+        if (!ModelState.IsValid)
+        {
+            var invalid = await BuildManageModelAsync(treeId, cancellationToken);
+            invalid.CreateLink = createLink;
+            return ManageView(invalid);
+        }
+
         var expiresAt = DaysToExpiry(createLink.ExpiresInDays);
         var invite = await _share.CreateLinkInviteAsync(treeId, userId, createLink.Role, expiresAt, cancellationToken);
         var model = await BuildManageModelAsync(treeId, cancellationToken);
         model.CreatedLinkUrl = AcceptUrl(invite.Token);
         model.StatusMessage = "Share link created. Copy it and send it to the people you want to invite.";
-        return View("Manage", model);
+        return ManageView(model);
     }
 
     [HttpPost]
@@ -80,7 +84,7 @@ public sealed class ShareController : Controller
         {
             var invalid = await BuildManageModelAsync(treeId, cancellationToken);
             invalid.CreateEmail = createEmail;
-            return View("Manage", invalid);
+            return ManageView(invalid);
         }
 
         if (!_emailRateLimiter.TryAcquire(
@@ -90,7 +94,7 @@ public sealed class ShareController : Controller
         {
             var limited = await BuildManageModelAsync(treeId, cancellationToken);
             limited.StatusMessage = "Too many emails to that address recently. Wait a few minutes and try again.";
-            return View("Manage", limited);
+            return ManageView(limited);
         }
 
         var expiresAt = DaysToExpiry(createEmail.ExpiresInDays);
@@ -102,18 +106,21 @@ public sealed class ShareController : Controller
         {
             var failed = await BuildManageModelAsync(treeId, cancellationToken);
             failed.StatusMessage = "Could not send the invite email. Please try again in a few minutes.";
-            return View("Manage", failed);
+            return ManageView(failed);
         }
 
         var model = await BuildManageModelAsync(treeId, cancellationToken);
         model.StatusMessage = $"Invite sent to {createEmail.Email}.";
-        return View("Manage", model);
+        return ManageView(model);
     }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> RevokeInvite(long treeId, long inviteId, CancellationToken cancellationToken)
     {
+        if (!ModelState.IsValid)
+            return BadRequest();
+
         var userId = _userManager.GetUserId(User);
         if (userId == null || !await _access.CanManageSharingAsync(userId, treeId, cancellationToken))
             return NotFound();
@@ -121,13 +128,16 @@ public sealed class ShareController : Controller
         await _share.RevokeInviteAsync(inviteId, userId, cancellationToken);
         var model = await BuildManageModelAsync(treeId, cancellationToken);
         model.StatusMessage = "Invite revoked.";
-        return View("Manage", model);
+        return ManageView(model);
     }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> ResendInvite(long treeId, long inviteId, CancellationToken cancellationToken)
     {
+        if (!ModelState.IsValid)
+            return BadRequest();
+
         var userId = _userManager.GetUserId(User);
         if (userId == null || !await _access.CanManageSharingAsync(userId, treeId, cancellationToken))
             return NotFound();
@@ -138,7 +148,7 @@ public sealed class ShareController : Controller
         {
             var failed = await BuildManageModelAsync(treeId, cancellationToken);
             failed.StatusMessage = "Could not resend that invite.";
-            return View("Manage", failed);
+            return ManageView(failed);
         }
 
         if (!_emailRateLimiter.TryAcquire(
@@ -148,7 +158,7 @@ public sealed class ShareController : Controller
         {
             var limited = await BuildManageModelAsync(treeId, cancellationToken);
             limited.StatusMessage = "Too many emails to that address recently. Wait a few minutes and try again.";
-            return View("Manage", limited);
+            return ManageView(limited);
         }
 
         var invite = await _share.ResendEmailInviteAsync(inviteId, userId, cancellationToken);
@@ -156,7 +166,7 @@ public sealed class ShareController : Controller
         {
             var failed = await BuildManageModelAsync(treeId, cancellationToken);
             failed.StatusMessage = "Could not resend that invite.";
-            return View("Manage", failed);
+            return ManageView(failed);
         }
 
         var tree = await _db.FamilyTrees.AsNoTracking().FirstAsync(t => t.Id == treeId, cancellationToken);
@@ -164,18 +174,21 @@ public sealed class ShareController : Controller
         {
             var limited = await BuildManageModelAsync(treeId, cancellationToken);
             limited.StatusMessage = "Could not send the invite email. Please try again in a few minutes.";
-            return View("Manage", limited);
+            return ManageView(limited);
         }
 
         var model = await BuildManageModelAsync(treeId, cancellationToken);
         model.StatusMessage = $"Invite resent to {invite.Email}.";
-        return View("Manage", model);
+        return ManageView(model);
     }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> RemoveCollaborator(long treeId, string collaboratorUserId, CancellationToken cancellationToken)
     {
+        if (!ModelState.IsValid)
+            return BadRequest();
+
         var userId = _userManager.GetUserId(User);
         if (userId == null || !await _access.CanManageSharingAsync(userId, treeId, cancellationToken))
             return NotFound();
@@ -183,13 +196,16 @@ public sealed class ShareController : Controller
         await _share.RemoveCollaboratorAsync(treeId, collaboratorUserId, userId, cancellationToken);
         var model = await BuildManageModelAsync(treeId, cancellationToken);
         model.StatusMessage = "Access removed.";
-        return View("Manage", model);
+        return ManageView(model);
     }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> ChangeRole(long treeId, string collaboratorUserId, TreeShareRole role, CancellationToken cancellationToken)
     {
+        if (!ModelState.IsValid)
+            return BadRequest();
+
         var userId = _userManager.GetUserId(User);
         if (userId == null || !await _access.CanManageSharingAsync(userId, treeId, cancellationToken))
             return NotFound();
@@ -197,7 +213,7 @@ public sealed class ShareController : Controller
         await _share.ChangeCollaboratorRoleAsync(treeId, collaboratorUserId, role, userId, cancellationToken);
         var model = await BuildManageModelAsync(treeId, cancellationToken);
         model.StatusMessage = "Role updated.";
-        return View("Manage", model);
+        return ManageView(model);
     }
 
     [AllowAnonymous]
@@ -205,7 +221,7 @@ public sealed class ShareController : Controller
     public async Task<IActionResult> Accept(string token, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(token))
-            return View("AcceptError", "This invite link is invalid.");
+            return View(AcceptErrorView, "This invite link is invalid.");
 
         if (User.Identity?.IsAuthenticated != true)
         {
@@ -222,10 +238,10 @@ public sealed class ShareController : Controller
         {
             InviteAcceptResult.Success when treeId.HasValue => await FinishAcceptAsync(treeId.Value, cancellationToken),
             InviteAcceptResult.AlreadyOwner when treeId.HasValue => await FinishAcceptAsync(treeId.Value, cancellationToken),
-            InviteAcceptResult.Expired => View("AcceptError", "This invite has expired."),
-            InviteAcceptResult.Revoked => View("AcceptError", "This invite was revoked."),
-            InviteAcceptResult.EmailMismatch => View("AcceptError", "Sign in with the email address this invite was sent to."),
-            _ => View("AcceptError", "This invite link is invalid or no longer available.")
+            InviteAcceptResult.Expired => View(AcceptErrorView, "This invite has expired."),
+            InviteAcceptResult.Revoked => View(AcceptErrorView, "This invite was revoked."),
+            InviteAcceptResult.EmailMismatch => View(AcceptErrorView, "Sign in with the email address this invite was sent to."),
+            _ => View(AcceptErrorView, "This invite link is invalid or no longer available.")
         };
     }
 
@@ -293,20 +309,26 @@ public sealed class ShareController : Controller
                 text,
                 EmailRateLimitOperations.ShareInvite);
             // codeql[cs/exposure-of-sensitive-information] InviteId is a numeric PK correlator, not mailbox PII.
-            _logger.LogInformation(
-                "Share invite email sent, InviteId={InviteId}, Operation={Operation}",
-                invite.Id,
-                EmailRateLimitOperations.ShareInvite);
+            if (_logger.IsEnabled(LogLevel.Information))
+            {
+                _logger.LogInformation(
+                    "Share invite email sent, InviteId={InviteId}, Operation={Operation}",
+                    invite.Id,
+                    EmailRateLimitOperations.ShareInvite);
+            }
             return true;
         }
         catch (Exception ex)
         {
-            // codeql[cs/exposure-of-sensitive-information] InviteId is a numeric PK correlator, not mailbox PII.
-            _logger.LogError(
-                ex,
-                "Share invite email failed, InviteId={InviteId}, Operation={Operation}",
-                invite.Id,
-                EmailRateLimitOperations.ShareInvite);
+            if (_logger.IsEnabled(LogLevel.Error))
+            {
+                // codeql[cs/exposure-of-sensitive-information] InviteId is a numeric PK correlator, not mailbox PII.
+                _logger.LogError(
+                    ex,
+                    "Share invite email failed, InviteId={InviteId}, Operation={Operation}",
+                    invite.Id,
+                    EmailRateLimitOperations.ShareInvite);
+            }
             await _share.RevokeInviteAsync(invite.Id, ownerUserId, cancellationToken);
             return false;
         }
@@ -317,4 +339,6 @@ public sealed class ShareController : Controller
 
     private static DateTimeOffset? DaysToExpiry(int? days)
         => days is > 0 ? DateTimeOffset.UtcNow.AddDays(days.Value) : null;
+
+    private ViewResult ManageView(ShareManageViewModel model) => View(ManageViewName, model);
 }

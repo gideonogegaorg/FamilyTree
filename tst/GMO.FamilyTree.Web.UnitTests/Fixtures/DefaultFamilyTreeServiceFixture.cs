@@ -11,19 +11,12 @@ namespace GMO.FamilyTree.Web.UnitTests.Fixtures;
 /// </summary>
 public sealed class DefaultFamilyTreeServiceFixture
 {
-    private readonly IFixture _fixture;
-
-    public DefaultFamilyTreeServiceFixture()
-    {
-        _fixture = DefaultFixture.Create();
-    }
-
-    public IFixture Fixture => _fixture;
+    public IFixture Fixture { get; } = DefaultFixture.Create();
 
     /// <summary>Creates a unique in-memory database for the test.</summary>
     public AppDbContext CreateDb(string? name = null)
     {
-        var dbName = name ?? "DefaultTree_" + _fixture.Create<Guid>().ToString("N")[..12];
+        var dbName = name ?? "DefaultTree_" + Fixture.Create<Guid>().ToString("N")[..12];
         var options = new DbContextOptionsBuilder<AppDbContext>()
             .UseInMemoryDatabase(dbName)
             .Options;
@@ -31,5 +24,5 @@ public sealed class DefaultFamilyTreeServiceFixture
     }
 
     /// <summary>Creates an anonymous user id string.</summary>
-    public string CreateUserId() => "user-" + _fixture.Create<Guid>().ToString("N")[..8];
+    public string CreateUserId() => "user-" + Fixture.Create<Guid>().ToString("N")[..8];
 }

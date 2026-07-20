@@ -17,6 +17,11 @@ namespace GMO.FamilyTree.Web.Controllers;
 [Authorize]
 public class HomeController : Controller
 {
+    private const string FamilyTreeControllerName = "FamilyTree";
+
+    private static readonly JsonSerializerOptions DemoReadJsonOptions = new() { PropertyNameCaseInsensitive = true };
+    private static readonly JsonSerializerOptions CamelCaseJsonOptions = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+
     private readonly AppDbContext _db;
     private readonly ICurrentFamilyTreeService _currentTree;
     private readonly ITreeViewOrientationService _treeViewOrientation;
@@ -26,16 +31,16 @@ public class HomeController : Controller
     private readonly IOptionsMonitor<GoogleAuthOptions> _googleAuth;
     private readonly IWebHostEnvironment _env;
 
-    public HomeController(AppDbContext db, ICurrentFamilyTreeService currentTree, ITreeViewOrientationService treeViewOrientation, ILineageModeService lineageMode, ITreeCardViewModeService treeCardViewMode, IFamilyTreeAccessService access, IOptionsMonitor<GoogleAuthOptions> googleAuth, IWebHostEnvironment env)
+    public HomeController(HomeControllerDependencies deps)
     {
-        _db = db;
-        _currentTree = currentTree;
-        _treeViewOrientation = treeViewOrientation;
-        _lineageMode = lineageMode;
-        _treeCardViewMode = treeCardViewMode;
-        _access = access;
-        _googleAuth = googleAuth;
-        _env = env;
+        _db = deps.Db;
+        _currentTree = deps.CurrentTree;
+        _treeViewOrientation = deps.TreeViewOrientation;
+        _lineageMode = deps.LineageMode;
+        _treeCardViewMode = deps.TreeCardViewMode;
+        _access = deps.Access;
+        _googleAuth = deps.GoogleAuth;
+        _env = deps.Env;
     }
 
     [AllowAnonymous]
@@ -49,9 +54,9 @@ public class HomeController : Controller
             return View(new LandingPageViewModel());
 
         await using var stream = System.IO.File.OpenRead(demoPath);
-        var readOpts = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+        var readOpts = DemoReadJsonOptions;
         var demo = await JsonSerializer.DeserializeAsync<LandingDemoTreeDto>(stream, readOpts, cancellationToken);
-        var writeOpts = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+        var writeOpts = CamelCaseJsonOptions;
         return View(new LandingPageViewModel
         {
             DemoNodesJson = demo?.Nodes != null ? JsonSerializer.Serialize(demo.Nodes, writeOpts) : "[]",
@@ -66,13 +71,13 @@ public class HomeController : Controller
         var treeId = await _currentTree.GetCurrentFamilyTreeIdAsync(cancellationToken);
         if (!treeId.HasValue)
         {
-            return RedirectToAction(nameof(FamilyTreeController.Index), "FamilyTree");
+            return RedirectToAction(nameof(FamilyTreeController.Index), FamilyTreeControllerName);
         }
 
         var tree = await _db.FamilyTrees.FindAsync(new object[] { treeId.Value }, cancellationToken);
         if (tree == null)
         {
-            return RedirectToAction(nameof(FamilyTreeController.Index), "FamilyTree");
+            return RedirectToAction(nameof(FamilyTreeController.Index), FamilyTreeControllerName);
         }
 
         var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -80,7 +85,7 @@ public class HomeController : Controller
             || !await _access.CanViewAsync(currentUserId, treeId.Value, cancellationToken))
         {
             await _currentTree.SetCurrentFamilyTreeIdAsync(null, cancellationToken);
-            return RedirectToAction(nameof(FamilyTreeController.Index), "FamilyTree");
+            return RedirectToAction(nameof(FamilyTreeController.Index), FamilyTreeControllerName);
         }
 
         var accessLevel = await _access.GetAccessLevelAsync(currentUserId, treeId.Value, cancellationToken);
@@ -103,12 +108,12 @@ public class HomeController : Controller
         var meMember = members.FirstOrDefault(m => m.UserId == currentUserId);
         var focusMemberId = meMember?.Id ?? rootIds.FirstOrDefault();
 
-        var cards = members.Select(m => BuildCard(m, rels, memberDict, currentUserId)).ToList();
+        var cards = members.Select(m => BuildCard(m, rels, currentUserId)).ToList();
         var rowById = TreeLayoutRanking.ComputeRowByMember(cards);
         var lineageMode = await _lineageMode.GetAsync(cancellationToken);
         var rankById = TreeLayoutRanking.ComputeVisualRank(cards, rowById, lineageMode);
 
-        var jsonOpts = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+        var jsonOpts = CamelCaseJsonOptions;
         var nodesJson = JsonSerializer.Serialize(cards.Select(c => new
         {
             c.Id,
@@ -120,9 +125,9 @@ public class HomeController : Controller
             Dod = c.DOD?.ToString("yyyy-MM-dd"),
             Row = rowById.TryGetValue(c.Id, out var row) ? row : 0,
             VisualRank = rankById.TryGetValue(c.Id, out var rank) ? rank : 0.0,
-            ParentIds = c.ParentIds,
-            ChildIds = c.ChildIds,
-            PartnerIds = c.PartnerIds,
+            c.ParentIds,
+            c.ChildIds,
+            c.PartnerIds,
             c.BirthOrder,
             c.IsMale,
             HasPhoto = memberDict.TryGetValue(c.Id, out var mem) && !string.IsNullOrEmpty(mem.PhotoKey)
@@ -165,13 +170,13 @@ public class HomeController : Controller
     public async Task<IActionResult> AddFirstMember(CancellationToken cancellationToken)
     {
         var treeId = await _currentTree.GetCurrentFamilyTreeIdAsync(cancellationToken);
-        if (!treeId.HasValue) return RedirectToAction(nameof(FamilyTreeController.Index), "FamilyTree");
+        if (!treeId.HasValue) return RedirectToAction(nameof(FamilyTreeController.Index), FamilyTreeControllerName);
         var tree = await _db.FamilyTrees.FindAsync(new object[] { treeId.Value }, cancellationToken);
-        if (tree == null) return RedirectToAction(nameof(FamilyTreeController.Index), "FamilyTree");
+        if (tree is null) return RedirectToAction(nameof(FamilyTreeController.Index), FamilyTreeControllerName);
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (string.IsNullOrEmpty(userId) || !await _access.CanEditAsync(userId, treeId.Value, cancellationToken))
-            return Forbid();
-        return View(new AddRelationViewModel { FamilyTreeId = treeId.Value });
+        return string.IsNullOrEmpty(userId) || !await _access.CanEditAsync(userId, treeId.Value, cancellationToken)
+            ? Forbid()
+            : View(new AddRelationViewModel { ContextMemberId = 0, FamilyTreeId = treeId.Value });
     }
 
     [HttpPost]
@@ -189,10 +194,14 @@ public class HomeController : Controller
             ModelState.AddModelError(nameof(model.Name), "Name is required.");
             return View(model);
         }
+        ModelState.Remove(nameof(AddRelationViewModel.RelationshipType));
+        ModelState.Remove(nameof(AddRelationViewModel.IsChild));
+        ModelState.Remove(nameof(AddRelationViewModel.SetAsMe));
+        ModelState.Remove(nameof(AddRelationViewModel.IsMale));
         if (!ModelState.IsValid)
             return View(model);
         var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (model.SetAsMe && !string.IsNullOrEmpty(currentUserId))
+        if (model.SetAsMe == true && !string.IsNullOrEmpty(currentUserId))
         {
             var others = await _db.FamilyMembers
                 .Where(m => m.FamilyTreeId == model.FamilyTreeId && m.UserId == currentUserId)
@@ -207,8 +216,8 @@ public class HomeController : Controller
             NickName = string.IsNullOrWhiteSpace(model.NickName) ? null : model.NickName.Trim(),
             DOB = model.DOB,
             DOD = model.DOD,
-            IsMale = model.IsMale,
-            UserId = model.SetAsMe ? currentUserId : null
+            IsMale = model.IsMale ?? false,
+            UserId = model.SetAsMe == true ? currentUserId : null
         });
         await _db.SaveChangesAsync(cancellationToken);
         return RedirectToAction(nameof(Index));
@@ -217,7 +226,6 @@ public class HomeController : Controller
     private static FamilyMemberCardViewModel BuildCard(
         FamilyMember m,
         List<FamilyMemberRelationship> rels,
-        Dictionary<long, FamilyMember> memberDict,
         string? currentUserId)
     {
         var parentIds = rels.Where(r => r.RelationshipType == RelationshipType.Parent && r.ToMemberId == m.Id).Select(r => r.FromMemberId).ToList();

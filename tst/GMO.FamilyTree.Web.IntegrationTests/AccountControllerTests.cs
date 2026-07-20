@@ -63,6 +63,7 @@ public class AccountControllerTests : IClassFixture<WebAppFixture>
 
         // Assert
         response.EnsureSuccessStatusCode();
+        Assert.Equal(System.Net.HttpStatusCode.OK, response.StatusCode);
     }
 
     [Fact]
@@ -87,9 +88,9 @@ public class AccountControllerTests : IClassFixture<WebAppFixture>
         // Assert
         Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
         Assert.Contains("RegisterConfirmation", response.Headers.Location?.ToString());
-        using (var scope = _fixture.CreateScope())
+        using var scope = _fixture.CreateScope();
         {
-            var db = _fixture.GetDbContext(scope);
+            var db = WebAppFixture.GetDbContext(scope);
             var user = await db.Users.SingleOrDefaultAsync(u => u.Email == email);
             Assert.NotNull(user);
             Assert.False(user.EmailConfirmed);
@@ -238,6 +239,7 @@ public class AccountControllerTests : IClassFixture<WebAppFixture>
 
         // Assert
         response.EnsureSuccessStatusCode();
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 
     [Fact]
@@ -318,6 +320,7 @@ public class AccountControllerTests : IClassFixture<WebAppFixture>
 
         // Assert
         response.EnsureSuccessStatusCode();
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 
     [Fact]
@@ -331,6 +334,7 @@ public class AccountControllerTests : IClassFixture<WebAppFixture>
 
         // Assert
         response.EnsureSuccessStatusCode();
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 
     [Fact]
@@ -416,9 +420,9 @@ public class AccountControllerTests : IClassFixture<WebAppFixture>
             ["__RequestVerificationToken"] = createToken
         }));
         long treeId;
-        using (var scope = _fixture.CreateScope())
+        using var scope = _fixture.CreateScope();
         {
-            var db = _fixture.GetDbContext(scope);
+            var db = WebAppFixture.GetDbContext(scope);
             var testUser = await db.Users.SingleAsync(u => u.Email == Controllers.TestAuthController.TestUserEmail);
             var tree = await db.FamilyTrees
                 .Where(t => t.OwnerId == testUser.Id)
@@ -455,7 +459,7 @@ public class AccountControllerTests : IClassFixture<WebAppFixture>
         }));
 
         using var scope = _fixture.CreateScope();
-        var db = _fixture.GetDbContext(scope);
+        var db = WebAppFixture.GetDbContext(scope);
         var user = await db.Users.SingleAsync(u => u.Email == email);
         user.EmailConfirmed = true;
         await db.SaveChangesAsync();

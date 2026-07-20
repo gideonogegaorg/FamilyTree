@@ -2,6 +2,7 @@ using GMO.FamilyTree.Web.Options;
 using GMO.FamilyTree.Web.Services;
 
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 
@@ -11,7 +12,11 @@ namespace GMO.FamilyTree.Web.UnitTests.Services;
 
 public class EmailRateLimiterTests
 {
-    private static EmailRateLimiter CreateLimiter(int minIntervalSeconds = 60, int maxPerRecipientPerHour = 2, int maxPerIpPerHour = 5)
+    private static EmailRateLimiter CreateLimiter(
+        int minIntervalSeconds = 60,
+        int maxPerRecipientPerHour = 2,
+        int maxPerIpPerHour = 5,
+        ILogger<EmailRateLimiter>? logger = null)
     {
         var cache = new MemoryCache(new MemoryCacheOptions());
         var options = Microsoft.Extensions.Options.Options.Create(new EmailRateLimitOptions
@@ -20,7 +25,7 @@ public class EmailRateLimiterTests
             MaxPerRecipientPerHour = maxPerRecipientPerHour,
             MaxPerIpPerHour = maxPerIpPerHour
         });
-        return new EmailRateLimiter(cache, options, NullLogger<EmailRateLimiter>.Instance);
+        return new EmailRateLimiter(cache, options, logger ?? NullLogger<EmailRateLimiter>.Instance);
     }
 
     [Fact]
@@ -80,5 +85,38 @@ public class EmailRateLimiterTests
         Assert.True(limiter.TryAcquire(EmailRateLimitOperations.ResetRequest, "a@example.com", null));
         Assert.True(limiter.TryAcquire(EmailRateLimitOperations.Confirmation, "b@example.com", null));
         Assert.False(limiter.TryAcquire(EmailRateLimitOperations.ShareInvite, "c@example.com", null));
+    }
+
+    [Fact]
+    public void TryAcquire_logs_operation_and_recipient_hash_when_recipient_limited()
+    {
+        var logger = new CollectingLogger<EmailRateLimiter>();
+        var limiter = CreateLimiter(minIntervalSeconds: 0, maxPerRecipientPerHour: 1, logger: logger);
+        Assert.True(limiter.TryAcquire(EmailRateLimitOperations.Confirmation, "user@example.com", "1.2.3.4"));
+        Assert.False(limiter.TryAcquire(EmailRateLimitOperations.Confirmation, "user@example.com", "1.2.3.4"));
+
+        var message = Assert.Single(logger.Messages);
+        Assert.Contains("Operation=confirmation", message, StringComparison.Ordinal);
+        Assert.Contains("RecipientHash=", message, StringComparison.Ordinal);
+        Assert.DoesNotContain("user@example.com", message, StringComparison.Ordinal);
+    }
+}
+
+file sealed class CollectingLogger<T> : ILogger<T>
+{
+    public List<string> Messages { get; } = [];
+
+    public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+    public bool IsEnabled(LogLevel logLevel) => true;
+
+    public void Log<TState>(
+        LogLevel logLevel,
+        EventId eventId,
+        TState state,
+        Exception? exception,
+        Func<TState, Exception?, string> formatter)
+    {
+        Messages.Add(formatter(state, exception));
     }
 }

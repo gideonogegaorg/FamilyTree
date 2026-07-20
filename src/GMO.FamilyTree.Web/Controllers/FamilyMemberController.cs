@@ -14,6 +14,9 @@ namespace GMO.FamilyTree.Web.Controllers;
 [Authorize]
 public class FamilyMemberController : Controller
 {
+    private const string InvalidInputMessage = "Invalid input.";
+    private const string NotFoundMessage = "Not found";
+
     private readonly AppDbContext _db;
     private readonly ICurrentFamilyTreeService _currentTree;
     private readonly IPhotoStorageService _photos;
@@ -33,6 +36,9 @@ public class FamilyMemberController : Controller
 
     public async Task<IActionResult> AddRelation(long memberId, RelationshipType type, bool isChild = false, CancellationToken cancellationToken = default)
     {
+        if (!ModelState.IsValid)
+            return BadRequest();
+
         var treeId = await _currentTree.GetCurrentFamilyTreeIdAsync(cancellationToken);
         if (!treeId.HasValue) return RedirectToAction(nameof(HomeController.Index), "Home");
         if (!await EnsureCanEditAsync(treeId.Value, cancellationToken))
@@ -58,6 +64,9 @@ public class FamilyMemberController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> AddRelation(AddRelationViewModel model, CancellationToken cancellationToken)
     {
+        if (!ModelState.IsValid)
+            return View(model);
+
         var treeId = await _currentTree.GetCurrentFamilyTreeIdAsync(cancellationToken);
         if (!treeId.HasValue || model.FamilyTreeId != treeId.Value)
             return RedirectToAction(nameof(HomeController.Index), "Home");
@@ -73,68 +82,85 @@ public class FamilyMemberController : Controller
             ModelState.AddModelError(nameof(model.Name), "Name is required.");
             return View(model);
         }
-        if (!ModelState.IsValid)
-            return View(model);
 
-        if (model.RelationshipType == RelationshipType.Parent && !model.IsChild)
+        var parentValidationError = await ValidateParentLimitAsync(model, contextMember, treeId.Value, cancellationToken);
+        if (parentValidationError != null)
         {
-            var parentCount = await _db.FamilyMemberRelationships
-                .CountAsync(r => r.FamilyTreeId == treeId && r.RelationshipType == RelationshipType.Parent && r.ToMemberId == contextMember.Id, cancellationToken);
-            if (parentCount >= 2)
-            {
-                ModelState.AddModelError("", "This person already has two parents. Link an existing member instead if needed.");
-                return View(model);
-            }
+            ModelState.AddModelError("", parentValidationError);
+            return View(model);
         }
+
+        await ApplySetAsMeForNewMemberAsync(model, cancellationToken);
 
         var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (model.SetAsMe && !string.IsNullOrEmpty(currentUserId))
-        {
-            var others = await _db.FamilyMembers
-                .Where(m => m.FamilyTreeId == model.FamilyTreeId && m.UserId == currentUserId)
-                .ToListAsync(cancellationToken);
-            foreach (var m in others)
-                m.UserId = null;
-        }
+        var newMember = CreateMemberFromModel(model, currentUserId);
+        var relationshipAdded = await TryAddNewMemberRelationshipAsync(model, contextMember, newMember, cancellationToken);
+        if (!relationshipAdded)
+            return BadRequest();
 
-        var newMember = new FamilyMember
+        await _db.SaveChangesAsync(cancellationToken);
+        return RedirectToAction(nameof(HomeController.Index), "Home");
+    }
+
+    private async Task<string?> ValidateParentLimitAsync(
+        AddRelationViewModel model,
+        FamilyMember contextMember,
+        long treeId,
+        CancellationToken cancellationToken)
+    {
+        if (model.RelationshipType != RelationshipType.Parent || model.IsChild == true)
+            return null;
+
+        var parentCount = await _db.FamilyMemberRelationships
+            .CountAsync(r => r.FamilyTreeId == treeId && r.RelationshipType == RelationshipType.Parent && r.ToMemberId == contextMember.Id, cancellationToken);
+        return parentCount >= 2
+            ? "This person already has two parents. Link an existing member instead if needed."
+            : null;
+    }
+
+    private async Task ApplySetAsMeForNewMemberAsync(AddRelationViewModel model, CancellationToken cancellationToken)
+    {
+        var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (model.SetAsMe != true || string.IsNullOrEmpty(currentUserId))
+            return;
+
+        var others = await _db.FamilyMembers
+            .Where(m => m.FamilyTreeId == model.FamilyTreeId && m.UserId == currentUserId)
+            .ToListAsync(cancellationToken);
+        foreach (var m in others)
+            m.UserId = null;
+    }
+
+    private static FamilyMember CreateMemberFromModel(AddRelationViewModel model, string? currentUserId)
+    {
+        return new FamilyMember
         {
             FamilyTreeId = model.FamilyTreeId,
             Name = model.Name.Trim(),
             NickName = string.IsNullOrWhiteSpace(model.NickName) ? null : model.NickName.Trim(),
             DOB = model.DOB,
             DOD = model.DOD,
-            IsMale = model.IsMale,
-            UserId = model.SetAsMe ? currentUserId : null
+            IsMale = model.IsMale ?? false,
+            UserId = model.SetAsMe == true ? currentUserId : null,
+            BirthOrder = model.RelationshipType is RelationshipType.Parent or RelationshipType.Couple
+                ? null
+                : model.BirthOrder
         };
+    }
 
-        switch (model.RelationshipType)
+    private async Task<bool> TryAddNewMemberRelationshipAsync(
+        AddRelationViewModel model,
+        FamilyMember contextMember,
+        FamilyMember newMember,
+        CancellationToken cancellationToken)
+    {
+        switch (model.RelationshipType!.Value)
         {
             case RelationshipType.Parent:
-                newMember.BirthOrder = null;
                 _db.FamilyMembers.Add(newMember);
                 await _db.SaveChangesAsync(cancellationToken);
-                if (model.IsChild)
-                {
-                    _db.FamilyMemberRelationships.Add(new FamilyMemberRelationship
-                    {
-                        FamilyTreeId = model.FamilyTreeId,
-                        FromMemberId = contextMember.Id,
-                        ToMemberId = newMember.Id,
-                        RelationshipType = RelationshipType.Parent
-                    });
-                }
-                else
-                {
-                    _db.FamilyMemberRelationships.Add(new FamilyMemberRelationship
-                    {
-                        FamilyTreeId = model.FamilyTreeId,
-                        FromMemberId = newMember.Id,
-                        ToMemberId = contextMember.Id,
-                        RelationshipType = RelationshipType.Parent
-                    });
-                }
-                break;
+                _db.FamilyMemberRelationships.Add(CreateParentRelationship(model, contextMember, newMember));
+                return true;
             case RelationshipType.Couple:
                 newMember.BirthOrder = null;
                 _db.FamilyMembers.Add(newMember);
@@ -146,17 +172,39 @@ public class FamilyMemberController : Controller
                     ToMemberId = newMember.Id,
                     RelationshipType = RelationshipType.Couple
                 });
-                break;
+                return true;
             default:
-                return BadRequest();
+                return false;
         }
+    }
 
-        await _db.SaveChangesAsync(cancellationToken);
-        return RedirectToAction(nameof(HomeController.Index), "Home");
+    private static FamilyMemberRelationship CreateParentRelationship(
+        AddRelationViewModel model,
+        FamilyMember contextMember,
+        FamilyMember newMember)
+    {
+        return model.IsChild == true
+            ? new FamilyMemberRelationship
+            {
+                FamilyTreeId = model.FamilyTreeId,
+                FromMemberId = contextMember.Id,
+                ToMemberId = newMember.Id,
+                RelationshipType = RelationshipType.Parent
+            }
+            : new FamilyMemberRelationship
+            {
+                FamilyTreeId = model.FamilyTreeId,
+                FromMemberId = newMember.Id,
+                ToMemberId = contextMember.Id,
+                RelationshipType = RelationshipType.Parent
+            };
     }
 
     public async Task<IActionResult> ActionMenuContent(long memberId, CancellationToken cancellationToken = default)
     {
+        if (!ModelState.IsValid)
+            return BadRequest();
+
         var treeId = await _currentTree.GetCurrentFamilyTreeIdAsync(cancellationToken);
         if (!treeId.HasValue) return NotFound();
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -168,41 +216,39 @@ public class FamilyMemberController : Controller
         var member = await _db.FamilyMembers.FindAsync(new object[] { memberId }, cancellationToken);
         if (member == null || member.FamilyTreeId != treeId.Value) return NotFound();
 
+        var model = await BuildActionMenuViewModelAsync(memberId, member, treeId.Value, cancellationToken);
+        return PartialView("_ActionMenuContent", model);
+    }
+
+    private async Task<MemberActionMenuViewModel> BuildActionMenuViewModelAsync(
+        long memberId,
+        FamilyMember member,
+        long treeId,
+        CancellationToken cancellationToken)
+    {
         var allInTree = await _db.FamilyMembers
             .AsNoTracking()
-            .Where(m => m.FamilyTreeId == treeId.Value && m.Id != memberId)
+            .Where(m => m.FamilyTreeId == treeId && m.Id != memberId)
             .OrderBy(m => m.Name)
             .ToListAsync(cancellationToken);
         var allMembersInTree = await _db.FamilyMembers
             .AsNoTracking()
-            .Where(m => m.FamilyTreeId == treeId.Value)
+            .Where(m => m.FamilyTreeId == treeId)
             .ToListAsync(cancellationToken);
         var memberNames = allMembersInTree.ToDictionary(m => m.Id, m => string.IsNullOrEmpty(m.NickName) ? m.Name : $"{m.Name} ({m.NickName})");
         var rels = await _db.FamilyMemberRelationships
             .AsNoTracking()
-            .Where(r => r.FamilyTreeId == treeId.Value && (r.FromMemberId == memberId || r.ToMemberId == memberId))
+            .Where(r => r.FamilyTreeId == treeId && (r.FromMemberId == memberId || r.ToMemberId == memberId))
             .ToListAsync(cancellationToken);
 
-        var existingRels = new List<ExistingRelationshipViewModel>();
-        foreach (var r in rels)
-        {
-            var otherId = r.FromMemberId == memberId ? r.ToMemberId : r.FromMemberId;
-            var otherName = memberNames.TryGetValue(otherId, out var n) ? n : "?";
-            var label = r.RelationshipType switch
-            {
-                RelationshipType.Parent => r.ToMemberId == memberId ? "Parent: " + otherName : "Child: " + otherName,
-                RelationshipType.Couple => "Partner: " + otherName,
-                _ => otherName
-            };
-            existingRels.Add(new ExistingRelationshipViewModel { RelationshipId = r.Id, Label = label });
-        }
-
+        var existingRels = BuildExistingRelationships(memberId, rels, memberNames);
         var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
         var parentIds = GetExistingParentIds(memberId, rels);
-        var model = new MemberActionMenuViewModel
+
+        return new MemberActionMenuViewModel
         {
             ContextMemberId = memberId,
-            FamilyTreeId = treeId.Value,
+            FamilyTreeId = treeId,
             ContextMemberName = member.Name,
             CanAddParent = parentIds.Count < 2,
             Name = member.Name,
@@ -218,19 +264,43 @@ public class FamilyMemberController : Controller
             ChildCandidates = allInTree.Where(m => !GetExistingChildIds(memberId, rels).Contains(m.Id)).Select(m => new LinkExistingCandidateViewModel { Id = m.Id, DisplayName = memberNames.TryGetValue(m.Id, out var dn) ? dn : m.Name }).ToList(),
             PartnerCandidates = allInTree.Where(m => !GetExistingPartnerIds(memberId, rels).Contains(m.Id)).Select(m => new LinkExistingCandidateViewModel { Id = m.Id, DisplayName = memberNames.TryGetValue(m.Id, out var dn) ? dn : m.Name }).ToList()
         };
-        return PartialView("_ActionMenuContent", model);
+    }
+
+    private static List<ExistingRelationshipViewModel> BuildExistingRelationships(
+        long memberId,
+        List<FamilyMemberRelationship> rels,
+        Dictionary<long, string> memberNames)
+    {
+        var existingRels = new List<ExistingRelationshipViewModel>();
+        foreach (var r in rels)
+        {
+            var otherId = r.FromMemberId == memberId ? r.ToMemberId : r.FromMemberId;
+            var otherName = memberNames.TryGetValue(otherId, out var n) ? n : "?";
+            var label = r.RelationshipType switch
+            {
+                RelationshipType.Parent => r.ToMemberId == memberId ? "Parent: " + otherName : "Child: " + otherName,
+                RelationshipType.Couple => "Partner: " + otherName,
+                _ => otherName
+            };
+            existingRels.Add(new ExistingRelationshipViewModel { RelationshipId = r.Id, Label = label });
+        }
+
+        return existingRels;
     }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> RemoveRelation(long relationshipId, CancellationToken cancellationToken = default)
     {
+        if (!ModelState.IsValid)
+            return Json(new { success = false, error = InvalidInputMessage });
+
         var treeId = await _currentTree.GetCurrentFamilyTreeIdAsync(cancellationToken);
         if (!treeId.HasValue) return Json(new { success = false, error = "No tree" });
         if (!await EnsureCanEditAsync(treeId.Value, cancellationToken))
             return Json(new { success = false, error = "Forbidden" });
         var rel = await _db.FamilyMemberRelationships.FindAsync(new object[] { relationshipId }, cancellationToken);
-        if (rel == null || rel.FamilyTreeId != treeId.Value) return Json(new { success = false, error = "Not found" });
+        if (rel == null || rel.FamilyTreeId != treeId.Value) return Json(new { success = false, error = NotFoundMessage });
 
         var otherId = rel.FromMemberId;
         var contextId = rel.ToMemberId;
@@ -259,25 +329,38 @@ public class FamilyMemberController : Controller
 
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> EditMember(long memberId, string name, string? nickName, DateOnly? dob, DateOnly? dod, int? birthOrder, bool isMale, bool setAsMe, CancellationToken cancellationToken = default)
+    public async Task<IActionResult> EditMember([FromForm] EditMemberRequest request, CancellationToken cancellationToken = default)
     {
+        if (!ModelState.IsValid)
+            return EditMemberError(InvalidInputMessage);
+
         var treeId = await _currentTree.GetCurrentFamilyTreeIdAsync(cancellationToken);
-        if (!treeId.HasValue) return Json(new { success = false, error = "No tree" });
+        if (!treeId.HasValue) return EditMemberError("No tree");
         if (!await EnsureCanEditAsync(treeId.Value, cancellationToken))
-            return Json(new { success = false, error = "Forbidden" });
-        var member = await _db.FamilyMembers.FindAsync(new object[] { memberId }, cancellationToken);
-        if (member == null || member.FamilyTreeId != treeId.Value) return Json(new { success = false, error = "Not found" });
-        if (string.IsNullOrWhiteSpace(name)) return Json(new { success = false, error = "Name is required" });
-        if (dob.HasValue && dod.HasValue && dod < dob)
-            return Json(new { success = false, error = "Date of death cannot be before date of birth." });
+            return EditMemberError("Forbidden");
+        var member = await _db.FamilyMembers.FindAsync(new object[] { request.MemberId!.Value }, cancellationToken);
+        if (member == null || member.FamilyTreeId != treeId.Value) return EditMemberError(NotFoundMessage);
+        if (string.IsNullOrWhiteSpace(request.Name)) return EditMemberError("Name is required");
+        if (request.Dob.HasValue && request.Dod.HasValue && request.Dod < request.Dob)
+            return EditMemberError("Date of death cannot be before date of birth.");
 
-        member.Name = name.Trim();
-        member.NickName = string.IsNullOrWhiteSpace(nickName) ? null : nickName.Trim();
-        member.DOB = dob;
-        member.DOD = dod;
-        member.BirthOrder = birthOrder;
-        member.IsMale = isMale;
+        member.Name = request.Name.Trim();
+        member.NickName = string.IsNullOrWhiteSpace(request.NickName) ? null : request.NickName.Trim();
+        member.DOB = request.Dob;
+        member.DOD = request.Dod;
+        member.BirthOrder = request.BirthOrder;
+        member.IsMale = request.IsMale ?? false;
 
+        await ApplySetAsMeAsync(request.MemberId!.Value, member, request.SetAsMe ?? false, cancellationToken);
+
+        await _db.SaveChangesAsync(cancellationToken);
+        return Json(new { success = true });
+    }
+
+    private JsonResult EditMemberError(string error) => Json(new { success = false, error });
+
+    private async Task ApplySetAsMeAsync(long memberId, FamilyMember member, bool setAsMe, CancellationToken cancellationToken)
+    {
         var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (setAsMe && !string.IsNullOrEmpty(currentUserId))
         {
@@ -286,26 +369,26 @@ public class FamilyMemberController : Controller
                 .ToListAsync(cancellationToken);
             foreach (var m in others) m.UserId = null;
             member.UserId = currentUserId;
-        }
-        else if (!setAsMe && member.UserId == currentUserId)
-        {
-            member.UserId = null;
+            return;
         }
 
-        await _db.SaveChangesAsync(cancellationToken);
-        return Json(new { success = true });
+        if (!setAsMe && member.UserId == currentUserId)
+            member.UserId = null;
     }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> UploadMemberPhoto(long memberId, IFormFile? photo, CancellationToken cancellationToken = default)
     {
+        if (!ModelState.IsValid)
+            return Json(new { success = false, error = InvalidInputMessage });
+
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (string.IsNullOrEmpty(userId))
             return Json(new { success = false, error = "Unauthorized" });
         var level = await _access.GetAccessLevelForMemberAsync(userId, memberId, cancellationToken);
         if (level < TreeAccessLevel.Editor)
-            return Json(new { success = false, error = "Not found" });
+            return Json(new { success = false, error = NotFoundMessage });
         if (photo == null || photo.Length == 0)
             return Json(new { success = false, error = "Please select an image file." });
 
@@ -315,13 +398,13 @@ public class FamilyMemberController : Controller
 
         var member = await _db.FamilyMembers.FindAsync(new object[] { memberId }, cancellationToken);
         if (member == null)
-            return Json(new { success = false, error = "Not found" });
+            return Json(new { success = false, error = NotFoundMessage });
 
         var key = PhotoStorageKeys.Member(member.FamilyTreeId, memberId, ext);
         try
         {
-            await using (var stream = photo.OpenReadStream())
-                await PhotoStorageHelper.SaveAsync(_photos, key, stream, PhotoStorageKeys.ContentTypeForExtension(ext), cancellationToken);
+            await using var stream = photo.OpenReadStream();
+            await PhotoStorageHelper.SaveAsync(_photos, key, stream, PhotoStorageKeys.ContentTypeForExtension(ext), cancellationToken);
         }
         catch (Exception ex) when (PhotoStorageHelper.IsStorageException(ex))
         {
@@ -339,12 +422,15 @@ public class FamilyMemberController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> RemoveMemberPhoto(long memberId, CancellationToken cancellationToken = default)
     {
+        if (!ModelState.IsValid)
+            return Json(new { success = false, error = InvalidInputMessage });
+
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (string.IsNullOrEmpty(userId))
             return Json(new { success = false, error = "Unauthorized" });
         var level = await _access.GetAccessLevelForMemberAsync(userId, memberId, cancellationToken);
         if (level < TreeAccessLevel.Editor)
-            return Json(new { success = false, error = "Not found" });
+            return Json(new { success = false, error = NotFoundMessage });
 
         var member = await _db.FamilyMembers.FindAsync(new object[] { memberId }, cancellationToken);
         if (member == null || string.IsNullOrEmpty(member.PhotoKey))
@@ -359,6 +445,9 @@ public class FamilyMemberController : Controller
 
     public async Task<IActionResult> LinkExisting(long memberId, RelationshipType type, bool isChild = false, CancellationToken cancellationToken = default)
     {
+        if (!ModelState.IsValid)
+            return BadRequest();
+
         var treeId = await _currentTree.GetCurrentFamilyTreeIdAsync(cancellationToken);
         if (!treeId.HasValue) return RedirectToAction(nameof(HomeController.Index), "Home");
         if (!await EnsureCanEditAsync(treeId.Value, cancellationToken))
@@ -427,6 +516,29 @@ public class FamilyMemberController : Controller
             return RedirectToAction(nameof(HomeController.Index), "Home");
         if (!await EnsureCanEditAsync(treeId.Value, cancellationToken))
             return Forbid();
+
+        if (!ModelState.IsValid)
+        {
+            await RepopulateLinkExistingCandidatesAsync(model, cancellationToken);
+            return View(model);
+        }
+
+        var validationResult = await ValidateLinkExistingAsync(model, treeId.Value, cancellationToken);
+        if (validationResult != null)
+            return validationResult;
+
+        var contextMember = await _db.FamilyMembers.FindAsync(new object[] { model.ContextMemberId }, cancellationToken);
+        var existingMember = await _db.FamilyMembers.FindAsync(new object[] { model.ExistingMemberId!.Value }, cancellationToken);
+        AddLinkExistingRelationship(model, contextMember!, existingMember!);
+        await _db.SaveChangesAsync(cancellationToken);
+        return RedirectToAction(nameof(HomeController.Index), "Home");
+    }
+
+    private async Task<IActionResult?> ValidateLinkExistingAsync(
+        LinkExistingViewModel model,
+        long treeId,
+        CancellationToken cancellationToken)
+    {
         if (!model.ExistingMemberId.HasValue)
         {
             ModelState.AddModelError(nameof(model.ExistingMemberId), "Please select a person to link.");
@@ -436,12 +548,12 @@ public class FamilyMemberController : Controller
 
         var contextMember = await _db.FamilyMembers.FindAsync(new object[] { model.ContextMemberId }, cancellationToken);
         var existingMember = await _db.FamilyMembers.FindAsync(new object[] { model.ExistingMemberId.Value }, cancellationToken);
-        if (contextMember == null || existingMember == null || contextMember.FamilyTreeId != treeId.Value || existingMember.FamilyTreeId != treeId.Value)
+        if (contextMember == null || existingMember == null || contextMember.FamilyTreeId != treeId || existingMember.FamilyTreeId != treeId)
             return NotFound();
         if (contextMember.Id == existingMember.Id)
             return BadRequest();
 
-        if (model.RelationshipType == RelationshipType.Parent && !model.IsChild)
+        if (model.RelationshipType == RelationshipType.Parent && model.IsChild != true)
         {
             var parentCount = await _db.FamilyMemberRelationships
                 .CountAsync(r => r.FamilyTreeId == treeId && r.RelationshipType == RelationshipType.Parent && r.ToMemberId == contextMember.Id, cancellationToken);
@@ -453,17 +565,22 @@ public class FamilyMemberController : Controller
             }
         }
 
-        if (await RelationshipExistsAsync(model.FamilyTreeId, model.ContextMemberId, model.ExistingMemberId.Value, model.RelationshipType, model.IsChild, cancellationToken))
+        if (await RelationshipExistsAsync(model.FamilyTreeId, model.ContextMemberId, model.ExistingMemberId.Value, model.RelationshipType!.Value, model.IsChild ?? false, cancellationToken))
         {
             ModelState.AddModelError("", "This relationship already exists.");
             await RepopulateLinkExistingCandidatesAsync(model, cancellationToken);
             return View(model);
         }
 
-        switch (model.RelationshipType)
+        return null;
+    }
+
+    private void AddLinkExistingRelationship(LinkExistingViewModel model, FamilyMember contextMember, FamilyMember existingMember)
+    {
+        switch (model.RelationshipType!.Value)
         {
             case RelationshipType.Parent:
-                if (model.IsChild)
+                if (model.IsChild == true)
                     _db.FamilyMemberRelationships.Add(new FamilyMemberRelationship { FamilyTreeId = model.FamilyTreeId, FromMemberId = contextMember.Id, ToMemberId = existingMember.Id, RelationshipType = RelationshipType.Parent });
                 else
                     _db.FamilyMemberRelationships.Add(new FamilyMemberRelationship { FamilyTreeId = model.FamilyTreeId, FromMemberId = existingMember.Id, ToMemberId = contextMember.Id, RelationshipType = RelationshipType.Parent });
@@ -472,10 +589,8 @@ public class FamilyMemberController : Controller
                 _db.FamilyMemberRelationships.Add(new FamilyMemberRelationship { FamilyTreeId = model.FamilyTreeId, FromMemberId = contextMember.Id, ToMemberId = existingMember.Id, RelationshipType = RelationshipType.Couple });
                 break;
             default:
-                return BadRequest();
+                throw new InvalidOperationException("Unsupported relationship type.");
         }
-        await _db.SaveChangesAsync(cancellationToken);
-        return RedirectToAction(nameof(HomeController.Index), "Home");
     }
 
     private async Task<bool> EnsureCanEditAsync(long treeId, CancellationToken cancellationToken)
@@ -495,27 +610,41 @@ public class FamilyMemberController : Controller
     {
         var allInTree = await _db.FamilyMembers.AsNoTracking().Where(m => m.FamilyTreeId == model.FamilyTreeId && m.Id != model.ContextMemberId).OrderBy(m => m.Name).ToListAsync(ct);
         var rels = await _db.FamilyMemberRelationships.AsNoTracking().Where(r => r.FamilyTreeId == model.FamilyTreeId).ToListAsync(ct);
-        HashSet<long> existingIds = model.RelationshipType switch
+        HashSet<long> existingIds = model.RelationshipType!.Value switch
         {
             RelationshipType.Parent => GetExistingParentIds(model.ContextMemberId, rels),
             RelationshipType.Couple => GetExistingPartnerIds(model.ContextMemberId, rels),
             _ => new HashSet<long>()
         };
-        if (model.RelationshipType == RelationshipType.Parent && model.IsChild)
+        if (model.RelationshipType == RelationshipType.Parent && model.IsChild is true)
             existingIds = GetExistingChildIds(model.ContextMemberId, rels);
         model.Candidates = allInTree.Where(m => !existingIds.Contains(m.Id)).Select(m => new LinkExistingCandidateViewModel { Id = m.Id, DisplayName = string.IsNullOrEmpty(m.NickName) ? m.Name : $"{m.Name} ({m.NickName})" }).ToList();
     }
 
     private async Task<bool> RelationshipExistsAsync(long treeId, long contextId, long existingId, RelationshipType type, bool isChild, CancellationToken ct)
     {
-        if (type == RelationshipType.Parent)
+        return type switch
         {
-            if (isChild)
-                return await _db.FamilyMemberRelationships.AnyAsync(r => r.FamilyTreeId == treeId && r.FromMemberId == contextId && r.ToMemberId == existingId && r.RelationshipType == RelationshipType.Parent, ct);
-            return await _db.FamilyMemberRelationships.AnyAsync(r => r.FamilyTreeId == treeId && r.FromMemberId == existingId && r.ToMemberId == contextId && r.RelationshipType == RelationshipType.Parent, ct);
-        }
-        if (type == RelationshipType.Couple)
-            return await _db.FamilyMemberRelationships.AnyAsync(r => r.FamilyTreeId == treeId && r.RelationshipType == RelationshipType.Couple && ((r.FromMemberId == contextId && r.ToMemberId == existingId) || (r.FromMemberId == existingId && r.ToMemberId == contextId)), ct);
-        return false;
+            RelationshipType.Couple => await _db.FamilyMemberRelationships.AnyAsync(
+                r => r.FamilyTreeId == treeId
+                    && r.RelationshipType == RelationshipType.Couple
+                    && ((r.FromMemberId == contextId && r.ToMemberId == existingId)
+                        || (r.FromMemberId == existingId && r.ToMemberId == contextId)),
+                ct),
+            RelationshipType.Parent => await ParentRelationshipExistsAsync(treeId, contextId, existingId, isChild, ct),
+            _ => false,
+        };
+    }
+
+    private async Task<bool> ParentRelationshipExistsAsync(
+        long treeId,
+        long contextId,
+        long existingId,
+        bool isChild,
+        CancellationToken ct)
+    {
+        return isChild
+            ? await _db.FamilyMemberRelationships.AnyAsync(r => r.FamilyTreeId == treeId && r.FromMemberId == contextId && r.ToMemberId == existingId && r.RelationshipType == RelationshipType.Parent, ct)
+            : await _db.FamilyMemberRelationships.AnyAsync(r => r.FamilyTreeId == treeId && r.FromMemberId == existingId && r.ToMemberId == contextId && r.RelationshipType == RelationshipType.Parent, ct);
     }
 }

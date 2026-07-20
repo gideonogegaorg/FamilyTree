@@ -1,7 +1,7 @@
 @model GMO.FamilyTree.Web.Models.AddRelationViewModel
 @using GMO.FamilyTree.Web.Data
 @{
-    var label = Model.IsChild ? "Add Child" : Model.RelationshipType switch
+    var label = Model.IsChild == true ? "Add Child" : Model.RelationshipType switch
     {
         RelationshipType.Parent => "Add Parent",
         RelationshipType.Couple => "Add Partner",

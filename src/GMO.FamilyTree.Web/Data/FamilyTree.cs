@@ -1,8 +1,13 @@
 namespace GMO.FamilyTree.Web.Data;
 
+using System.Text.Json.Serialization;
+
 public class FamilyTree
 {
+    [JsonRequired]
     public long Id { get; set; }
+
+    [JsonRequired]
     public Guid Uid { get; set; }
     public string Name { get; set; } = string.Empty;
     /// <summary>Id of the user who created/owns this family tree (AspNetUsers.Id). Required.</summary>

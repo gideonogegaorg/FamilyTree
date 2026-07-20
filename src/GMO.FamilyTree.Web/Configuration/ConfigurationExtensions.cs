@@ -13,7 +13,7 @@ public static class ConfigurationExtensions
     /// <returns>The first value that is not null or whitespace, or null if none.</returns>
     public static string? GetFirstNonEmpty(this IConfiguration configuration, params string[] keys)
     {
-        if (configuration == null) throw new ArgumentNullException(nameof(configuration));
+        ArgumentNullException.ThrowIfNull(configuration);
         if (keys == null || keys.Length == 0) return null;
 
         foreach (var key in keys)

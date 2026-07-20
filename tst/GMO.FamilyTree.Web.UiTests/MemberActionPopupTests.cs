@@ -151,7 +151,10 @@ public class MemberActionPopupTests : IAsyncLifetime
         await _page.Locator("#member-action-popup .cascading-item[data-panel=\"add\"]").ClickAsync();
         await _page.Locator("#member-action-popup .menu-type-btn[data-type=\"partner\"]").ClickAsync();
         await _page.Locator("#member-action-popup .menu-candidates[data-type=\"partner\"]").WaitForAsync(new() { State = WaitForSelectorState.Visible });
+        Assert.True(await _page.Locator("#member-action-popup .menu-candidates[data-type=\"partner\"]").IsVisibleAsync());
         await _page.Locator("#member-action-popup .menu-type-btn[data-type=\"parent\"][data-ischild=\"true\"]").ClickAsync();
+        await _page.Locator("#member-action-popup .menu-candidates[data-type=\"parent\"][data-ischild=\"true\"]").WaitForAsync(new() { State = WaitForSelectorState.Visible });
+        Assert.True(await _page.Locator("#member-action-popup .menu-candidates[data-type=\"parent\"][data-ischild=\"true\"]").IsVisibleAsync());
     }
 
     [Fact]
@@ -183,6 +186,7 @@ public class MemberActionPopupTests : IAsyncLifetime
         await _page.Locator(".family-tree-card").Filter(new() { Has = _page.GetByText("Me", new() { Exact = true }) }).Locator(".member-action-trigger").First.ClickAsync();
         await _page.Locator("#member-action-popup").WaitForAsync(new() { State = WaitForSelectorState.Visible });
         await _page.Locator("#member-action-popup >> text=Failed to load.").WaitForAsync();
+        Assert.True(await _page.Locator("#member-action-popup >> text=Failed to load.").IsVisibleAsync());
     }
 
     [Fact]
@@ -192,7 +196,7 @@ public class MemberActionPopupTests : IAsyncLifetime
         await _page.Locator("body").ClickAsync(new() { Position = new() { X = 0, Y = 0 } });
         await Task.Delay(50);
         var display = await _page.Locator("#member-action-popup").GetAttributeAsync("style");
-        Assert.True(display?.Contains("none") == true);
+        Assert.True(display?.Contains("none") is true);
     }
 
     [Fact]
@@ -202,6 +206,6 @@ public class MemberActionPopupTests : IAsyncLifetime
         await _page.Keyboard.PressAsync("Escape");
         await Task.Delay(50);
         var display = await _page.Locator("#member-action-popup").GetAttributeAsync("style");
-        Assert.True(display?.Contains("none") == true);
+        Assert.True(display?.Contains("none") is true);
     }
 }

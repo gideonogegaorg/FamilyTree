@@ -27,7 +27,7 @@ public class AccountControllerEmailRateLimitTests : IClassFixture<AccountControl
     public async Task ForgotPassword_does_not_send_when_rate_limited()
     {
         await using var db = _f.CreateDb(nameof(ForgotPassword_does_not_send_when_rate_limited));
-        var (signIn, users) = _f.CreateIdentityManagers(db);
+        var (signIn, users) = AccountControllerFixture.CreateIdentityManagers(db);
         var user = new IdentityUser { UserName = "victim@example.com", Email = "victim@example.com", EmailConfirmed = true };
         Assert.True((await users.CreateAsync(user, "TestPassword1!")).Succeeded);
 
@@ -50,7 +50,7 @@ public class AccountControllerEmailRateLimitTests : IClassFixture<AccountControl
     public async Task ForgotPassword_does_not_send_for_google_only_user()
     {
         await using var db = _f.CreateDb(nameof(ForgotPassword_does_not_send_for_google_only_user));
-        var (signIn, users) = _f.CreateIdentityManagers(db);
+        var (signIn, users) = AccountControllerFixture.CreateIdentityManagers(db);
         var user = new IdentityUser { UserName = "google@example.com", Email = "google@example.com", EmailConfirmed = true };
         Assert.True((await users.CreateAsync(user)).Succeeded);
         await users.AddLoginAsync(user, new UserLoginInfo("Google", "key", "Google"));
@@ -67,7 +67,7 @@ public class AccountControllerEmailRateLimitTests : IClassFixture<AccountControl
     public async Task ResendConfirmationEmail_sets_temp_data_when_rate_limited()
     {
         await using var db = _f.CreateDb(nameof(ResendConfirmationEmail_sets_temp_data_when_rate_limited));
-        var (signIn, users) = _f.CreateIdentityManagers(db);
+        var (signIn, users) = AccountControllerFixture.CreateIdentityManagers(db);
         var user = new IdentityUser { UserName = "new@example.com", Email = "new@example.com", EmailConfirmed = false };
         Assert.True((await users.CreateAsync(user, "TestPassword1!")).Succeeded);
 
@@ -99,28 +99,27 @@ public class AccountControllerEmailRateLimitTests : IClassFixture<AccountControl
         IEmailSender emailSender,
         IEmailRateLimiter rateLimiter)
     {
-        var controller = new AccountController(
-            signIn,
-            users,
-            emailSender,
-            new GoogleAuthOptionsMock().Object,
-            db,
-            new CurrentFamilyTreeServiceMock().Object,
-            new Mock<ITreeViewOrientationService>().Object,
-            new Mock<ILineageModeService>().Object,
-            new DefaultFamilyTreeService(db),
-            new Mock<IFamilyTreeDeletionService>().Object,
-            new WebHostEnvironmentMock().Object,
-            Microsoft.Extensions.Options.Options.Create(new Options.PathsOptions()),
-            new AccountControllerFixture().CreateExternalLoginInfoProvider("user@example.com"),
-            new Mock<IPhotoStorageService>().Object,
-            new Mock<ITreeCardViewModeService>().Object,
-            new FamilyTreeAccessService(db),
-            rateLimiter,
-            Microsoft.Extensions.Logging.Abstractions.NullLogger<AccountController>.Instance);
-
-        controller.ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() };
-        controller.Url = new UrlHelperMock().Object;
-        return controller;
+        return new AccountController(
+            AccountControllerFixture.CreateDependencies(
+                signIn,
+                users,
+                emailSender,
+                new GoogleAuthOptionsMock().Object,
+                db,
+                new CurrentFamilyTreeServiceMock().Object,
+                new Mock<ITreeViewOrientationService>().Object,
+                new Mock<ILineageModeService>().Object,
+                new DefaultFamilyTreeService(db),
+                new Mock<IFamilyTreeDeletionService>().Object,
+                AccountControllerFixture.CreateExternalLoginInfoProvider("user@example.com"),
+                new Mock<IPhotoStorageService>().Object,
+                new Mock<ITreeCardViewModeService>().Object,
+                new FamilyTreeAccessService(db),
+                rateLimiter),
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<AccountController>.Instance)
+        {
+            ControllerContext = new() { HttpContext = new DefaultHttpContext() },
+            Url = new UrlHelperMock().Object
+        };
     }
 }

@@ -32,8 +32,7 @@ public sealed class LineageModeService : ILineageModeService
         var mode = profile?.LineageMode;
         if (mode.HasValue)
         {
-            if (session != null)
-                session.SetInt32(SessionKey, (int)mode.Value);
+            session?.SetInt32(SessionKey, (int)mode.Value);
             return mode.Value;
         }
         return LineageMode.Paternal;
@@ -42,8 +41,7 @@ public sealed class LineageModeService : ILineageModeService
     public async Task SetAsync(LineageMode mode, CancellationToken cancellationToken = default)
     {
         var session = _httpContextAccessor.HttpContext?.Session;
-        if (session != null)
-            session.SetInt32(SessionKey, (int)mode);
+        session?.SetInt32(SessionKey, (int)mode);
 
         var userId = _httpContextAccessor.HttpContext?.User?.FindFirstValue(ClaimTypes.NameIdentifier);
         if (string.IsNullOrEmpty(userId))

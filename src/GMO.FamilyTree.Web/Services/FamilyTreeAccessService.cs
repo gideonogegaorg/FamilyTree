@@ -48,10 +48,9 @@ public sealed class FamilyTreeAccessService : IFamilyTreeAccessService
             .Where(m => m.Id == memberId)
             .Select(m => (long?)m.FamilyTreeId)
             .FirstOrDefaultAsync(cancellationToken);
-        if (!treeId.HasValue)
-            return TreeAccessLevel.None;
-
-        return await GetAccessLevelAsync(userId, treeId.Value, cancellationToken);
+        return treeId is not { } resolvedTreeId
+            ? TreeAccessLevel.None
+            : await GetAccessLevelAsync(userId, resolvedTreeId, cancellationToken);
     }
 
     public async Task<bool> CanViewAsync(string userId, long treeId, CancellationToken cancellationToken = default)
@@ -68,10 +67,9 @@ public sealed class FamilyTreeAccessService : IFamilyTreeAccessService
 
     public async Task<IReadOnlyList<Data.FamilyTree>> GetAccessibleTreesAsync(string userId, CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrEmpty(userId))
-            return Array.Empty<Data.FamilyTree>();
-
-        return await _db.FamilyTrees.AsNoTracking()
+        return string.IsNullOrEmpty(userId)
+            ? []
+            : await _db.FamilyTrees.AsNoTracking()
             .Where(t => t.OwnerId == userId
                 || _db.FamilyTreeAccesses.Any(a => a.FamilyTreeId == t.Id && a.UserId == userId))
             .OrderBy(t => t.Name)

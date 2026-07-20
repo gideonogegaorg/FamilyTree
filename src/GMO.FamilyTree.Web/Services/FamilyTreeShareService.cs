@@ -60,62 +60,14 @@ public sealed class FamilyTreeShareService : IFamilyTreeShareService
 
         var invite = await _db.FamilyTreeInvites
             .FirstOrDefaultAsync(i => i.Token == token, cancellationToken);
-        if (invite == null)
-            return (InviteAcceptResult.NotFound, null);
-        if (invite.RevokedAt != null)
-            return (InviteAcceptResult.Revoked, invite.FamilyTreeId);
-        if (invite.ExpiresAt != null && invite.ExpiresAt <= DateTimeOffset.UtcNow)
-            return (InviteAcceptResult.Expired, invite.FamilyTreeId);
+        var inviteValidation = ValidateInvite(invite);
+        if (inviteValidation is { } validation)
+            return validation;
 
-        // Email invites are single-use; link invites remain reusable until revoked/expired.
-        if (!invite.IsLinkInvite && invite.AcceptedAt != null)
-            return (InviteAcceptResult.NotFound, invite.FamilyTreeId);
-
-        if (!invite.IsLinkInvite)
-        {
-            if (string.IsNullOrEmpty(userEmail)
-                || !string.Equals(userEmail.Trim(), invite.Email!.Trim(), StringComparison.OrdinalIgnoreCase))
-            {
-                return (InviteAcceptResult.EmailMismatch, invite.FamilyTreeId);
-            }
-        }
-
-        var tree = await _db.FamilyTrees.AsNoTracking()
-            .FirstOrDefaultAsync(t => t.Id == invite.FamilyTreeId, cancellationToken);
-        if (tree == null)
-            return (InviteAcceptResult.NotFound, null);
-        if (tree.OwnerId == userId)
-            return (InviteAcceptResult.AlreadyOwner, tree.Id);
-
-        var existing = await _db.FamilyTreeAccesses
-            .FirstOrDefaultAsync(a => a.FamilyTreeId == invite.FamilyTreeId && a.UserId == userId, cancellationToken);
-        if (existing == null)
-        {
-            _db.FamilyTreeAccesses.Add(new FamilyTreeAccess
-            {
-                FamilyTreeId = invite.FamilyTreeId,
-                UserId = userId,
-                Role = invite.Role,
-                GrantedAt = DateTimeOffset.UtcNow,
-                GrantedByUserId = invite.CreatedByUserId
-            });
-        }
-        else if (existing.Role < invite.Role)
-        {
-            // Upgrade only (Readonly -> Editor); never downgrade via a second invite accept.
-            existing.Role = invite.Role;
-            existing.GrantedAt = DateTimeOffset.UtcNow;
-            existing.GrantedByUserId = invite.CreatedByUserId;
-        }
-
-        if (!invite.IsLinkInvite)
-        {
-            invite.AcceptedAt = DateTimeOffset.UtcNow;
-            invite.AcceptedByUserId = userId;
-        }
-
-        await _db.SaveChangesAsync(cancellationToken);
-        return (InviteAcceptResult.Success, invite.FamilyTreeId);
+        var emailValidation = ValidateInviteEmail(invite!, userEmail);
+        return emailValidation is { } emailResult
+            ? emailResult
+            : await CompleteInviteAcceptanceAsync(invite!, userId, cancellationToken);
     }
 
     public async Task<bool> RevokeInviteAsync(long inviteId, string ownerUserId, CancellationToken cancellationToken = default)
@@ -219,6 +171,92 @@ public sealed class FamilyTreeShareService : IFamilyTreeShareService
                 && (i.ExpiresAt == null || i.ExpiresAt > now))
             .OrderByDescending(i => i.CreatedAt)
             .ToListAsync(cancellationToken);
+    }
+
+    private static (InviteAcceptResult Result, long? TreeId)? ValidateInvite(FamilyTreeInvite? invite)
+    {
+        if (invite == null)
+            return (InviteAcceptResult.NotFound, null);
+        if (invite.RevokedAt != null)
+            return (InviteAcceptResult.Revoked, invite.FamilyTreeId);
+        if (invite.ExpiresAt != null && invite.ExpiresAt <= DateTimeOffset.UtcNow)
+            return (InviteAcceptResult.Expired, invite.FamilyTreeId);
+
+        return invite is { IsLinkInvite: false, AcceptedAt: not null }
+            ? (InviteAcceptResult.NotFound, invite.FamilyTreeId)
+            : null;
+    }
+
+    private static (InviteAcceptResult Result, long? TreeId)? ValidateInviteEmail(FamilyTreeInvite invite, string? userEmail)
+    {
+        return invite.IsLinkInvite ? null : InviteEmailMismatchIfNeeded(invite, userEmail);
+    }
+
+    private static (InviteAcceptResult Result, long? TreeId)? InviteEmailMismatchIfNeeded(
+        FamilyTreeInvite invite,
+        string? userEmail)
+    {
+        return string.IsNullOrEmpty(userEmail)
+            || !string.Equals(userEmail.Trim(), invite.Email!.Trim(), StringComparison.OrdinalIgnoreCase)
+            ? (InviteAcceptResult.EmailMismatch, invite.FamilyTreeId)
+            : null;
+    }
+
+    private async Task<(InviteAcceptResult Result, long? TreeId)> CompleteInviteAcceptanceAsync(
+        FamilyTreeInvite invite,
+        string userId,
+        CancellationToken cancellationToken)
+    {
+        var tree = await _db.FamilyTrees.AsNoTracking()
+            .FirstOrDefaultAsync(t => t.Id == invite.FamilyTreeId, cancellationToken);
+        if (tree == null)
+            return (InviteAcceptResult.NotFound, null);
+        if (tree.OwnerId == userId)
+            return (InviteAcceptResult.AlreadyOwner, tree.Id);
+
+        await UpsertCollaboratorAccessAsync(invite, userId, cancellationToken);
+        MarkEmailInviteAccepted(invite, userId);
+
+        await _db.SaveChangesAsync(cancellationToken);
+        return (InviteAcceptResult.Success, invite.FamilyTreeId);
+    }
+
+    private async Task UpsertCollaboratorAccessAsync(
+        FamilyTreeInvite invite,
+        string userId,
+        CancellationToken cancellationToken)
+    {
+        var existing = await _db.FamilyTreeAccesses
+            .FirstOrDefaultAsync(a => a.FamilyTreeId == invite.FamilyTreeId && a.UserId == userId, cancellationToken);
+        if (existing == null)
+        {
+            _db.FamilyTreeAccesses.Add(new FamilyTreeAccess
+            {
+                FamilyTreeId = invite.FamilyTreeId,
+                UserId = userId,
+                Role = invite.Role,
+                GrantedAt = DateTimeOffset.UtcNow,
+                GrantedByUserId = invite.CreatedByUserId
+            });
+            return;
+        }
+
+        if (existing.Role < invite.Role)
+        {
+            // Upgrade only (Readonly -> Editor); never downgrade via a second invite accept.
+            existing.Role = invite.Role;
+            existing.GrantedAt = DateTimeOffset.UtcNow;
+            existing.GrantedByUserId = invite.CreatedByUserId;
+        }
+    }
+
+    private static void MarkEmailInviteAccepted(FamilyTreeInvite invite, string userId)
+    {
+        if (invite.IsLinkInvite)
+            return;
+
+        invite.AcceptedAt = DateTimeOffset.UtcNow;
+        invite.AcceptedByUserId = userId;
     }
 
     private async Task EnsureOwnerAsync(long treeId, string userId, CancellationToken cancellationToken)
