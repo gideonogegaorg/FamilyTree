@@ -229,7 +229,7 @@ public class AccountControllerTwoFactorTests : IClassFixture<AccountControllerFi
         signIn.Verify(s => s.ExternalLoginSignInAsync("Google", "provider-key", false, false), Times.Never);
     }
 
-    private AccountController CreateAnonymousController(
+    private static AccountController CreateAnonymousController(
         AppDbContext db,
         SignInManager<IdentityUser> signIn,
         UserManager<IdentityUser> users,

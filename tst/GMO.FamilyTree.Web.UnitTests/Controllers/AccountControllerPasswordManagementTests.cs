@@ -258,7 +258,7 @@ public class AccountControllerPasswordManagementTests : IClassFixture<AccountCon
         return controller;
     }
 
-    private AccountController CreateAnonymous(
+    private static AccountController CreateAnonymous(
         AppDbContext db,
         SignInManager<IdentityUser> signIn,
         UserManager<IdentityUser> users,

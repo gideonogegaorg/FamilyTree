@@ -143,7 +143,7 @@ static FamilyTreeOpenTelemetryOptions ConfigureTelemetry(WebApplicationBuilder b
 
         builder.Services.Configure<OtlpExporterOptions>(builder.Configuration.GetSection("Telemetry:Otlp"));
 
-        if (telemetryOptions.TraceSourceNames.Count() > 0)
+        if (telemetryOptions.TraceSourceNames.Any())
         {
             otelBuilder.WithTracing(tracing =>
             {

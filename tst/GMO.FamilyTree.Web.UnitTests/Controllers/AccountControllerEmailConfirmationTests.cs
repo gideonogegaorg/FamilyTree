@@ -122,7 +122,7 @@ public class AccountControllerEmailConfirmationTests : IClassFixture<AccountCont
         return users;
     }
 
-    private AccountController CreateWithEmail(
+    private static AccountController CreateWithEmail(
         AppDbContext db,
         SignInManager<IdentityUser> signIn,
         UserManager<IdentityUser> users,

@@ -172,7 +172,7 @@ public partial class MobileTreeViewportTests : IAsyncLifetime
             var endX = startX + 80;
             var endY = startY + 40;
 
-            var (beforePanX, beforePanY, beforeScale) = await ReadWorldTransformAsync(page);
+            var (beforePanX, beforePanY, _) = await ReadWorldTransformAsync(page);
 
             await DispatchTouchPointerAsync(page, "pointerdown", 1, startX, startY);
             await DispatchTouchPointerAsync(page, "pointermove", 1, startX + 20, startY + 10);

@@ -777,10 +777,9 @@ public class AccountController : Controller
         await EnsureEmailTwoFactorEnabledAsync(user);
 
         var signedIn = await _userManager.GetUserAsync(User);
-        if (signedIn?.Id == user.Id)
-            return RedirectToAction("Index", "Home");
-
-        return RedirectToAction(nameof(Login), new { returnUrl = HomeIndexPath });
+        return signedIn?.Id == user.Id
+            ? RedirectToAction("Index", "Home")
+            : RedirectToAction(nameof(Login), new { returnUrl = HomeIndexPath });
     }
 
     [HttpPost]
