@@ -24,23 +24,15 @@ public sealed class ShareController : Controller
     private readonly IEmailRateLimiter _emailRateLimiter;
     private readonly ILogger<ShareController> _logger;
 
-    public ShareController(
-        AppDbContext db,
-        UserManager<IdentityUser> userManager,
-        IFamilyTreeAccessService access,
-        IFamilyTreeShareService share,
-        ICurrentFamilyTreeService currentTree,
-        IEmailSender emailSender,
-        IEmailRateLimiter emailRateLimiter,
-        ILogger<ShareController> logger)
+    public ShareController(ShareControllerDependencies deps, ILogger<ShareController> logger)
     {
-        _db = db;
-        _userManager = userManager;
-        _access = access;
-        _share = share;
-        _currentTree = currentTree;
-        _emailSender = emailSender;
-        _emailRateLimiter = emailRateLimiter;
+        _db = deps.Db;
+        _userManager = deps.UserManager;
+        _access = deps.Access;
+        _share = deps.Share;
+        _currentTree = deps.CurrentTree;
+        _emailSender = deps.EmailSender;
+        _emailRateLimiter = deps.EmailRateLimiter;
         _logger = logger;
     }
 

@@ -185,7 +185,13 @@ public class ControllerModelStateValidationTests : IClassFixture<AccountControll
         var controller = CreateFamilyMemberController(db);
         Invalidate(controller);
 
-        var edit = await controller.EditMember(10, "Alice", null, null, null, null, true, false);
+        var edit = await controller.EditMember(new EditMemberRequest
+        {
+            MemberId = 10,
+            Name = "Alice",
+            IsMale = true,
+            SetAsMe = false
+        });
         var editJson = Assert.IsType<JsonResult>(edit);
         Assert.Contains("\"success\":false", JsonSerializer.Serialize(editJson.Value));
 
@@ -292,8 +298,9 @@ public class ControllerModelStateValidationTests : IClassFixture<AccountControll
         var current = new Mock<ICurrentFamilyTreeService>();
         var email = new Mock<IEmailSender>();
         var controller = new ShareController(
-            db, userManager, access, share, current.Object, email.Object,
-            AccountControllerFixture.CreateAllowAllRateLimiter(),
+            new ShareControllerDependencies(
+                db, userManager, access, share, current.Object, email.Object,
+                AccountControllerFixture.CreateAllowAllRateLimiter()),
             Microsoft.Extensions.Logging.Abstractions.NullLogger<ShareController>.Instance);
         var http = new DefaultHttpContext { Request = { Scheme = "https" } };
         http.User = new ClaimsPrincipal(new ClaimsIdentity([new Claim(ClaimTypes.NameIdentifier, "owner")], "test"));

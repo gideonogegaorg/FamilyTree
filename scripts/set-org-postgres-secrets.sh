@@ -22,15 +22,15 @@ VISIBILITY="${SECRET_VISIBILITY:-all}"
 REPOS="${REPOS:-}"
 
 for name in PG_USER PG_PASS; do
-  if [ -z "${!name:-}" ]; then
-    echo "::error::Set $name in the environment before running."
+  if [[ -z "${!name:-}" ]]; then
+    echo "::error::Set $name in the environment before running." >&2
     exit 1
   fi
 done
 
 set_secret() {
   local name="$1" value="$2"
-  if [ -n "$REPOS" ]; then
+  if [[ -n "$REPOS" ]]; then
     printf '%s' "$value" | gh secret set "$name" --org "$ORG" --visibility selected --repos "$REPOS"
   else
     printf '%s' "$value" | gh secret set "$name" --org "$ORG" --visibility "$VISIBILITY"

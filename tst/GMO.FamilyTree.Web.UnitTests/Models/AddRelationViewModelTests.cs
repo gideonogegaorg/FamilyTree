@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 
+using GMO.FamilyTree.Web.Data;
 using GMO.FamilyTree.Web.Models;
 
 using Xunit;
@@ -16,6 +17,10 @@ public class AddRelationViewModelTests
             ContextMemberId = 1,
             FamilyTreeId = 1,
             Name = "Test Person",
+            RelationshipType = RelationshipType.Couple,
+            IsChild = false,
+            IsMale = true,
+            SetAsMe = false,
             DOB = new DateOnly(2000, 1, 1),
             DOD = new DateOnly(1999, 12, 31)
         };
@@ -40,6 +45,10 @@ public class AddRelationViewModelTests
             ContextMemberId = 1,
             FamilyTreeId = 1,
             Name = "Test Person",
+            RelationshipType = RelationshipType.Couple,
+            IsChild = false,
+            IsMale = true,
+            SetAsMe = false,
             DOB = new DateOnly(1950, 7, 19),
             DOD = new DateOnly(2020, 3, 2)
         };

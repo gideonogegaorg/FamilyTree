@@ -16,8 +16,8 @@ set -euo pipefail
 TEMPLATE="${1:-src/GMO.FamilyTree.Web/appsettings.json.template}"
 OUTPUT="${2:-src/GMO.FamilyTree.Web/appsettings.json}"
 
-if [ ! -f "$TEMPLATE" ]; then
-  echo "::error::Template not found: $TEMPLATE"
+if [[ ! -f "$TEMPLATE" ]]; then
+  echo "::error::Template not found: $TEMPLATE" >&2
   exit 1
 fi
 
@@ -33,7 +33,7 @@ replace() {
 
 replace_bool() {
   local token="$1" value="${2:-false}"
-  if [ -z "$value" ]; then
+  if [[ -z "$value" ]]; then
     value="false"
   fi
   sed -i "s|\^\^${token}\^\^|${value}|g" "$OUTPUT"
@@ -51,10 +51,10 @@ replace "S3_REGION"                       "${S3_REGION:-us-east-1}"
 replace "PHOTOS_LOCAL_BASE_PATH"          "${PHOTOS_LOCAL_BASE_PATH:-uploads/photos}"
 
 # Storage prefix: explicit PHOTOS_STORAGE_PREFIX, or PHOTOS_APP_NAME/PHOTOS_ENVIRONMENT, or PHOTOS_APP_NAME/TELEMETRY_ENVIRONMENT_NAME
-if [ -z "${PHOTOS_STORAGE_PREFIX:-}" ]; then
-  if [ -n "${PHOTOS_APP_NAME:-}" ] && [ -n "${PHOTOS_ENVIRONMENT:-}" ]; then
+if [[ -z "${PHOTOS_STORAGE_PREFIX:-}" ]]; then
+  if [[ -n "${PHOTOS_APP_NAME:-}" ]] && [[ -n "${PHOTOS_ENVIRONMENT:-}" ]]; then
     PHOTOS_STORAGE_PREFIX="${PHOTOS_APP_NAME}/${PHOTOS_ENVIRONMENT}"
-  elif [ -n "${PHOTOS_APP_NAME:-}" ] && [ -n "${TELEMETRY_ENVIRONMENT_NAME:-}" ]; then
+  elif [[ -n "${PHOTOS_APP_NAME:-}" ]] && [[ -n "${TELEMETRY_ENVIRONMENT_NAME:-}" ]]; then
     PHOTOS_STORAGE_PREFIX="${PHOTOS_APP_NAME}/${TELEMETRY_ENVIRONMENT_NAME}"
   fi
 fi
@@ -70,7 +70,7 @@ replace "GOOGLE_CLIENT_ID"               "${GOOGLE_CLIENT_ID:-}"
 replace "GOOGLE_CLIENT_SECRET"           "${GOOGLE_CLIENT_SECRET:-}"
 replace "EMAIL_PROVIDER"                 "${EMAIL_PROVIDER:-Logging}"
 # Prefer explicit EMAIL_FROM_ADDRESS; otherwise noreply@{EMAIL_DOMAIN} (EMAIL_DOMAIN often = FULL_HOSTNAME).
-if [ -z "${EMAIL_FROM_ADDRESS:-}" ] && [ -n "${EMAIL_DOMAIN:-}" ]; then
+if [[ -z "${EMAIL_FROM_ADDRESS:-}" ]] && [[ -n "${EMAIL_DOMAIN:-}" ]]; then
   EMAIL_FROM_ADDRESS="noreply@${EMAIL_DOMAIN}"
 fi
 replace "EMAIL_FROM_ADDRESS"             "${EMAIL_FROM_ADDRESS:-}"

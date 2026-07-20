@@ -1308,7 +1308,7 @@ button.family-tree-card-avatar.member-photo-trigger:focus-visible {
 .ft-tree-picker-delete:hover {
   opacity: 1;
   background: rgba(180, 83, 74, 0.12);
-  color: #b4534a;
+  color: #8b2f28;
 }
 
 .ft-tree-picker-item {
@@ -1571,23 +1571,6 @@ body:has(.ft-tree-page) footer.footer {
 }
 body:has(.ft-tree-page) header .navbar {
   margin-bottom: 0 !important;
-}
-main:has(.ft-tree-page) {
-  overflow: hidden;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  padding: 0 !important;
-}
-.container:has(.ft-tree-page) {
-  overflow: hidden;
-  max-width: 100%;
-  padding: 0;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
 }
 main:has(.ft-tree-page) {
   overflow: hidden;

@@ -6,6 +6,7 @@ using Amazon.S3;
 using Amazon.SimpleEmail;
 
 using GMO.FamilyTree.Web;
+using GMO.FamilyTree.Web.Controllers;
 using GMO.FamilyTree.Web.Data;
 using GMO.FamilyTree.Web.Extensions;
 using GMO.FamilyTree.Web.Options;
@@ -38,11 +39,11 @@ ConfigureEmail(builder);
 
 var app = builder.Build();
 
-ApplyMigrations(app);
+await ApplyMigrationsAsync(app);
 ConfigureTelemetryStartupLogging(app, telemetryOptions);
 ConfigureMiddleware(app);
 
-app.Run();
+await app.RunAsync();
 
 static void ConfigureCoreServices(WebApplicationBuilder builder)
 {
@@ -64,6 +65,9 @@ static void ConfigureCoreServices(WebApplicationBuilder builder)
     builder.Services.AddScoped<IFamilyTreeShareService, FamilyTreeShareService>();
     builder.Services.AddScoped<IDefaultFamilyTreeService, DefaultFamilyTreeService>();
     builder.Services.AddScoped<IExternalLoginInfoProvider, SignInManagerExternalLoginInfoProvider>();
+    builder.Services.AddScoped<AccountControllerDependencies>();
+    builder.Services.AddScoped<HomeControllerDependencies>();
+    builder.Services.AddScoped<ShareControllerDependencies>();
     builder.Services.AddDistributedMemoryCache();
     builder.Services.AddSession(options => options.IdleTimeout = TimeSpan.FromMinutes(20));
     builder.Services.AddFamilyAuthentication(builder.Configuration, builder.Environment);
@@ -202,11 +206,11 @@ static void ConfigureEmail(WebApplicationBuilder builder)
     builder.Services.AddScoped<IEmailSender, LoggingEmailSender>();
 }
 
-static void ApplyMigrations(WebApplication app)
+static async Task ApplyMigrationsAsync(WebApplication app)
 {
     using var scope = app.Services.CreateScope();
     var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    db.Database.Migrate();
+    await db.Database.MigrateAsync();
 }
 
 static void ConfigureTelemetryStartupLogging(WebApplication app, FamilyTreeOpenTelemetryOptions telemetryOptions)

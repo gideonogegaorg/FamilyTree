@@ -23,11 +23,10 @@ public class LoginWith2faViewModel
 
 
     [Display(Name = "Remember this machine")]
-
+    [Required]
     public bool RememberMachine { get; set; }
 
-
-
+    [Required]
     public bool RememberMe { get; set; }
 
     public string? ReturnUrl { get; set; }

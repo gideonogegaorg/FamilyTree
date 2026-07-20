@@ -276,9 +276,10 @@ public class AccountControllerPasswordManagementTests : IClassFixture<AccountCon
         var external = _f.CreateExternalLoginInfoProvider("user@example.com");
 
         var controller = new AccountController(
-            signIn, users, email, googleAuth, db, currentTree, treeViewOrientation, lineageMode,
-            defaultTree, familyTreeDeletion, external, photos, treeCardViewMode, access,
-            AccountControllerFixture.CreateAllowAllRateLimiter(),
+            new AccountControllerDependencies(
+                signIn, users, email, googleAuth, db, currentTree, treeViewOrientation, lineageMode,
+                defaultTree, familyTreeDeletion, external, photos, treeCardViewMode, access,
+                AccountControllerFixture.CreateAllowAllRateLimiter()),
             Microsoft.Extensions.Logging.Abstractions.NullLogger<AccountController>.Instance);
 
         controller.ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() };

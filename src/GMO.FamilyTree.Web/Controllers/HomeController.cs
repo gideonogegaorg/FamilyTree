@@ -26,16 +26,16 @@ public class HomeController : Controller
     private readonly IOptionsMonitor<GoogleAuthOptions> _googleAuth;
     private readonly IWebHostEnvironment _env;
 
-    public HomeController(AppDbContext db, ICurrentFamilyTreeService currentTree, ITreeViewOrientationService treeViewOrientation, ILineageModeService lineageMode, ITreeCardViewModeService treeCardViewMode, IFamilyTreeAccessService access, IOptionsMonitor<GoogleAuthOptions> googleAuth, IWebHostEnvironment env)
+    public HomeController(HomeControllerDependencies deps)
     {
-        _db = db;
-        _currentTree = currentTree;
-        _treeViewOrientation = treeViewOrientation;
-        _lineageMode = lineageMode;
-        _treeCardViewMode = treeCardViewMode;
-        _access = access;
-        _googleAuth = googleAuth;
-        _env = env;
+        _db = deps.Db;
+        _currentTree = deps.CurrentTree;
+        _treeViewOrientation = deps.TreeViewOrientation;
+        _lineageMode = deps.LineageMode;
+        _treeCardViewMode = deps.TreeCardViewMode;
+        _access = deps.Access;
+        _googleAuth = deps.GoogleAuth;
+        _env = deps.Env;
     }
 
     [AllowAnonymous]
@@ -103,7 +103,7 @@ public class HomeController : Controller
         var meMember = members.FirstOrDefault(m => m.UserId == currentUserId);
         var focusMemberId = meMember?.Id ?? rootIds.FirstOrDefault();
 
-        var cards = members.Select(m => BuildCard(m, rels, memberDict, currentUserId)).ToList();
+        var cards = members.Select(m => BuildCard(m, rels, currentUserId)).ToList();
         var rowById = TreeLayoutRanking.ComputeRowByMember(cards);
         var lineageMode = await _lineageMode.GetAsync(cancellationToken);
         var rankById = TreeLayoutRanking.ComputeVisualRank(cards, rowById, lineageMode);
@@ -189,6 +189,8 @@ public class HomeController : Controller
             ModelState.AddModelError(nameof(model.Name), "Name is required.");
             return View(model);
         }
+        ModelState.Remove(nameof(AddRelationViewModel.RelationshipType));
+        ModelState.Remove(nameof(AddRelationViewModel.IsChild));
         if (!ModelState.IsValid)
             return View(model);
         var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -217,7 +219,6 @@ public class HomeController : Controller
     private static FamilyMemberCardViewModel BuildCard(
         FamilyMember m,
         List<FamilyMemberRelationship> rels,
-        Dictionary<long, FamilyMember> memberDict,
         string? currentUserId)
     {
         var parentIds = rels.Where(r => r.RelationshipType == RelationshipType.Parent && r.ToMemberId == m.Id).Select(r => r.FromMemberId).ToList();

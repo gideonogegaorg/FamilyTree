@@ -15,6 +15,7 @@ public class LoginViewModel
     public string Password { get; set; } = string.Empty;
 
     [Display(Name = "Remember me?")]
+    [Required]
     public bool RememberMe { get; set; }
 
     public string? ReturnUrl { get; set; }

@@ -8,8 +8,12 @@ public class AddRelationViewModel : IValidatableObject
 {
     public required long ContextMemberId { get; set; }
     public required long FamilyTreeId { get; set; }
-    public RelationshipType RelationshipType { get; set; }
+
+    [Required]
+    public RelationshipType? RelationshipType { get; set; }
+
     /// <summary>When true with Parent type: new member is child of context (reverse direction).</summary>
+    [Required]
     public bool IsChild { get; set; }
 
     [Required]
@@ -28,9 +32,11 @@ public class AddRelationViewModel : IValidatableObject
     /// <summary>For Sibling: birth order among full siblings (1 = first born, etc.).</summary>
     public int? BirthOrder { get; set; }
 
+    [Required]
     public bool IsMale { get; set; }
 
     /// <summary>When true, link to current user (this member is "me").</summary>
+    [Required]
     public bool SetAsMe { get; set; }
 
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
@@ -40,6 +46,11 @@ public class AddRelationViewModel : IValidatableObject
             yield return new ValidationResult(
                 "Date of death cannot be before date of birth.",
                 new[] { nameof(DOD) });
+        }
+
+        if (!RelationshipType.HasValue)
+        {
+            yield return new ValidationResult("Relationship type is required.", new[] { nameof(RelationshipType) });
         }
     }
 }

@@ -7,14 +7,14 @@ set -euo pipefail
 COBERTURA_FILE="${1:?Cobertura XML path required}"
 MIN_PERCENT="${2:-80}"
 
-if [ ! -f "$COBERTURA_FILE" ]; then
-  echo "::error::Coverage file not found: $COBERTURA_FILE"
+if [[ ! -f "$COBERTURA_FILE" ]]; then
+  echo "::error::Coverage file not found: $COBERTURA_FILE" >&2
   exit 1
 fi
 
 LINE_RATE=$(grep -oP '(?<=<coverage line-rate=")[0-9.]+' "$COBERTURA_FILE" | head -1)
-if [ -z "$LINE_RATE" ]; then
-  echo "::error::Could not parse line-rate from $COBERTURA_FILE"
+if [[ -z "$LINE_RATE" ]]; then
+  echo "::error::Could not parse line-rate from $COBERTURA_FILE" >&2
   exit 1
 fi
 
@@ -28,5 +28,5 @@ if awk -v actual="$LINE_RATE" -v min="$MIN_RATE" 'BEGIN { exit (actual + 0 >= mi
   exit 0
 fi
 
-echo "::error::Line coverage ${LINE_PERCENT}% is below required ${MIN_PERCENT}%"
+echo "::error::Line coverage ${LINE_PERCENT}% is below required ${MIN_PERCENT}%" >&2
 exit 1
