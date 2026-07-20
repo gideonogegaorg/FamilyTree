@@ -21,8 +21,8 @@ else
         <input type="hidden" asp-for="ContextMemberName" />
         <input type="hidden" asp-for="ActionLabel" />
         <div class="mb-3">
-            <label class="form-label">Select person to link</label>
-            <select asp-for="ExistingMemberId" class="form-select">
+            <label class="form-label" for="ExistingMemberId">Select person to link</label>
+            <select asp-for="ExistingMemberId" class="form-select" id="ExistingMemberId">
                 <option value="">-- Choose --</option>
                 @foreach (var c in Model.Candidates)
                 {

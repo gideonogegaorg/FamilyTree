@@ -784,5 +784,9 @@ public class LayoutOrientationTests : IAsyncLifetime
         await _page.Locator(".ft-subbar .ft-pills button", new() { HasText = "Paternal" }).WaitForAsync();
         await _page.Locator(".ft-subbar .ft-pills button", new() { HasText = "Maternal" }).WaitForAsync();
         await _page.Locator(".ft-tree-picker-btn").WaitForAsync();
+
+        Assert.True(await _page.Locator(".ft-subbar .ft-pills button", new() { HasText = "Vertical" }).IsVisibleAsync());
+        Assert.True(await _page.Locator(".ft-subbar .ft-pills button", new() { HasText = "Horizontal" }).IsVisibleAsync());
+        Assert.True(await _page.Locator(".ft-tree-picker-btn").IsVisibleAsync());
     }
 }

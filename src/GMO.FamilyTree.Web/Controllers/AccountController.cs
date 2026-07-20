@@ -451,6 +451,9 @@ public class AccountController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> UploadPhoto(IFormFile? photo, CancellationToken cancellationToken)
     {
+        if (!ModelState.IsValid)
+            return PhotoUploadResult("Invalid input.");
+
         var userId = _userManager.GetUserId(User);
         if (string.IsNullOrEmpty(userId))
             return WantsJson()
@@ -512,6 +515,9 @@ public class AccountController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> SetTreeCardViewMode(int mode, CancellationToken cancellationToken)
     {
+        if (!ModelState.IsValid)
+            return BadRequest();
+
         var value = Enum.IsDefined(typeof(TreeCardViewMode), mode)
             ? (TreeCardViewMode)mode
             : TreeCardViewMode.Standard;
@@ -523,6 +529,9 @@ public class AccountController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> SwitchFamilyTree(long id, CancellationToken cancellationToken)
     {
+        if (!ModelState.IsValid)
+            return BadRequest();
+
         var userId = _userManager.GetUserId(User);
         if (userId == null || !await _access.CanViewAsync(userId, id, cancellationToken))
             return NotFound();
@@ -535,6 +544,9 @@ public class AccountController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> SetTreeViewOrientation(int orientation, CancellationToken cancellationToken)
     {
+        if (!ModelState.IsValid)
+            return BadRequest();
+
         var value = Enum.IsDefined(typeof(TreeViewOrientation), orientation)
             ? (TreeViewOrientation)orientation
             : TreeViewOrientation.Horizontal;
@@ -546,6 +558,9 @@ public class AccountController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> DeleteFamilyTree(long id, CancellationToken cancellationToken)
     {
+        if (!ModelState.IsValid)
+            return BadRequest();
+
         var userId = _userManager.GetUserId(User);
         if (userId == null) return NotFound();
 
@@ -559,6 +574,9 @@ public class AccountController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> SetLineageMode(int mode, CancellationToken cancellationToken)
     {
+        if (!ModelState.IsValid)
+            return BadRequest();
+
         var value = Enum.IsDefined(typeof(LineageMode), mode)
             ? (LineageMode)mode
             : LineageMode.Paternal;
@@ -570,6 +588,9 @@ public class AccountController : Controller
     [HttpGet]
     public async Task<IActionResult> LoginWith2fa(bool rememberMe, string? returnUrl = null)
     {
+        if (!ModelState.IsValid)
+            return BadRequest();
+
         var user = await _signInManager.GetTwoFactorAuthenticationUserAsync();
         if (user == null)
             return RedirectToAction(nameof(Login), new { returnUrl });

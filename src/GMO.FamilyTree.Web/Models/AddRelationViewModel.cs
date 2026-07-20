@@ -6,8 +6,8 @@ namespace GMO.FamilyTree.Web.Models;
 
 public class AddRelationViewModel : IValidatableObject
 {
-    public long ContextMemberId { get; set; }
-    public long FamilyTreeId { get; set; }
+    public required long ContextMemberId { get; set; }
+    public required long FamilyTreeId { get; set; }
     public RelationshipType RelationshipType { get; set; }
     /// <summary>When true with Parent type: new member is child of context (reverse direction).</summary>
     public bool IsChild { get; set; }

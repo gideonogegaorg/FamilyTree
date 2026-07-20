@@ -63,6 +63,7 @@ public class AccountControllerTests : IClassFixture<WebAppFixture>
 
         // Assert
         response.EnsureSuccessStatusCode();
+        Assert.Equal(System.Net.HttpStatusCode.OK, response.StatusCode);
     }
 
     [Fact]
@@ -238,6 +239,7 @@ public class AccountControllerTests : IClassFixture<WebAppFixture>
 
         // Assert
         response.EnsureSuccessStatusCode();
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 
     [Fact]
@@ -318,6 +320,7 @@ public class AccountControllerTests : IClassFixture<WebAppFixture>
 
         // Assert
         response.EnsureSuccessStatusCode();
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 
     [Fact]
@@ -331,6 +334,7 @@ public class AccountControllerTests : IClassFixture<WebAppFixture>
 
         // Assert
         response.EnsureSuccessStatusCode();
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
     }
 
     [Fact]

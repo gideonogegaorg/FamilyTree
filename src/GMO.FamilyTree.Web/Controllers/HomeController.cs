@@ -171,7 +171,7 @@ public class HomeController : Controller
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (string.IsNullOrEmpty(userId) || !await _access.CanEditAsync(userId, treeId.Value, cancellationToken))
             return Forbid();
-        return View(new AddRelationViewModel { FamilyTreeId = treeId.Value });
+        return View(new AddRelationViewModel { ContextMemberId = 0, FamilyTreeId = treeId.Value });
     }
 
     [HttpPost]

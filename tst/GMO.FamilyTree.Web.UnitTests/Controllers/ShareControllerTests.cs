@@ -166,7 +166,7 @@ public class ShareControllerTests
         {
             var result = await controller.CreateEmailInvite(
                 1,
-                new CreateEmailInviteInput { Email = "guest@example.com" },
+                new CreateEmailInviteInput { Email = "guest@example.com", Role = TreeShareRole.Readonly },
                 CancellationToken.None);
 
             var view = Assert.IsType<ViewResult>(result);
@@ -188,7 +188,7 @@ public class ShareControllerTests
         {
             var result = await controller.CreateEmailInvite(
                 1,
-                new CreateEmailInviteInput { Email = "guest@example.com" },
+                new CreateEmailInviteInput { Email = "guest@example.com", Role = TreeShareRole.Readonly },
                 CancellationToken.None);
 
             var view = Assert.IsType<ViewResult>(result);

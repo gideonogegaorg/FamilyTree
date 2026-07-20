@@ -5,6 +5,7 @@ using GMO.FamilyTree.Web.Options;
 using GMO.FamilyTree.Web.Services;
 
 using Microsoft.AspNetCore.DataProtection;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
 using Moq;
@@ -93,5 +94,44 @@ public class SesEmailSenderTests
 
         await Assert.ThrowsAsync<ArgumentException>(() =>
             sut.SendEmailAsync("to@example.com", "S", "<p>x</p>", "  ", EmailRateLimitOperations.Confirmation));
+    }
+
+    [Fact]
+    public async Task SendEmailAsync_logs_and_rethrows_when_ses_fails()
+    {
+        var ses = new Mock<IAmazonSimpleEmailService>();
+        ses.Setup(s => s.SendEmailAsync(It.IsAny<SendEmailRequest>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new AmazonSimpleEmailServiceException("boom"));
+
+        var logger = new CollectingLogger<SesEmailSender>();
+        var options = Microsoft.Extensions.Options.Options.Create(new EmailOptions { FromAddress = "noreply@example.com" });
+        var sut = new SesEmailSender(ses.Object, options, CreateProtector(), logger);
+
+        await Assert.ThrowsAsync<AmazonSimpleEmailServiceException>(() =>
+            sut.SendEmailAsync("to@example.com", "S", "<p>x</p>", "x", EmailRateLimitOperations.Confirmation));
+
+        var message = Assert.Single(logger.Messages);
+        Assert.Contains("Operation=", message, StringComparison.Ordinal);
+        Assert.Contains("ToProtected=", message, StringComparison.Ordinal);
+        Assert.DoesNotContain("to@example.com", message, StringComparison.Ordinal);
+    }
+}
+
+file sealed class CollectingLogger<T> : ILogger<T>
+{
+    public List<string> Messages { get; } = [];
+
+    public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+    public bool IsEnabled(LogLevel logLevel) => true;
+
+    public void Log<TState>(
+        LogLevel logLevel,
+        EventId eventId,
+        TState state,
+        Exception? exception,
+        Func<TState, Exception?, string> formatter)
+    {
+        Messages.Add(formatter(state, exception));
     }
 }
