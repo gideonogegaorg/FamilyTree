@@ -46,7 +46,7 @@ public class AccountControllerPasswordManagementTests : IClassFixture<AccountCon
         Assert.Equal("Home", redirect.ControllerName);
         Assert.True(await users.HasPasswordAsync(user));
         Assert.True(await users.GetTwoFactorEnabledAsync(user));
-        email.Verify(e => e.SendEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()), Times.Never);
+        email.Verify(e => e.SendEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()), Times.Never);
     }
 
     [Fact]

@@ -4,6 +4,7 @@ using Amazon.SimpleEmail.Model;
 using GMO.FamilyTree.Web.Options;
 using GMO.FamilyTree.Web.Services;
 
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.Extensions.Logging.Abstractions;
 
 using Moq;
@@ -14,6 +15,9 @@ namespace GMO.FamilyTree.Web.UnitTests.Services;
 
 public class SesEmailSenderTests
 {
+    private static EmailLogProtector CreateProtector() =>
+        new(new EphemeralDataProtectionProvider());
+
     [Fact]
     public async Task SendEmailAsync_calls_ses_with_html_and_plain_text()
     {
@@ -29,9 +33,9 @@ public class SesEmailSenderTests
             FromDisplayName = "Family Tree",
             Region = "us-east-1"
         });
-        var sut = new SesEmailSender(ses.Object, options, NullLogger<SesEmailSender>.Instance);
+        var sut = new SesEmailSender(ses.Object, options, CreateProtector(), NullLogger<SesEmailSender>.Instance);
 
-        await sut.SendEmailAsync("to@example.com", "Hello", "<p>Hi</p>", "Hi");
+        await sut.SendEmailAsync("to@example.com", "Hello", "<p>Hi</p>", "Hi", EmailRateLimitOperations.Confirmation);
 
         Assert.NotNull(captured);
         Assert.Contains("noreply@example.com", captured!.Source);
@@ -56,9 +60,9 @@ public class SesEmailSenderTests
             FromAddress = "noreply@example.com",
             ReplyToAddress = "support@example.com"
         });
-        var sut = new SesEmailSender(ses.Object, options, NullLogger<SesEmailSender>.Instance);
+        var sut = new SesEmailSender(ses.Object, options, CreateProtector(), NullLogger<SesEmailSender>.Instance);
 
-        await sut.SendEmailAsync("to@example.com", "Hello", "<p>Hi</p>", "Hi");
+        await sut.SendEmailAsync("to@example.com", "Hello", "<p>Hi</p>", "Hi", EmailRateLimitOperations.ForgotPassword);
 
         Assert.Equal("support@example.com", Assert.Single(captured!.ReplyToAddresses));
     }
@@ -70,10 +74,11 @@ public class SesEmailSenderTests
         var sut = new SesEmailSender(
             ses.Object,
             Microsoft.Extensions.Options.Options.Create(new EmailOptions()),
+            CreateProtector(),
             NullLogger<SesEmailSender>.Instance);
 
         await Assert.ThrowsAsync<InvalidOperationException>(() =>
-            sut.SendEmailAsync("to@example.com", "S", "<p>x</p>", "x"));
+            sut.SendEmailAsync("to@example.com", "S", "<p>x</p>", "x", EmailRateLimitOperations.Confirmation));
     }
 
     [Fact]
@@ -84,9 +89,9 @@ public class SesEmailSenderTests
         {
             FromAddress = "noreply@example.com"
         });
-        var sut = new SesEmailSender(ses.Object, options, NullLogger<SesEmailSender>.Instance);
+        var sut = new SesEmailSender(ses.Object, options, CreateProtector(), NullLogger<SesEmailSender>.Instance);
 
         await Assert.ThrowsAsync<ArgumentException>(() =>
-            sut.SendEmailAsync("to@example.com", "S", "<p>x</p>", "  "));
+            sut.SendEmailAsync("to@example.com", "S", "<p>x</p>", "  ", EmailRateLimitOperations.Confirmation));
     }
 }

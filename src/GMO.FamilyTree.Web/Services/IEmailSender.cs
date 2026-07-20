@@ -6,5 +6,5 @@ namespace GMO.FamilyTree.Web.Services;
 /// </summary>
 public interface IEmailSender
 {
-    Task SendEmailAsync(string email, string subject, string htmlMessage, string plainTextMessage);
+    Task SendEmailAsync(string email, string subject, string htmlMessage, string plainTextMessage, string operation);
 }

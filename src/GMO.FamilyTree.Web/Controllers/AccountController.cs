@@ -382,7 +382,8 @@ public class AccountController : Controller
                 model.Email,
                 TransactionalEmail.Subject("reset your password"),
                 html,
-                text);
+                text,
+                user.Id);
             return RedirectToAction(nameof(ForgotPasswordConfirmation));
         }
 
@@ -816,7 +817,8 @@ public class AccountController : Controller
             user.Email!,
             TransactionalEmail.Subject("confirm adding a password"),
             html,
-            text);
+            text,
+            user.Id);
     }
 
     private async Task<bool> SendConfirmationEmailAsync(IdentityUser user)
@@ -834,7 +836,8 @@ public class AccountController : Controller
             user.Email!,
             TransactionalEmail.Subject("confirm your email"),
             html,
-            text);
+            text,
+            user.Id);
     }
 
     private async Task<bool> TrySendEmailAsync(
@@ -842,13 +845,31 @@ public class AccountController : Controller
         string recipientEmail,
         string subject,
         string htmlMessage,
-        string plainTextMessage)
+        string plainTextMessage,
+        string? userId = null)
     {
         if (!_emailRateLimiter.TryAcquire(operation, recipientEmail, GetClientIp()))
+        {
+            if (userId is null)
+                _logger.LogWarning("Email rate limit denied, Operation={Operation}", operation);
+            else
+                _logger.LogWarning("Email rate limit denied, Operation={Operation}, UserId={UserId}", operation, userId);
             return false;
+        }
 
-        await _emailSender.SendEmailAsync(recipientEmail, subject, htmlMessage, plainTextMessage);
-        return true;
+        try
+        {
+            await _emailSender.SendEmailAsync(recipientEmail, subject, htmlMessage, plainTextMessage, operation);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            if (userId is null)
+                _logger.LogError(ex, "Email send failed, Operation={Operation}", operation);
+            else
+                _logger.LogError(ex, "Email send failed, Operation={Operation}, UserId={UserId}", operation, userId);
+            return false;
+        }
     }
 
     private string GetClientIp() => HttpContext.GetClientIpForRateLimit();
@@ -900,6 +921,7 @@ public class AccountController : Controller
             email,
             TransactionalEmail.Subject("your sign-in code"),
             html,
-            text);
+            text,
+            user.Id);
     }
 }

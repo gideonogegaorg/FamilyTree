@@ -17,7 +17,7 @@ public class LoggingEmailSenderTests
         var protector = new EmailLogProtector(new EphemeralDataProtectionProvider());
         var sut = new LoggingEmailSender(logger, protector);
 
-        await sut.SendEmailAsync("test@example.com", "Test Subject", "<p>Body</p>", "Body");
+        await sut.SendEmailAsync("test@example.com", "Test Subject", "<p>Body</p>", "Body", EmailRateLimitOperations.Confirmation);
     }
 }
 

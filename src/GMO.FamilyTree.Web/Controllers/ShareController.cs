@@ -20,6 +20,7 @@ public sealed class ShareController : Controller
     private readonly ICurrentFamilyTreeService _currentTree;
     private readonly IEmailSender _emailSender;
     private readonly IEmailRateLimiter _emailRateLimiter;
+    private readonly ILogger<ShareController> _logger;
 
     public ShareController(
         AppDbContext db,
@@ -28,7 +29,8 @@ public sealed class ShareController : Controller
         IFamilyTreeShareService share,
         ICurrentFamilyTreeService currentTree,
         IEmailSender emailSender,
-        IEmailRateLimiter emailRateLimiter)
+        IEmailRateLimiter emailRateLimiter,
+        ILogger<ShareController> logger)
     {
         _db = db;
         _userManager = userManager;
@@ -37,6 +39,7 @@ public sealed class ShareController : Controller
         _currentTree = currentTree;
         _emailSender = emailSender;
         _emailRateLimiter = emailRateLimiter;
+        _logger = logger;
     }
 
     [HttpGet]
@@ -283,11 +286,25 @@ public sealed class ShareController : Controller
                 $"{inviterEmail} invited you to {roleLabel} \"{treeName}\"");
             var (html, text) = TransactionalEmail.InviteMessage(
                 invite.Email, inviterEmail, roleLabel, treeName, url);
-            await _emailSender.SendEmailAsync(invite.Email, subject, html, text);
+            await _emailSender.SendEmailAsync(
+                invite.Email,
+                subject,
+                html,
+                text,
+                EmailRateLimitOperations.ShareInvite);
+            _logger.LogInformation(
+                "Share invite email sent, InviteId={InviteId}, Operation={Operation}",
+                invite.Id,
+                EmailRateLimitOperations.ShareInvite);
             return true;
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            _logger.LogError(
+                ex,
+                "Share invite email failed, InviteId={InviteId}, Operation={Operation}",
+                invite.Id,
+                EmailRateLimitOperations.ShareInvite);
             await _share.RevokeInviteAsync(invite.Id, ownerUserId, cancellationToken);
             return false;
         }

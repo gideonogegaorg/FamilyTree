@@ -93,7 +93,7 @@ public class AccountControllerTwoFactorTests : IClassFixture<AccountControllerFi
         signIn.Setup(s => s.GetTwoFactorAuthenticationUserAsync()).ReturnsAsync(user);
 
         var email = new Mock<IEmailSender>();
-        email.Setup(e => e.SendEmailAsync(user.Email!, It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+        email.Setup(e => e.SendEmailAsync(user.Email!, It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
             .Returns(Task.CompletedTask);
 
         var controller = CreateAnonymousController(db, signIn.Object, users, email.Object);
@@ -106,7 +106,8 @@ public class AccountControllerTwoFactorTests : IClassFixture<AccountControllerFi
             user.Email!,
             "GOOM Family Tree: your sign-in code",
             It.Is<string>(body => body.Contains("sign-in code", StringComparison.Ordinal)),
-            It.Is<string>(text => text.Contains("sign-in code", StringComparison.Ordinal))), Times.Once);
+            It.Is<string>(text => text.Contains("sign-in code", StringComparison.Ordinal)),
+            EmailRateLimitOperations.TwoFactor), Times.Once);
     }
 
     [Fact]

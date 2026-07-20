@@ -59,7 +59,8 @@ public class ShareControllerTests
 
         var controller = new ShareController(
             db, userManager, access, share, current.Object, email.Object,
-            rateLimiter ?? AccountControllerFixture.CreateAllowAllRateLimiter());
+            rateLimiter ?? AccountControllerFixture.CreateAllowAllRateLimiter(),
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<ShareController>.Instance);
         var http = new DefaultHttpContext();
         http.Request.Scheme = "https";
         if (authenticated)
@@ -122,7 +123,7 @@ public class ShareControllerTests
     public async Task CreateEmailInvite_sends_email_and_persists_invite()
     {
         var (controller, db, _, email, _) = await CreateAsync(nameof(CreateEmailInvite_sends_email_and_persists_invite), "owner");
-        email.Setup(e => e.SendEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+        email.Setup(e => e.SendEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
             .Returns(Task.CompletedTask);
 
         await using (db)
@@ -142,7 +143,8 @@ public class ShareControllerTests
                     && s.Contains("GOOM Family Tree", StringComparison.Ordinal)),
                 It.Is<string>(b => b.Contains("owner@example.com", StringComparison.Ordinal)),
                 It.Is<string>(t => t.Contains("owner@example.com", StringComparison.Ordinal)
-                    && t.Contains("Accept the invite", StringComparison.Ordinal))), Times.Once);
+                    && t.Contains("Accept the invite", StringComparison.Ordinal)),
+                EmailRateLimitOperations.ShareInvite), Times.Once);
         }
     }
 
@@ -171,7 +173,7 @@ public class ShareControllerTests
             var model = Assert.IsType<ShareManageViewModel>(view.Model);
             Assert.Contains("Too many emails", model.StatusMessage, StringComparison.OrdinalIgnoreCase);
             Assert.Empty(await db.FamilyTreeInvites.ToListAsync());
-            email.Verify(e => e.SendEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()), Times.Never);
+            email.Verify(e => e.SendEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()), Times.Never);
         }
     }
 
@@ -179,7 +181,7 @@ public class ShareControllerTests
     public async Task CreateEmailInvite_revokes_invite_when_send_fails()
     {
         var (controller, db, _, email, _) = await CreateAsync(nameof(CreateEmailInvite_revokes_invite_when_send_fails), "owner");
-        email.Setup(e => e.SendEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+        email.Setup(e => e.SendEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
             .ThrowsAsync(new InvalidOperationException("send failed"));
 
         await using (db)
@@ -218,7 +220,7 @@ public class ShareControllerTests
     public async Task ResendInvite_sends_email_for_pending_email_invite()
     {
         var (controller, db, _, email, _) = await CreateAsync(nameof(ResendInvite_sends_email_for_pending_email_invite), "owner");
-        email.Setup(e => e.SendEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+        email.Setup(e => e.SendEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
             .Returns(Task.CompletedTask);
 
         await using (db)
@@ -236,7 +238,8 @@ public class ShareControllerTests
                     && s.Contains("GOOM Family Tree", StringComparison.Ordinal)),
                 It.Is<string>(b => b.Contains("owner@example.com", StringComparison.Ordinal)),
                 It.Is<string>(t => t.Contains("owner@example.com", StringComparison.Ordinal)
-                    && t.Contains("Accept the invite", StringComparison.Ordinal))), Times.Once);
+                    && t.Contains("Accept the invite", StringComparison.Ordinal)),
+                EmailRateLimitOperations.ShareInvite), Times.Once);
         }
     }
 
@@ -381,7 +384,7 @@ public class ShareControllerTests
             var result = await controller.ResendInvite(1, invite.Id, CancellationToken.None);
             var model = Assert.IsType<ShareManageViewModel>(Assert.IsType<ViewResult>(result).Model);
             Assert.Contains("Too many emails", model.StatusMessage, StringComparison.OrdinalIgnoreCase);
-            email.Verify(e => e.SendEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()), Times.Never);
+            email.Verify(e => e.SendEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()), Times.Never);
         }
     }
 }

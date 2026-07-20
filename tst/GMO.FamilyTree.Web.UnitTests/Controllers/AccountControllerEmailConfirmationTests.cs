@@ -33,8 +33,8 @@ public class AccountControllerEmailConfirmationTests : IClassFixture<AccountCont
         var (signIn, users) = _f.CreateIdentityManagers(db);
         var email = new Mock<IEmailSender>();
         string? sentTo = null;
-        email.Setup(e => e.SendEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
-            .Callback<string, string, string, string>((to, _, _, _) => sentTo = to)
+        email.Setup(e => e.SendEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+            .Callback<string, string, string, string, string>((to, _, _, _, _) => sentTo = to)
             .Returns(Task.CompletedTask);
 
         var controller = CreateWithEmail(db, signIn, users, email.Object);
@@ -113,7 +113,7 @@ public class AccountControllerEmailConfirmationTests : IClassFixture<AccountCont
 
         var redirect = Assert.IsType<RedirectToActionResult>(result);
         Assert.Equal(nameof(AccountController.ForgotPasswordConfirmation), redirect.ActionName);
-        email.Verify(e => e.SendEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()), Times.Never);
+        email.Verify(e => e.SendEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()), Times.Never);
     }
 
     private static UserManager<IdentityUser> CreateUserManager(AppDbContext db)
