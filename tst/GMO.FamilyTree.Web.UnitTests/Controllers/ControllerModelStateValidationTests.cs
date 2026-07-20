@@ -301,7 +301,8 @@ public class ControllerModelStateValidationTests : IClassFixture<AccountControll
         var share = new FamilyTreeShareService(db, access);
         var current = new Mock<ICurrentFamilyTreeService>();
         var email = new Mock<IEmailSender>();
-        var http = new DefaultHttpContext { Request = { Scheme = "https" } };
+        var http = new DefaultHttpContext();
+        http.Request.Scheme = "https";
         http.User = new ClaimsPrincipal(new ClaimsIdentity([new Claim(ClaimTypes.NameIdentifier, "owner")], "test"));
         var url = new Mock<IUrlHelper>();
         url.Setup(u => u.Action(It.IsAny<UrlActionContext>())).Returns("/Share/Accept/token");

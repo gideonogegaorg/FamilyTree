@@ -1307,8 +1307,8 @@ button.family-tree-card-avatar.member-photo-trigger:focus-visible {
 
 .ft-tree-picker-delete:hover {
   opacity: 1;
-  background: rgba(180, 83, 74, 0.12);
-  color: #3b0d0a;
+  background: rgba(180, 83, 74, 0.22);
+  color: #1f0503;
 }
 
 .ft-tree-picker-item {

@@ -87,12 +87,8 @@ public static class TreeLayoutRanking
         var changed = true;
         while (changed)
         {
-            changed = false;
-            foreach (var c in cards.Where(c => c.ParentIds.Count > 0))
-            {
-                if (TryUpdateChildRow(c, rowById, onlyWhenMissing))
-                    changed = true;
-            }
+            changed = cards.Where(c => c.ParentIds.Count > 0)
+                .Any(c => TryUpdateChildRow(c, rowById, onlyWhenMissing));
         }
     }
 

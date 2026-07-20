@@ -191,10 +191,11 @@ public sealed class FamilyTreeShareService : IFamilyTreeShareService
     {
         if (invite.IsLinkInvite)
             return null;
-        if (string.IsNullOrEmpty(userEmail)
-            || !string.Equals(userEmail.Trim(), invite.Email!.Trim(), StringComparison.OrdinalIgnoreCase))
-            return (InviteAcceptResult.EmailMismatch, invite.FamilyTreeId);
-        return null;
+
+        return string.IsNullOrEmpty(userEmail)
+            || !string.Equals(userEmail.Trim(), invite.Email!.Trim(), StringComparison.OrdinalIgnoreCase)
+            ? (InviteAcceptResult.EmailMismatch, invite.FamilyTreeId)
+            : null;
     }
 
     private async Task<(InviteAcceptResult Result, long? TreeId)> CompleteInviteAcceptanceAsync(

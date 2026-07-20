@@ -138,7 +138,7 @@ static void ConfigurePhotoStorage(WebApplicationBuilder builder)
     builder.Services.AddSingleton<IPhotoStorageService, LocalPhotoStorageService>();
 }
 
-static FamilyTreeOpenTelemetryOptions ConfigureTelemetry(WebApplicationBuilder builder)
+static void ConfigureTelemetry(WebApplicationBuilder builder)
 {
     var telemetryOptions = new FamilyTreeOpenTelemetryOptions();
     builder.Configuration.GetSection("Telemetry").Bind(telemetryOptions);
@@ -196,7 +196,6 @@ static FamilyTreeOpenTelemetryOptions ConfigureTelemetry(WebApplicationBuilder b
     }
 
     builder.Services.AddMetrics(otelBuilder, telemetryOptions, _ => { });
-    return telemetryOptions;
 }
 
 static void ConfigureDatabase(WebApplicationBuilder builder)

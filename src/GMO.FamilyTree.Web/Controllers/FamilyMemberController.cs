@@ -627,8 +627,9 @@ public class FamilyMemberController : Controller
             return await _db.FamilyMemberRelationships.AnyAsync(r => r.FamilyTreeId == treeId && r.RelationshipType == RelationshipType.Couple && ((r.FromMemberId == contextId && r.ToMemberId == existingId) || (r.FromMemberId == existingId && r.ToMemberId == contextId)), ct);
         if (type != RelationshipType.Parent)
             return false;
-        if (isChild)
-            return await _db.FamilyMemberRelationships.AnyAsync(r => r.FamilyTreeId == treeId && r.FromMemberId == contextId && r.ToMemberId == existingId && r.RelationshipType == RelationshipType.Parent, ct);
-        return await _db.FamilyMemberRelationships.AnyAsync(r => r.FamilyTreeId == treeId && r.FromMemberId == existingId && r.ToMemberId == contextId && r.RelationshipType == RelationshipType.Parent, ct);
+
+        return isChild
+            ? await _db.FamilyMemberRelationships.AnyAsync(r => r.FamilyTreeId == treeId && r.FromMemberId == contextId && r.ToMemberId == existingId && r.RelationshipType == RelationshipType.Parent, ct)
+            : await _db.FamilyMemberRelationships.AnyAsync(r => r.FamilyTreeId == treeId && r.FromMemberId == existingId && r.ToMemberId == contextId && r.RelationshipType == RelationshipType.Parent, ct);
     }
 }
