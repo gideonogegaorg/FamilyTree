@@ -5,7 +5,7 @@ namespace GMO.FamilyTree.Web.Models;
 public class EditMemberRequest
 {
     [Required]
-    public long MemberId { get; set; }
+    public long? MemberId { get; set; }
 
     [Required]
     [StringLength(200)]

@@ -140,7 +140,7 @@ public class AccountControllerEmailConfirmationTests : IClassFixture<AccountCont
         var external = AccountControllerFixture.CreateExternalLoginInfoProvider("user@example.com");
 
         var controller = new AccountController(
-            new AccountControllerDependencies(
+            AccountControllerFixture.CreateDependencies(
                 signIn, users, emailSender, googleAuth, db, currentTree, treeViewOrientation, lineageMode,
                 defaultTree, familyTreeDeletion, external, photos, treeCardViewMode, access,
                 AccountControllerFixture.CreateAllowAllRateLimiter()),
@@ -148,7 +148,7 @@ public class AccountControllerEmailConfirmationTests : IClassFixture<AccountCont
 
         var url = new UrlHelperMock().Object;
         var http = new DefaultHttpContext();
-        controller.ControllerContext = new ControllerContext { HttpContext = http };
+        controller.ControllerContext = new() { HttpContext = http };
         controller.Url = url;
         return controller;
     }

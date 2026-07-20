@@ -42,11 +42,13 @@ public class FamilyMemberControllerPhotoTests
             photos,
             new FamilyTreeAccessService(db));
 
-        var httpContext = new DefaultHttpContext();
-        httpContext.User = new ClaimsPrincipal(new ClaimsIdentity(
-            [new Claim(ClaimTypes.NameIdentifier, userId)],
-            "test"));
-        controller.ControllerContext = new ControllerContext { HttpContext = httpContext };
+        var httpContext = new DefaultHttpContext
+        {
+            User = new ClaimsPrincipal(new ClaimsIdentity(
+                [new Claim(ClaimTypes.NameIdentifier, userId)],
+                "test"))
+        };
+        controller.ControllerContext = new() { HttpContext = httpContext };
         return controller;
     }
 

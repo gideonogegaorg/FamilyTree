@@ -14,7 +14,7 @@ public class AddRelationViewModel : IValidatableObject
 
     /// <summary>When true with Parent type: new member is child of context (reverse direction).</summary>
     [Required]
-    public bool IsChild { get; set; }
+    public bool? IsChild { get; set; }
 
     [Required]
     [StringLength(200)]
@@ -33,11 +33,11 @@ public class AddRelationViewModel : IValidatableObject
     public int? BirthOrder { get; set; }
 
     [Required]
-    public bool IsMale { get; set; }
+    public bool? IsMale { get; set; }
 
     /// <summary>When true, link to current user (this member is "me").</summary>
     [Required]
-    public bool SetAsMe { get; set; }
+    public bool? SetAsMe { get; set; }
 
     public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
     {

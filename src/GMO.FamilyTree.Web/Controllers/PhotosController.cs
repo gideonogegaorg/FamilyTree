@@ -56,19 +56,18 @@ public sealed class PhotosController : Controller
             return NotFound();
 
         var result = await _photos.GetAsync(member.PhotoKey, cancellationToken);
-        if (result is null)
-            return NotFound();
-
-        return File(result.Stream, result.ContentType);
+        return result is null
+            ? NotFound()
+            : File(result.Stream, result.ContentType);
     }
 
     [HttpGet("profiles/me")]
     public Task<IActionResult> MyProfilePhoto(CancellationToken cancellationToken)
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (userId is null or "")
-            return Task.FromResult<IActionResult>(Unauthorized());
-        return ProfilePhoto(userId, cancellationToken);
+        return userId is null or ""
+            ? Task.FromResult<IActionResult>(Unauthorized())
+            : ProfilePhoto(userId, cancellationToken);
     }
 
     [HttpGet("profiles/{userId}")]

@@ -66,7 +66,7 @@ public class AccountControllerRegisterTests : IClassFixture<AccountControllerFix
             .Returns(Task.CompletedTask);
 
         var controller = new AccountController(
-            new AccountControllerDependencies(
+            AccountControllerFixture.CreateDependencies(
                 signIn,
                 users,
                 email.Object,
@@ -83,7 +83,7 @@ public class AccountControllerRegisterTests : IClassFixture<AccountControllerFix
                 new FamilyTreeAccessService(db),
                 AccountControllerFixture.CreateAllowAllRateLimiter()),
             NullLogger<AccountController>.Instance);
-        controller.ControllerContext = new ControllerContext
+        controller.ControllerContext = new()
         {
             HttpContext = new Microsoft.AspNetCore.Http.DefaultHttpContext()
         };

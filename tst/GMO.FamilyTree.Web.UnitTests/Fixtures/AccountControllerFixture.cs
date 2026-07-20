@@ -117,7 +117,7 @@ public sealed class AccountControllerFixture
         var rateLimiter = CreateAllowAllRateLimiter();
         var logger = Microsoft.Extensions.Logging.Abstractions.NullLogger<AccountController>.Instance;
 
-        var deps = new AccountControllerDependencies(
+        var deps = CreateDependencies(
             signInManager,
             userManager,
             emailSender,
@@ -156,6 +156,55 @@ public sealed class AccountControllerFixture
         mock.Setup(r => r.TryAcquire(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>())).Returns(true);
         return mock.Object;
     }
+
+    public static AccountControllerDependencies CreateDependencies(
+        SignInManager<IdentityUser> signInManager,
+        UserManager<IdentityUser> userManager,
+        IEmailSender emailSender,
+        IOptionsMonitor<GoogleAuthOptions> googleAuth,
+        AppDbContext db,
+        ICurrentFamilyTreeService currentTree,
+        ITreeViewOrientationService treeViewOrientation,
+        ILineageModeService lineageMode,
+        IDefaultFamilyTreeService defaultTree,
+        IFamilyTreeDeletionService familyTreeDeletion,
+        IExternalLoginInfoProvider externalLoginInfo,
+        IPhotoStorageService photos,
+        ITreeCardViewModeService treeCardViewMode,
+        IFamilyTreeAccessService access,
+        IEmailRateLimiter emailRateLimiter) =>
+        new(
+            new AccountIdentityDependencies(signInManager, userManager),
+            new AccountFamilyTreeDependencies(
+                currentTree,
+                treeViewOrientation,
+                lineageMode,
+                defaultTree,
+                familyTreeDeletion,
+                access,
+                treeCardViewMode),
+            new AccountEmailDependencies(emailSender, emailRateLimiter),
+            db,
+            googleAuth,
+            externalLoginInfo,
+            photos);
+
+    public static HomeControllerDependencies CreateHomeDependencies(
+        AppDbContext db,
+        ICurrentFamilyTreeService currentTree,
+        ITreeViewOrientationService treeViewOrientation,
+        ILineageModeService lineageMode,
+        ITreeCardViewModeService treeCardViewMode,
+        IFamilyTreeAccessService access,
+        IOptionsMonitor<GoogleAuthOptions> googleAuth,
+        IWebHostEnvironment env) =>
+        new(
+            db,
+            currentTree,
+            new HomeTreeViewDependencies(treeViewOrientation, lineageMode, treeCardViewMode),
+            access,
+            googleAuth,
+            env);
 
     private sealed class TestUrlHelperFactory : IUrlHelperFactory
     {

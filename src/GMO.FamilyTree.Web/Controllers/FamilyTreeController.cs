@@ -51,6 +51,7 @@ public sealed class FamilyTreeController : Controller
     {
         if (OwnerId == null) return NotFound();
         ModelState.Remove(nameof(Data.FamilyTree.Id));
+        ModelState.Remove(nameof(Data.FamilyTree.OwnerId));
         if (string.IsNullOrWhiteSpace(model.Name))
             ModelState.AddModelError(nameof(Data.FamilyTree.Name), "Name is required.");
         if (ModelState.IsValid)
@@ -65,8 +66,13 @@ public sealed class FamilyTreeController : Controller
         return View(model);
     }
 
-    public async Task<IActionResult> Edit(long? id, CancellationToken cancellationToken) =>
-        await ShowOwnedTreeFormAsync(id, cancellationToken);
+    public async Task<IActionResult> Edit(long? id, CancellationToken cancellationToken)
+    {
+        if (!ModelState.IsValid)
+            return BadRequest();
+
+        return await ShowOwnedTreeFormAsync(id, cancellationToken);
+    }
 
     [HttpPost]
     [ValidateAntiForgeryToken]
@@ -74,6 +80,8 @@ public sealed class FamilyTreeController : Controller
     {
         if (OwnerId == null) return NotFound();
         if (id != model.Id) return NotFound();
+        ModelState.Remove(nameof(Data.FamilyTree.OwnerId));
+        ModelState.Remove(nameof(Data.FamilyTree.Uid));
         if (string.IsNullOrWhiteSpace(model.Name))
             ModelState.AddModelError(nameof(Data.FamilyTree.Name), "Name is required.");
         if (ModelState.IsValid)
@@ -87,8 +95,13 @@ public sealed class FamilyTreeController : Controller
         return View(model);
     }
 
-    public async Task<IActionResult> Delete(long? id, CancellationToken cancellationToken) =>
-        await ShowOwnedTreeFormAsync(id, cancellationToken, viewName: "Delete");
+    public async Task<IActionResult> Delete(long? id, CancellationToken cancellationToken)
+    {
+        if (!ModelState.IsValid)
+            return BadRequest();
+
+        return await ShowOwnedTreeFormAsync(id, cancellationToken, viewName: "Delete");
+    }
 
     [HttpPost, ActionName("Delete")]
     [ValidateAntiForgeryToken]
@@ -112,7 +125,8 @@ public sealed class FamilyTreeController : Controller
 
         if (id == null || OwnerId == null) return NotFound();
         var entity = await _db.FamilyTrees.FindAsync(new object[] { id.Value }, cancellationToken);
-        if (entity == null || entity.OwnerId != OwnerId) return NotFound();
-        return viewName == null ? View(entity) : View(viewName, entity);
+        return entity == null || entity.OwnerId != OwnerId
+            ? NotFound()
+            : viewName == null ? View(entity) : View(viewName, entity);
     }
 }

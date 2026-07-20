@@ -6,23 +6,26 @@ using Microsoft.Extensions.Options;
 
 namespace GMO.FamilyTree.Web.Controllers;
 
+public sealed record HomeTreeViewDependencies(
+    ITreeViewOrientationService TreeViewOrientation,
+    ILineageModeService LineageMode,
+    ITreeCardViewModeService TreeCardViewMode);
+
 public sealed class HomeControllerDependencies
 {
     public HomeControllerDependencies(
         AppDbContext db,
         ICurrentFamilyTreeService currentTree,
-        ITreeViewOrientationService treeViewOrientation,
-        ILineageModeService lineageMode,
-        ITreeCardViewModeService treeCardViewMode,
+        HomeTreeViewDependencies treeView,
         IFamilyTreeAccessService access,
         IOptionsMonitor<GoogleAuthOptions> googleAuth,
         IWebHostEnvironment env)
     {
         Db = db;
         CurrentTree = currentTree;
-        TreeViewOrientation = treeViewOrientation;
-        LineageMode = lineageMode;
-        TreeCardViewMode = treeCardViewMode;
+        TreeViewOrientation = treeView.TreeViewOrientation;
+        LineageMode = treeView.LineageMode;
+        TreeCardViewMode = treeView.TreeCardViewMode;
         Access = access;
         GoogleAuth = googleAuth;
         Env = env;

@@ -16,6 +16,7 @@ using GMO.OpenTelemetry;
 using GMO.OpenTelemetry.Serilog;
 
 using Microsoft.AspNetCore.HttpOverrides;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.FileProviders;
 using Microsoft.Extensions.Options;
@@ -40,7 +41,7 @@ ConfigureEmail(builder);
 var app = builder.Build();
 
 await ApplyMigrationsAsync(app);
-ConfigureTelemetryStartupLogging(app, telemetryOptions);
+ConfigureTelemetryStartupLogging(app);
 ConfigureMiddleware(app);
 
 await app.RunAsync();
@@ -65,8 +66,35 @@ static void ConfigureCoreServices(WebApplicationBuilder builder)
     builder.Services.AddScoped<IFamilyTreeShareService, FamilyTreeShareService>();
     builder.Services.AddScoped<IDefaultFamilyTreeService, DefaultFamilyTreeService>();
     builder.Services.AddScoped<IExternalLoginInfoProvider, SignInManagerExternalLoginInfoProvider>();
-    builder.Services.AddScoped<AccountControllerDependencies>();
-    builder.Services.AddScoped<HomeControllerDependencies>();
+    builder.Services.AddScoped(sp => new AccountControllerDependencies(
+        new AccountIdentityDependencies(
+            sp.GetRequiredService<SignInManager<IdentityUser>>(),
+            sp.GetRequiredService<UserManager<IdentityUser>>()),
+        new AccountFamilyTreeDependencies(
+            sp.GetRequiredService<ICurrentFamilyTreeService>(),
+            sp.GetRequiredService<ITreeViewOrientationService>(),
+            sp.GetRequiredService<ILineageModeService>(),
+            sp.GetRequiredService<IDefaultFamilyTreeService>(),
+            sp.GetRequiredService<IFamilyTreeDeletionService>(),
+            sp.GetRequiredService<IFamilyTreeAccessService>(),
+            sp.GetRequiredService<ITreeCardViewModeService>()),
+        new AccountEmailDependencies(
+            sp.GetRequiredService<IEmailSender>(),
+            sp.GetRequiredService<IEmailRateLimiter>()),
+        sp.GetRequiredService<AppDbContext>(),
+        sp.GetRequiredService<IOptionsMonitor<GoogleAuthOptions>>(),
+        sp.GetRequiredService<IExternalLoginInfoProvider>(),
+        sp.GetRequiredService<IPhotoStorageService>()));
+    builder.Services.AddScoped(sp => new HomeControllerDependencies(
+        sp.GetRequiredService<AppDbContext>(),
+        sp.GetRequiredService<ICurrentFamilyTreeService>(),
+        new HomeTreeViewDependencies(
+            sp.GetRequiredService<ITreeViewOrientationService>(),
+            sp.GetRequiredService<ILineageModeService>(),
+            sp.GetRequiredService<ITreeCardViewModeService>()),
+        sp.GetRequiredService<IFamilyTreeAccessService>(),
+        sp.GetRequiredService<IOptionsMonitor<GoogleAuthOptions>>(),
+        sp.GetRequiredService<IWebHostEnvironment>()));
     builder.Services.AddScoped<ShareControllerDependencies>();
     builder.Services.AddDistributedMemoryCache();
     builder.Services.AddSession(options => options.IdleTimeout = TimeSpan.FromMinutes(20));
@@ -143,7 +171,7 @@ static FamilyTreeOpenTelemetryOptions ConfigureTelemetry(WebApplicationBuilder b
 
         builder.Services.Configure<OtlpExporterOptions>(builder.Configuration.GetSection("Telemetry:Otlp"));
 
-        if (telemetryOptions.TraceSourceNames.Any())
+        if (telemetryOptions.TraceSourceNames is { Length: > 0 })
         {
             otelBuilder.WithTracing(tracing =>
             {
@@ -211,7 +239,7 @@ static async Task ApplyMigrationsAsync(WebApplication app)
     await db.Database.MigrateAsync();
 }
 
-static void ConfigureTelemetryStartupLogging(WebApplication app, FamilyTreeOpenTelemetryOptions telemetryOptions)
+static void ConfigureTelemetryStartupLogging(WebApplication app)
 {
     app.Lifetime.ApplicationStarted.Register(() =>
     {

@@ -14,7 +14,7 @@ public class LinkExistingViewModel
     public RelationshipType? RelationshipType { get; set; }
 
     [Required]
-    public bool IsChild { get; set; }
+    public bool? IsChild { get; set; }
     public string ActionLabel { get; set; } = string.Empty;
     public IReadOnlyList<LinkExistingCandidateViewModel> Candidates { get; set; } = new List<LinkExistingCandidateViewModel>();
     public long? ExistingMemberId { get; set; }

@@ -83,6 +83,7 @@ public class AccountController : Controller
         returnUrl ??= Url.Content(DefaultReturnUrlPath);
         ViewData[ReturnUrlViewDataKey] = returnUrl;
         ViewBag.GoogleAuthEnabled = _googleAuth.CurrentValue.Enabled;
+        ModelState.Remove(nameof(LoginViewModel.RememberMe));
 
         if (ModelState.IsValid)
         {
@@ -90,7 +91,7 @@ public class AccountController : Controller
             if (user != null)
                 await EnsureEmailTwoFactorEnabledAsync(user);
 
-            var result = await _signInManager.PasswordSignInAsync(model.Email, model.Password, model.RememberMe, lockoutOnFailure: false);
+            var result = await _signInManager.PasswordSignInAsync(model.Email, model.Password, model.RememberMe ?? false, lockoutOnFailure: false);
             if (result.Succeeded)
                 return await CompleteSignInAsync(model.Email, returnUrl, cancellationToken);
             if (result.RequiresTwoFactor)
@@ -240,12 +241,11 @@ public class AccountController : Controller
     private async Task<string?> GetExistingUserRegistrationErrorAsync(string email)
     {
         var existing = await _userManager.FindByEmailAsync(email);
-        if (existing == null)
-            return null;
-
-        return !await _userManager.HasPasswordAsync(existing)
-            ? "An account with this email already exists (for example via Google). Sign in with Google, then use Set password from your account menu."
-            : "An account with this email already exists. Sign in instead, or use Forgot password if you need to reset it.";
+        return existing == null
+            ? null
+            : !await _userManager.HasPasswordAsync(existing)
+                ? "An account with this email already exists (for example via Google). Sign in with Google, then use Set password from your account menu."
+                : "An account with this email already exists. Sign in instead, or use Forgot password if you need to reset it.";
     }
 
     private async Task<IActionResult> CreateRegisteredUserAsync(RegisterViewModel model, CancellationToken cancellationToken)
@@ -402,9 +402,9 @@ public class AccountController : Controller
     [HttpGet]
     public IActionResult ResetPassword(string? token = null, string? email = null)
     {
-        if (token == null || email == null)
-            return BadRequest();
-        return View(new ResetPasswordViewModel { Code = token, Email = email });
+        return token == null || email == null
+            ? BadRequest()
+            : View(new ResetPasswordViewModel { Code = token, Email = email });
     }
 
     [AllowAnonymous]
@@ -611,6 +611,9 @@ public class AccountController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> LoginWith2fa(LoginWith2FaViewModel model, CancellationToken cancellationToken = default)
     {
+        ModelState.Remove(nameof(LoginWith2FaViewModel.RememberMe));
+        ModelState.Remove(nameof(LoginWith2FaViewModel.RememberMachine));
+
         if (!ModelState.IsValid)
             return View(model);
 
@@ -621,7 +624,7 @@ public class AccountController : Controller
 
         var code = model.TwoFactorCode.Replace(" ", string.Empty).Replace("-", string.Empty);
         var result = await _signInManager.TwoFactorSignInAsync(
-            TokenOptions.DefaultEmailProvider, code, model.RememberMe, model.RememberMachine);
+            TokenOptions.DefaultEmailProvider, code, model.RememberMe ?? false, model.RememberMachine ?? false);
         if (result.Succeeded)
         {
             await EnsureDefaultTreeForUserAsync(user, cancellationToken);
@@ -642,10 +645,9 @@ public class AccountController : Controller
         if (user == null)
             return NotFound();
 
-        if (await _userManager.HasPasswordAsync(user))
-            return View("ChangePassword", new ChangePasswordViewModel());
-
-        return View("SetPassword", new SetPasswordViewModel());
+        return await _userManager.HasPasswordAsync(user)
+            ? View("ChangePassword", new ChangePasswordViewModel())
+            : View("SetPassword", new SetPasswordViewModel());
     }
 
     [HttpPost]
@@ -728,10 +730,9 @@ public class AccountController : Controller
             return View(AddPasswordErrorView, InvalidOrExpiredLinkMessage);
         }
 
-        if (!await _userManager.VerifyUserTokenAsync(user, TokenOptions.DefaultProvider, AddPasswordTokenPurpose, token))
-            return View(AddPasswordErrorView, InvalidOrExpiredLinkMessage);
-
-        return View("AddPassword", new AddPasswordViewModel { UserId = userId, Code = code });
+        return !await _userManager.VerifyUserTokenAsync(user, TokenOptions.DefaultProvider, AddPasswordTokenPurpose, token)
+            ? View(AddPasswordErrorView, InvalidOrExpiredLinkMessage)
+            : View("AddPassword", new AddPasswordViewModel { UserId = userId, Code = code });
     }
 
     [AllowAnonymous]

@@ -65,10 +65,9 @@ public sealed class FamilyTreeShareService : IFamilyTreeShareService
             return validation;
 
         var emailValidation = ValidateInviteEmail(invite!, userEmail);
-        if (emailValidation is { } emailResult)
-            return emailResult;
-
-        return await CompleteInviteAcceptanceAsync(invite!, userId, cancellationToken);
+        return emailValidation is { } emailResult
+            ? emailResult
+            : await CompleteInviteAcceptanceAsync(invite!, userId, cancellationToken);
     }
 
     public async Task<bool> RevokeInviteAsync(long inviteId, string ownerUserId, CancellationToken cancellationToken = default)
@@ -183,25 +182,19 @@ public sealed class FamilyTreeShareService : IFamilyTreeShareService
         if (invite.ExpiresAt != null && invite.ExpiresAt <= DateTimeOffset.UtcNow)
             return (InviteAcceptResult.Expired, invite.FamilyTreeId);
 
-        // Email invites are single-use; link invites remain reusable until revoked/expired.
-        if (invite is { IsLinkInvite: false, AcceptedAt: not null })
-            return (InviteAcceptResult.NotFound, invite.FamilyTreeId);
-
-        return null;
+        return invite is { IsLinkInvite: false, AcceptedAt: not null }
+            ? (InviteAcceptResult.NotFound, invite.FamilyTreeId)
+            : null;
     }
 
     private static (InviteAcceptResult Result, long? TreeId)? ValidateInviteEmail(FamilyTreeInvite invite, string? userEmail)
     {
-        if (invite.IsLinkInvite)
-            return null;
-
-        if (string.IsNullOrEmpty(userEmail)
-            || !string.Equals(userEmail.Trim(), invite.Email!.Trim(), StringComparison.OrdinalIgnoreCase))
-        {
-            return (InviteAcceptResult.EmailMismatch, invite.FamilyTreeId);
-        }
-
-        return null;
+        return invite.IsLinkInvite
+            ? null
+            : string.IsNullOrEmpty(userEmail)
+                || !string.Equals(userEmail.Trim(), invite.Email!.Trim(), StringComparison.OrdinalIgnoreCase)
+                ? (InviteAcceptResult.EmailMismatch, invite.FamilyTreeId)
+                : null;
     }
 
     private async Task<(InviteAcceptResult Result, long? TreeId)> CompleteInviteAcceptanceAsync(

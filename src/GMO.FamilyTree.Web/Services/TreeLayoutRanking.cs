@@ -90,27 +90,49 @@ public static class TreeLayoutRanking
             changed = false;
             foreach (var c in cards)
             {
-                if (c.ParentIds.Count == 0) continue;
-                if (onlyWhenMissing && rowById.ContainsKey(c.Id)) continue;
-
-                var parentRows = c.ParentIds.Where(pid => rowById.ContainsKey(pid)).Select(pid => rowById[pid]).ToList();
-                if (parentRows.Count != c.ParentIds.Count) continue;
-
-                var newRow = 1 + parentRows.Max();
-                if (onlyWhenMissing)
-                {
-                    rowById[c.Id] = newRow;
+                if (TryUpdateChildRow(c, rowById, onlyWhenMissing))
                     changed = true;
-                    continue;
-                }
-
-                if (newRow > rowById.GetValueOrDefault(c.Id, 0))
-                {
-                    rowById[c.Id] = newRow;
-                    changed = true;
-                }
             }
         }
+    }
+
+    private static bool TryUpdateChildRow(
+        FamilyMemberCardViewModel card,
+        Dictionary<long, int> rowById,
+        bool onlyWhenMissing)
+    {
+        if (card.ParentIds.Count == 0)
+            return false;
+        if (onlyWhenMissing && rowById.ContainsKey(card.Id))
+            return false;
+        if (!TryComputeChildRow(card, rowById, out var newRow))
+            return false;
+
+        if (onlyWhenMissing)
+        {
+            rowById[card.Id] = newRow;
+            return true;
+        }
+
+        if (newRow <= rowById.GetValueOrDefault(card.Id, 0))
+            return false;
+
+        rowById[card.Id] = newRow;
+        return true;
+    }
+
+    private static bool TryComputeChildRow(
+        FamilyMemberCardViewModel card,
+        Dictionary<long, int> rowById,
+        out int newRow)
+    {
+        newRow = 0;
+        var parentRows = card.ParentIds.Where(pid => rowById.ContainsKey(pid)).Select(pid => rowById[pid]).ToList();
+        if (parentRows.Count != card.ParentIds.Count)
+            return false;
+
+        newRow = 1 + parentRows.Max();
+        return true;
     }
 
     private static void AlignPartnerRows(IReadOnlyList<FamilyMemberCardViewModel> cards, Dictionary<long, int> rowById)
@@ -135,28 +157,43 @@ public static class TreeLayoutRanking
         Dictionary<long, double> rankById,
         LineageMode pathMode)
     {
-        bool isPrimary(FamilyMemberCardViewModel c) => pathMode == LineageMode.Paternal ? c.IsMale : !c.IsMale;
-
-        bool dominates(FamilyMemberCardViewModel nodeA, FamilyMemberCardViewModel nodeB)
-        {
-            if (nodeB == null) return true;
-
-            bool bloodlineA = nodeA.ParentIds.Count > 0;
-            bool bloodlineB = nodeB.ParentIds.Count > 0;
-            return bloodlineA != bloodlineB
-                ? bloodlineA
-                : isPrimary(nodeA) && !isPrimary(nodeB);
-        }
-
         foreach (var primary in cards.Where(c => c.PartnerIds.Count > 1))
         {
             var primaryRank = rankById.GetValueOrDefault(primary.Id, 0);
-            foreach (var pid in primary.PartnerIds)
-            {
-                if (!cardById.TryGetValue(pid, out var partner)) continue;
-                if (!dominates(primary, partner) || partner.ParentIds.Count > 0) continue;
-                rankById[pid] = primaryRank + 0.5;
-            }
+            AssignPartnerHalfRanks(primary, primaryRank, cardById, rankById, pathMode);
         }
+    }
+
+    private static void AssignPartnerHalfRanks(
+        FamilyMemberCardViewModel primary,
+        double primaryRank,
+        Dictionary<long, FamilyMemberCardViewModel> cardById,
+        Dictionary<long, double> rankById,
+        LineageMode pathMode)
+    {
+        foreach (var pid in primary.PartnerIds)
+        {
+            if (!cardById.TryGetValue(pid, out var partner))
+                continue;
+            if (!DominatesPartner(primary, partner, pathMode) || partner.ParentIds.Count > 0)
+                continue;
+
+            rankById[pid] = primaryRank + 0.5;
+        }
+    }
+
+    private static bool IsPrimaryPartner(FamilyMemberCardViewModel member, LineageMode pathMode)
+        => pathMode == LineageMode.Paternal ? member.IsMale : !member.IsMale;
+
+    private static bool DominatesPartner(
+        FamilyMemberCardViewModel primary,
+        FamilyMemberCardViewModel partner,
+        LineageMode pathMode)
+    {
+        var bloodlinePrimary = primary.ParentIds.Count > 0;
+        var bloodlinePartner = partner.ParentIds.Count > 0;
+        return bloodlinePrimary != bloodlinePartner
+            ? bloodlinePrimary
+            : IsPrimaryPartner(primary, pathMode) && !IsPrimaryPartner(partner, pathMode);
     }
 }
