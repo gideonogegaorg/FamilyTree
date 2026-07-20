@@ -39,6 +39,9 @@ public sealed class PhotosController : Controller
     [HttpGet("members/{memberId:long}")]
     public async Task<IActionResult> MemberPhoto(long memberId, CancellationToken cancellationToken)
     {
+        if (!ModelState.IsValid)
+            return BadRequest();
+
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (string.IsNullOrEmpty(userId))
             return Unauthorized();

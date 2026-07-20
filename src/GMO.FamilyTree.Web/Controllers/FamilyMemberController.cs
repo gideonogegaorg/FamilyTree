@@ -261,6 +261,9 @@ public class FamilyMemberController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> EditMember(long memberId, string name, string? nickName, DateOnly? dob, DateOnly? dod, int? birthOrder, bool isMale, bool setAsMe, CancellationToken cancellationToken = default)
     {
+        if (!ModelState.IsValid)
+            return Json(new { success = false, error = "Invalid input." });
+
         var treeId = await _currentTree.GetCurrentFamilyTreeIdAsync(cancellationToken);
         if (!treeId.HasValue) return Json(new { success = false, error = "No tree" });
         if (!await EnsureCanEditAsync(treeId.Value, cancellationToken))
@@ -300,6 +303,9 @@ public class FamilyMemberController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> UploadMemberPhoto(long memberId, IFormFile? photo, CancellationToken cancellationToken = default)
     {
+        if (!ModelState.IsValid)
+            return Json(new { success = false, error = "Invalid input." });
+
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (string.IsNullOrEmpty(userId))
             return Json(new { success = false, error = "Unauthorized" });
@@ -427,6 +433,13 @@ public class FamilyMemberController : Controller
             return RedirectToAction(nameof(HomeController.Index), "Home");
         if (!await EnsureCanEditAsync(treeId.Value, cancellationToken))
             return Forbid();
+
+        if (!ModelState.IsValid)
+        {
+            await RepopulateLinkExistingCandidatesAsync(model, cancellationToken);
+            return View(model);
+        }
+
         if (!model.ExistingMemberId.HasValue)
         {
             ModelState.AddModelError(nameof(model.ExistingMemberId), "Please select a person to link.");

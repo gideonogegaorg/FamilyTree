@@ -45,6 +45,9 @@ public sealed class ShareController : Controller
     [HttpGet]
     public async Task<IActionResult> Manage(long treeId, CancellationToken cancellationToken)
     {
+        if (!ModelState.IsValid)
+            return BadRequest();
+
         var userId = _userManager.GetUserId(User);
         if (userId == null || !await _access.CanManageSharingAsync(userId, treeId, cancellationToken))
             return NotFound();
@@ -59,6 +62,13 @@ public sealed class ShareController : Controller
         var userId = _userManager.GetUserId(User);
         if (userId == null || !await _access.CanManageSharingAsync(userId, treeId, cancellationToken))
             return NotFound();
+
+        if (!ModelState.IsValid)
+        {
+            var invalid = await BuildManageModelAsync(treeId, cancellationToken);
+            invalid.CreateLink = createLink;
+            return View("Manage", invalid);
+        }
 
         var expiresAt = DaysToExpiry(createLink.ExpiresInDays);
         var invite = await _share.CreateLinkInviteAsync(treeId, userId, createLink.Role, expiresAt, cancellationToken);
@@ -114,6 +124,9 @@ public sealed class ShareController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> RevokeInvite(long treeId, long inviteId, CancellationToken cancellationToken)
     {
+        if (!ModelState.IsValid)
+            return BadRequest();
+
         var userId = _userManager.GetUserId(User);
         if (userId == null || !await _access.CanManageSharingAsync(userId, treeId, cancellationToken))
             return NotFound();
@@ -128,6 +141,9 @@ public sealed class ShareController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> ResendInvite(long treeId, long inviteId, CancellationToken cancellationToken)
     {
+        if (!ModelState.IsValid)
+            return BadRequest();
+
         var userId = _userManager.GetUserId(User);
         if (userId == null || !await _access.CanManageSharingAsync(userId, treeId, cancellationToken))
             return NotFound();
@@ -176,6 +192,9 @@ public sealed class ShareController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> RemoveCollaborator(long treeId, string collaboratorUserId, CancellationToken cancellationToken)
     {
+        if (!ModelState.IsValid)
+            return BadRequest();
+
         var userId = _userManager.GetUserId(User);
         if (userId == null || !await _access.CanManageSharingAsync(userId, treeId, cancellationToken))
             return NotFound();
@@ -190,6 +209,9 @@ public sealed class ShareController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> ChangeRole(long treeId, string collaboratorUserId, TreeShareRole role, CancellationToken cancellationToken)
     {
+        if (!ModelState.IsValid)
+            return BadRequest();
+
         var userId = _userManager.GetUserId(User);
         if (userId == null || !await _access.CanManageSharingAsync(userId, treeId, cancellationToken))
             return NotFound();

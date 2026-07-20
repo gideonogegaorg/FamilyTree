@@ -12,8 +12,8 @@ public sealed class ShareManageViewModel
     public IReadOnlyList<ShareInviteViewModel> PendingInvites { get; set; } = [];
     public string? CreatedLinkUrl { get; set; }
     public string? StatusMessage { get; set; }
-    public CreateLinkInviteInput CreateLink { get; set; } = new();
-    public CreateEmailInviteInput CreateEmail { get; set; } = new();
+    public CreateLinkInviteInput CreateLink { get; set; } = new() { Role = TreeShareRole.Readonly };
+    public CreateEmailInviteInput CreateEmail { get; set; } = new() { Role = TreeShareRole.Readonly };
 }
 
 public sealed class ShareCollaboratorViewModel
@@ -37,7 +37,7 @@ public sealed class ShareInviteViewModel
 
 public sealed class CreateLinkInviteInput
 {
-    public TreeShareRole Role { get; set; } = TreeShareRole.Readonly;
+    public required TreeShareRole Role { get; set; } = TreeShareRole.Readonly;
     public int? ExpiresInDays { get; set; } = 30;
 }
 
@@ -47,6 +47,6 @@ public sealed class CreateEmailInviteInput
     [EmailAddress]
     public string Email { get; set; } = string.Empty;
 
-    public TreeShareRole Role { get; set; } = TreeShareRole.Readonly;
+    public required TreeShareRole Role { get; set; } = TreeShareRole.Readonly;
     public int? ExpiresInDays { get; set; } = 14;
 }

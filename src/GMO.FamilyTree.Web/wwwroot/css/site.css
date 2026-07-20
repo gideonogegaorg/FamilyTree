@@ -509,8 +509,8 @@ button.family-tree-card-avatar.member-details-trigger,
 button.family-tree-card-avatar.member-photo-trigger {
   padding: 0;
   cursor: pointer;
-  line-height: 1;
   font: inherit;
+  line-height: 1;
   appearance: none;
   transition: opacity 0.15s ease, box-shadow 0.15s ease;
 }

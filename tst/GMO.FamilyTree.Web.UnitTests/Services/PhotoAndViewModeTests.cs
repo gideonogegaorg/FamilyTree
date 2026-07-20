@@ -62,6 +62,8 @@ public class PhotoStorageHelperTests
             .ThrowsAsync(new HttpRequestException("unavailable"));
 
         await PhotoStorageHelper.TryDeleteAsync(photos.Object, "key");
+
+        photos.Verify(p => p.DeleteAsync("key", It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]

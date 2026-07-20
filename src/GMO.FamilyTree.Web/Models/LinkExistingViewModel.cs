@@ -4,9 +4,9 @@ namespace GMO.FamilyTree.Web.Models;
 
 public class LinkExistingViewModel
 {
-    public long ContextMemberId { get; set; }
+    public required long ContextMemberId { get; set; }
     public string ContextMemberName { get; set; } = string.Empty;
-    public long FamilyTreeId { get; set; }
+    public required long FamilyTreeId { get; set; }
     public RelationshipType RelationshipType { get; set; }
     public bool IsChild { get; set; }
     public string ActionLabel { get; set; } = string.Empty;
