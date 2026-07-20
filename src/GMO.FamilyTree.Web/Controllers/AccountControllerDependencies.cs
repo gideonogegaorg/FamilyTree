@@ -8,40 +8,49 @@ using Microsoft.Extensions.Options;
 
 namespace GMO.FamilyTree.Web.Controllers;
 
+public sealed record AccountIdentityDependencies(
+    SignInManager<IdentityUser> SignInManager,
+    UserManager<IdentityUser> UserManager);
+
+public sealed record AccountFamilyTreeDependencies(
+    ICurrentFamilyTreeService CurrentFamilyTree,
+    ITreeViewOrientationService TreeViewOrientation,
+    ILineageModeService LineageMode,
+    IDefaultFamilyTreeService DefaultFamilyTree,
+    IFamilyTreeDeletionService FamilyTreeDeletion,
+    IFamilyTreeAccessService Access,
+    ITreeCardViewModeService TreeCardViewMode);
+
+public sealed record AccountEmailDependencies(
+    IEmailSender EmailSender,
+    IEmailRateLimiter EmailRateLimiter);
+
 public sealed class AccountControllerDependencies
 {
     public AccountControllerDependencies(
-        SignInManager<IdentityUser> signInManager,
-        UserManager<IdentityUser> userManager,
-        IEmailSender emailSender,
-        IOptionsMonitor<GoogleAuthOptions> googleAuth,
+        AccountIdentityDependencies identity,
+        AccountFamilyTreeDependencies familyTree,
+        AccountEmailDependencies email,
         AppDbContext db,
-        ICurrentFamilyTreeService currentFamilyTree,
-        ITreeViewOrientationService treeViewOrientation,
-        ILineageModeService lineageMode,
-        IDefaultFamilyTreeService defaultFamilyTree,
-        IFamilyTreeDeletionService familyTreeDeletion,
+        IOptionsMonitor<GoogleAuthOptions> googleAuth,
         IExternalLoginInfoProvider externalLoginInfo,
-        IPhotoStorageService photos,
-        ITreeCardViewModeService treeCardViewMode,
-        IFamilyTreeAccessService access,
-        IEmailRateLimiter emailRateLimiter)
+        IPhotoStorageService photos)
     {
-        SignInManager = signInManager;
-        UserManager = userManager;
-        EmailSender = emailSender;
+        SignInManager = identity.SignInManager;
+        UserManager = identity.UserManager;
+        EmailSender = email.EmailSender;
         GoogleAuth = googleAuth;
         Db = db;
-        CurrentFamilyTree = currentFamilyTree;
-        TreeViewOrientation = treeViewOrientation;
-        LineageMode = lineageMode;
-        DefaultFamilyTree = defaultFamilyTree;
-        FamilyTreeDeletion = familyTreeDeletion;
+        CurrentFamilyTree = familyTree.CurrentFamilyTree;
+        TreeViewOrientation = familyTree.TreeViewOrientation;
+        LineageMode = familyTree.LineageMode;
+        DefaultFamilyTree = familyTree.DefaultFamilyTree;
+        FamilyTreeDeletion = familyTree.FamilyTreeDeletion;
         ExternalLoginInfo = externalLoginInfo;
         Photos = photos;
-        TreeCardViewMode = treeCardViewMode;
-        Access = access;
-        EmailRateLimiter = emailRateLimiter;
+        TreeCardViewMode = familyTree.TreeCardViewMode;
+        Access = familyTree.Access;
+        EmailRateLimiter = email.EmailRateLimiter;
     }
 
     public SignInManager<IdentityUser> SignInManager { get; }

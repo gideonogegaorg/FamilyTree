@@ -12,10 +12,10 @@ public class LoginWith2FaViewModel
 
     [Display(Name = "Remember this machine")]
     [Required]
-    public bool RememberMachine { get; set; }
+    public bool? RememberMachine { get; set; }
 
     [Required]
-    public bool RememberMe { get; set; }
+    public bool? RememberMe { get; set; }
 
     public string? ReturnUrl { get; set; }
 }

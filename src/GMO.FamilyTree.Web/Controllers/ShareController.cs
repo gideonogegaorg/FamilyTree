@@ -44,10 +44,9 @@ public sealed class ShareController : Controller
             return BadRequest();
 
         var userId = _userManager.GetUserId(User);
-        if (userId == null || !await _access.CanManageSharingAsync(userId, treeId, cancellationToken))
-            return NotFound();
-
-        return View(await BuildManageModelAsync(treeId, cancellationToken));
+        return userId == null || !await _access.CanManageSharingAsync(userId, treeId, cancellationToken)
+            ? NotFound()
+            : View(await BuildManageModelAsync(treeId, cancellationToken));
     }
 
     [HttpPost]
@@ -310,10 +309,13 @@ public sealed class ShareController : Controller
                 text,
                 EmailRateLimitOperations.ShareInvite);
             // codeql[cs/exposure-of-sensitive-information] InviteId is a numeric PK correlator, not mailbox PII.
-            _logger.LogInformation(
-                "Share invite email sent, InviteId={InviteId}, Operation={Operation}",
-                invite.Id,
-                EmailRateLimitOperations.ShareInvite);
+            if (_logger.IsEnabled(LogLevel.Information))
+            {
+                _logger.LogInformation(
+                    "Share invite email sent, InviteId={InviteId}, Operation={Operation}",
+                    invite.Id,
+                    EmailRateLimitOperations.ShareInvite);
+            }
             return true;
         }
         catch (Exception ex)

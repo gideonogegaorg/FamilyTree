@@ -276,13 +276,13 @@ public class AccountControllerPasswordManagementTests : IClassFixture<AccountCon
         var external = AccountControllerFixture.CreateExternalLoginInfoProvider("user@example.com");
 
         var controller = new AccountController(
-            new AccountControllerDependencies(
+            AccountControllerFixture.CreateDependencies(
                 signIn, users, email, googleAuth, db, currentTree, treeViewOrientation, lineageMode,
                 defaultTree, familyTreeDeletion, external, photos, treeCardViewMode, access,
                 AccountControllerFixture.CreateAllowAllRateLimiter()),
             Microsoft.Extensions.Logging.Abstractions.NullLogger<AccountController>.Instance);
 
-        controller.ControllerContext = new ControllerContext { HttpContext = new DefaultHttpContext() };
+        controller.ControllerContext = new() { HttpContext = new DefaultHttpContext() };
         controller.Url = new UrlHelperMock().Object;
         return controller;
     }

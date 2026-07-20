@@ -174,9 +174,9 @@ public class HomeController : Controller
         var tree = await _db.FamilyTrees.FindAsync(new object[] { treeId.Value }, cancellationToken);
         if (tree is null) return RedirectToAction(nameof(FamilyTreeController.Index), FamilyTreeControllerName);
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (string.IsNullOrEmpty(userId) || !await _access.CanEditAsync(userId, treeId.Value, cancellationToken))
-            return Forbid();
-        return View(new AddRelationViewModel { ContextMemberId = 0, FamilyTreeId = treeId.Value });
+        return string.IsNullOrEmpty(userId) || !await _access.CanEditAsync(userId, treeId.Value, cancellationToken)
+            ? Forbid()
+            : View(new AddRelationViewModel { ContextMemberId = 0, FamilyTreeId = treeId.Value });
     }
 
     [HttpPost]
@@ -196,10 +196,12 @@ public class HomeController : Controller
         }
         ModelState.Remove(nameof(AddRelationViewModel.RelationshipType));
         ModelState.Remove(nameof(AddRelationViewModel.IsChild));
+        ModelState.Remove(nameof(AddRelationViewModel.SetAsMe));
+        ModelState.Remove(nameof(AddRelationViewModel.IsMale));
         if (!ModelState.IsValid)
             return View(model);
         var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (model.SetAsMe && !string.IsNullOrEmpty(currentUserId))
+        if (model.SetAsMe == true && !string.IsNullOrEmpty(currentUserId))
         {
             var others = await _db.FamilyMembers
                 .Where(m => m.FamilyTreeId == model.FamilyTreeId && m.UserId == currentUserId)
@@ -214,8 +216,8 @@ public class HomeController : Controller
             NickName = string.IsNullOrWhiteSpace(model.NickName) ? null : model.NickName.Trim(),
             DOB = model.DOB,
             DOD = model.DOD,
-            IsMale = model.IsMale,
-            UserId = model.SetAsMe ? currentUserId : null
+            IsMale = model.IsMale ?? false,
+            UserId = model.SetAsMe == true ? currentUserId : null
         });
         await _db.SaveChangesAsync(cancellationToken);
         return RedirectToAction(nameof(Index));

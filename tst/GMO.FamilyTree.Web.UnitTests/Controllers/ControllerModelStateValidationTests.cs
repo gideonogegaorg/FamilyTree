@@ -238,7 +238,7 @@ public class ControllerModelStateValidationTests : IClassFixture<AccountControll
             new FamilyTreeAccessService(db),
             new WebHostEnvironmentMock().Object,
             Microsoft.Extensions.Options.Options.Create(new PathsOptions()));
-        controller.ControllerContext = new ControllerContext
+        controller.ControllerContext = new()
         {
             HttpContext = new DefaultHttpContext
             {
@@ -262,7 +262,7 @@ public class ControllerModelStateValidationTests : IClassFixture<AccountControll
             currentTree.Object,
             new Mock<IPhotoStorageService>().Object,
             new FamilyTreeAccessService(db));
-        controller.ControllerContext = new ControllerContext
+        controller.ControllerContext = new()
         {
             HttpContext = new DefaultHttpContext
             {
@@ -306,7 +306,7 @@ public class ControllerModelStateValidationTests : IClassFixture<AccountControll
         http.User = new ClaimsPrincipal(new ClaimsIdentity([new Claim(ClaimTypes.NameIdentifier, "owner")], "test"));
         var url = new Mock<IUrlHelper>();
         url.Setup(u => u.Action(It.IsAny<UrlActionContext>())).Returns("/Share/Accept/token");
-        controller.ControllerContext = new ControllerContext { HttpContext = http };
+        controller.ControllerContext = new() { HttpContext = http };
         controller.Url = url.Object;
         return (controller, db, userManager, email, current);
     }

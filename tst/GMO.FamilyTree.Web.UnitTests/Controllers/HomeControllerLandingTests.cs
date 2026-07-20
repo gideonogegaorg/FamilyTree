@@ -6,6 +6,8 @@ using GMO.FamilyTree.Web.Models;
 using GMO.FamilyTree.Web.Options;
 using GMO.FamilyTree.Web.Services;
 
+using GMO.FamilyTree.Web.UnitTests.Fixtures;
+
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -94,7 +96,7 @@ public class HomeControllerLandingTests
         googleAuth.Setup(g => g.CurrentValue).Returns(new GoogleAuthOptions());
 
         var controller = new HomeController(
-            new HomeControllerDependencies(
+            AccountControllerFixture.CreateHomeDependencies(
                 db,
                 new Mock<ICurrentFamilyTreeService>().Object,
                 new Mock<ITreeViewOrientationService>().Object,
@@ -107,7 +109,7 @@ public class HomeControllerLandingTests
         var identity = authenticated
             ? new ClaimsIdentity([new Claim(ClaimTypes.Name, "test@example.com")], "test")
             : new ClaimsIdentity();
-        controller.ControllerContext = new ControllerContext
+        controller.ControllerContext = new()
         {
             HttpContext = new DefaultHttpContext { User = new ClaimsPrincipal(identity) }
         };

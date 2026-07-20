@@ -217,12 +217,14 @@ public class TreeCardViewModeServiceTests
         db.UserProfiles.Add(new UserProfile { UserId = "u1" });
         await db.SaveChangesAsync();
 
-        var httpContext = new DefaultHttpContext();
-        httpContext.Session = new TestSession();
-        httpContext.User = new System.Security.Claims.ClaimsPrincipal(
-            new System.Security.Claims.ClaimsIdentity(
-                [new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.NameIdentifier, "u1")],
-                "test"));
+        var httpContext = new DefaultHttpContext
+        {
+            Session = new TestSession(),
+            User = new System.Security.Claims.ClaimsPrincipal(
+                new System.Security.Claims.ClaimsIdentity(
+                    [new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.NameIdentifier, "u1")],
+                    "test"))
+        };
         var accessor = new HttpContextAccessor { HttpContext = httpContext };
         var service = new TreeCardViewModeService(accessor, db);
 

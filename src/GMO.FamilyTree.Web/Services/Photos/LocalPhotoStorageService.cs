@@ -50,8 +50,8 @@ public sealed class LocalPhotoStorageService : IPhotoStorageService
     {
         var normalized = key.Replace('\\', '/').TrimStart('/');
         var combined = Path.GetFullPath(Path.Combine(BaseDirectory, normalized.Replace('/', Path.DirectorySeparatorChar)));
-        if (!combined.StartsWith(BaseDirectory, StringComparison.OrdinalIgnoreCase))
-            throw new InvalidOperationException("Invalid photo key.");
-        return combined;
+        return !combined.StartsWith(BaseDirectory, StringComparison.OrdinalIgnoreCase)
+            ? throw new InvalidOperationException("Invalid photo key.")
+            : combined;
     }
 }

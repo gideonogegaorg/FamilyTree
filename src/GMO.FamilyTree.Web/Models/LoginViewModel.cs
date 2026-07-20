@@ -16,7 +16,7 @@ public class LoginViewModel
 
     [Display(Name = "Remember me?")]
     [Required]
-    public bool RememberMe { get; set; }
+    public bool? RememberMe { get; set; }
 
     public string? ReturnUrl { get; set; }
 }
