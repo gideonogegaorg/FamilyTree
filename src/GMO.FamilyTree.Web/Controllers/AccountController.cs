@@ -241,9 +241,11 @@ public class AccountController : Controller
     private async Task<string?> GetExistingUserRegistrationErrorAsync(string email)
     {
         var existing = await _userManager.FindByEmailAsync(email);
-        if (existing is null)
-            return null;
+        return existing is null ? null : await GetExistingUserConflictMessageAsync(existing);
+    }
 
+    private async Task<string> GetExistingUserConflictMessageAsync(IdentityUser existing)
+    {
         return !await _userManager.HasPasswordAsync(existing)
             ? "An account with this email already exists (for example via Google). Sign in with Google, then use Set password from your account menu."
             : "An account with this email already exists. Sign in instead, or use Forgot password if you need to reset it.";
@@ -643,9 +645,11 @@ public class AccountController : Controller
     public async Task<IActionResult> ManagePassword()
     {
         var user = await _userManager.GetUserAsync(User);
-        if (user is null)
-            return NotFound();
+        return user is null ? NotFound() : await GetManagePasswordViewAsync(user);
+    }
 
+    private async Task<IActionResult> GetManagePasswordViewAsync(IdentityUser user)
+    {
         return await _userManager.HasPasswordAsync(user)
             ? View("ChangePassword", new ChangePasswordViewModel())
             : View("SetPassword", new SetPasswordViewModel());

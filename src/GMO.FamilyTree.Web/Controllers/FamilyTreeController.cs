@@ -123,9 +123,11 @@ public sealed class FamilyTreeController : Controller
 
         if (id == null || OwnerId == null) return NotFound();
         var entity = await _db.FamilyTrees.FindAsync(new object[] { id.Value }, cancellationToken);
-        if (entity is null || entity.OwnerId != OwnerId)
-            return NotFound();
-
-        return viewName == null ? View(entity) : View(viewName, entity);
+        return entity is null || entity.OwnerId != OwnerId
+            ? NotFound()
+            : GetTreeFormView(entity, viewName);
     }
+
+    private IActionResult GetTreeFormView(Data.FamilyTree entity, string? viewName)
+        => viewName == null ? View(entity) : View(viewName, entity);
 }
