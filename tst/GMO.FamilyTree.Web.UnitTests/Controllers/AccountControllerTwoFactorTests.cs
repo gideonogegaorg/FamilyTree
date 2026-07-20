@@ -241,8 +241,6 @@ public class AccountControllerTwoFactorTests : IClassFixture<AccountControllerFi
         var lineageMode = new Mock<ILineageModeService>().Object;
         var defaultTree = new DefaultFamilyTreeService(db);
         var familyTreeDeletion = new Mock<IFamilyTreeDeletionService>().Object;
-        var env = new WebHostEnvironmentMock().Object;
-        var paths = Microsoft.Extensions.Options.Options.Create(new Options.PathsOptions());
         var photos = new Mock<IPhotoStorageService>().Object;
         var treeCardViewMode = new Mock<ITreeCardViewModeService>().Object;
         var access = new FamilyTreeAccessService(db);
@@ -251,7 +249,7 @@ public class AccountControllerTwoFactorTests : IClassFixture<AccountControllerFi
 
         var controller = new AccountController(
             signIn, users, email, googleAuth, db, currentTree, treeViewOrientation, lineageMode,
-            defaultTree, familyTreeDeletion, env, paths, external, photos, treeCardViewMode, access,
+            defaultTree, familyTreeDeletion, external, photos, treeCardViewMode, access,
             rateLimiter ?? AccountControllerFixture.CreateAllowAllRateLimiter(),
             Microsoft.Extensions.Logging.Abstractions.NullLogger<AccountController>.Instance);
 

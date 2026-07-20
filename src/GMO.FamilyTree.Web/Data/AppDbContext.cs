@@ -18,10 +18,10 @@ public class AppDbContext : IdentityDbContext<IdentityUser>
     public DbSet<FamilyTreeAccess> FamilyTreeAccesses => Set<FamilyTreeAccess>();
     public DbSet<FamilyTreeInvite> FamilyTreeInvites => Set<FamilyTreeInvite>();
 
-    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    protected override void OnModelCreating(ModelBuilder builder)
     {
-        base.OnModelCreating(modelBuilder);
-        modelBuilder.Entity<FamilyTree>(e =>
+        base.OnModelCreating(builder);
+        builder.Entity<FamilyTree>(e =>
         {
             e.HasKey(x => x.Id);
             e.HasIndex(x => x.Uid).IsUnique();
@@ -32,7 +32,7 @@ public class AppDbContext : IdentityDbContext<IdentityUser>
                 .HasForeignKey(x => x.OwnerId)
                 .OnDelete(DeleteBehavior.Restrict);
         });
-        modelBuilder.Entity<FamilyMember>(e =>
+        builder.Entity<FamilyMember>(e =>
         {
             e.HasKey(x => x.Id);
             e.HasIndex(x => x.FamilyTreeId);
@@ -53,7 +53,7 @@ public class AppDbContext : IdentityDbContext<IdentityUser>
                 .HasForeignKey(x => x.UserId)
                 .OnDelete(DeleteBehavior.SetNull);
         });
-        modelBuilder.Entity<FamilyMemberRelationship>(e =>
+        builder.Entity<FamilyMemberRelationship>(e =>
         {
             e.HasKey(x => x.Id);
             e.HasIndex(x => x.FamilyTreeId);
@@ -73,14 +73,14 @@ public class AppDbContext : IdentityDbContext<IdentityUser>
                 .OnDelete(DeleteBehavior.Cascade);
             e.ToTable(t => t.HasCheckConstraint("CK_FamilyMemberRelationship_FromNotTo", "\"FromMemberId\" != \"ToMemberId\""));
         });
-        modelBuilder.Entity<UserProfile>(e =>
+        builder.Entity<UserProfile>(e =>
         {
             e.HasKey(x => x.UserId);
             e.Property(x => x.PhotoUrl).HasMaxLength(500);
             e.Property(x => x.TreeViewOrientation).HasConversion<int>();
             e.Property(x => x.LineageMode).HasConversion<int>();
         });
-        modelBuilder.Entity<FamilyTreeAccess>(e =>
+        builder.Entity<FamilyTreeAccess>(e =>
         {
             e.HasKey(x => x.Id);
             e.HasIndex(x => new { x.FamilyTreeId, x.UserId }).IsUnique();
@@ -97,7 +97,7 @@ public class AppDbContext : IdentityDbContext<IdentityUser>
                 .HasForeignKey(x => x.UserId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
-        modelBuilder.Entity<FamilyTreeInvite>(e =>
+        builder.Entity<FamilyTreeInvite>(e =>
         {
             e.HasKey(x => x.Id);
             e.HasIndex(x => x.Token).IsUnique();

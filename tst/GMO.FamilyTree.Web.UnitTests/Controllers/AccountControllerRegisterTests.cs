@@ -76,8 +76,6 @@ public class AccountControllerRegisterTests : IClassFixture<AccountControllerFix
             Mock.Of<ILineageModeService>(),
             new DefaultFamilyTreeService(db),
             Mock.Of<IFamilyTreeDeletionService>(),
-            new WebHostEnvironmentMock().Object,
-            Microsoft.Extensions.Options.Options.Create(new Options.PathsOptions()),
             _f.CreateExternalLoginInfoProvider("user@example.com"),
             Mock.Of<IPhotoStorageService>(),
             Mock.Of<ITreeCardViewModeService>(),

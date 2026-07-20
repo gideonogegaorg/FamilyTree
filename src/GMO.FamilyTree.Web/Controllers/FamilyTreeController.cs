@@ -67,6 +67,9 @@ public sealed class FamilyTreeController : Controller
 
     public async Task<IActionResult> Edit(long? id, CancellationToken cancellationToken)
     {
+        if (!ModelState.IsValid)
+            return BadRequest();
+
         if (id == null || OwnerId == null) return NotFound();
         var entity = await _db.FamilyTrees.FindAsync(new object[] { id.Value }, cancellationToken);
         if (entity == null || entity.OwnerId != OwnerId) return NotFound();
@@ -94,6 +97,9 @@ public sealed class FamilyTreeController : Controller
 
     public async Task<IActionResult> Delete(long? id, CancellationToken cancellationToken)
     {
+        if (!ModelState.IsValid)
+            return BadRequest();
+
         if (id == null || OwnerId == null) return NotFound();
         var entity = await _db.FamilyTrees.FindAsync(new object[] { id.Value }, cancellationToken);
         if (entity == null || entity.OwnerId != OwnerId) return NotFound();
@@ -104,6 +110,9 @@ public sealed class FamilyTreeController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> DeleteConfirmed(long id, CancellationToken cancellationToken)
     {
+        if (!ModelState.IsValid)
+            return BadRequest();
+
         if (OwnerId == null) return NotFound();
 
         var result = await _familyTreeDeletion.DeleteAsync(OwnerId, id, cancellationToken);

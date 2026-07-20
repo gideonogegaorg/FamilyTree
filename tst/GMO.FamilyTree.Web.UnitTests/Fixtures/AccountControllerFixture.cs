@@ -117,8 +117,6 @@ public sealed class AccountControllerFixture
         var lineageMode = new Mock<ILineageModeService>().Object;
         var defaultTree = defaultFamilyTreeService ?? new DefaultFamilyTreeServiceMock().Object;
         var familyTreeDeletionService = familyTreeDeletion ?? new Mock<IFamilyTreeDeletionService>().Object;
-        var env = new WebHostEnvironmentMock().Object;
-        var paths = _fixture.Create<PathsOptions>();
         var urlHelperToUse = urlHelper ?? new UrlHelperMock().Object;
         var photosService = photos ?? new Mock<IPhotoStorageService>().Object;
         var treeCardViewMode = new Mock<ITreeCardViewModeService>().Object;
@@ -140,8 +138,6 @@ public sealed class AccountControllerFixture
             lineageMode,
             defaultTree,
             familyTreeDeletionService,
-            env,
-            Microsoft.Extensions.Options.Options.Create(paths),
             externalLoginInfo,
             photosService,
             treeCardViewMode,

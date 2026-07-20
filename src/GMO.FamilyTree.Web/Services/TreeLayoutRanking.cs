@@ -39,58 +39,15 @@ public static class TreeLayoutRanking
     /// </summary>
     public static Dictionary<long, int> ComputeRowByMember(IReadOnlyList<FamilyMemberCardViewModel> cards)
     {
-        var cardById = cards.ToDictionary(c => c.Id);
         var rowById = new Dictionary<long, int>();
 
         foreach (var c in cards)
             if (c.ParentIds.Count == 0)
                 rowById[c.Id] = 0;
 
-        var changed = true;
-        while (changed)
-        {
-            changed = false;
-            foreach (var c in cards)
-            {
-                if (rowById.ContainsKey(c.Id)) continue;
-                if (c.ParentIds.Count == 0) continue;
-                var parentRows = c.ParentIds.Where(pid => rowById.TryGetValue(pid, out _)).Select(pid => rowById[pid]).ToList();
-                if (parentRows.Count != c.ParentIds.Count) continue;
-                rowById[c.Id] = 1 + parentRows.Max();
-                changed = true;
-            }
-        }
-
-        foreach (var c in cards)
-        {
-            if (c.ParentIds.Count > 0) continue;
-            foreach (var pid in c.PartnerIds)
-                if (rowById.TryGetValue(pid, out var pr) && pr > rowById.GetValueOrDefault(c.Id, 0))
-                {
-                    rowById[c.Id] = pr;
-                    break;
-                }
-        }
-
-        // Re-propagate: partner alignment may have bumped parentless members,
-        // so their children need updated rows.
-        changed = true;
-        while (changed)
-        {
-            changed = false;
-            foreach (var c in cards)
-            {
-                if (c.ParentIds.Count == 0) continue;
-                var parentRows = c.ParentIds.Where(pid => rowById.ContainsKey(pid)).Select(pid => rowById[pid]).ToList();
-                if (parentRows.Count != c.ParentIds.Count) continue;
-                var newRow = 1 + parentRows.Max();
-                if (newRow > rowById.GetValueOrDefault(c.Id, 0))
-                {
-                    rowById[c.Id] = newRow;
-                    changed = true;
-                }
-            }
-        }
+        PropagateChildRows(cards, rowById, onlyWhenMissing: true);
+        AlignPartnerRows(cards, rowById);
+        PropagateChildRows(cards, rowById, onlyWhenMissing: false);
 
         foreach (var c in cards)
             if (!rowById.ContainsKey(c.Id))
@@ -119,12 +76,70 @@ public static class TreeLayoutRanking
     {
         var cardById = cards.ToDictionary(c => c.Id);
         var rankById = rowById.ToDictionary(kv => kv.Key, kv => (double)kv.Value);
+        AssignHalfRanksForMultiPartnerNodes(cards, cardById, rankById, pathMode);
+        return rankById;
+    }
 
+    private static void PropagateChildRows(
+        IReadOnlyList<FamilyMemberCardViewModel> cards,
+        Dictionary<long, int> rowById,
+        bool onlyWhenMissing)
+    {
+        var changed = true;
+        while (changed)
+        {
+            changed = false;
+            foreach (var c in cards)
+            {
+                if (c.ParentIds.Count == 0) continue;
+                if (onlyWhenMissing && rowById.ContainsKey(c.Id)) continue;
+
+                var parentRows = c.ParentIds.Where(pid => rowById.ContainsKey(pid)).Select(pid => rowById[pid]).ToList();
+                if (parentRows.Count != c.ParentIds.Count) continue;
+
+                var newRow = 1 + parentRows.Max();
+                if (onlyWhenMissing)
+                {
+                    rowById[c.Id] = newRow;
+                    changed = true;
+                    continue;
+                }
+
+                if (newRow > rowById.GetValueOrDefault(c.Id, 0))
+                {
+                    rowById[c.Id] = newRow;
+                    changed = true;
+                }
+            }
+        }
+    }
+
+    private static void AlignPartnerRows(IReadOnlyList<FamilyMemberCardViewModel> cards, Dictionary<long, int> rowById)
+    {
+        foreach (var c in cards)
+        {
+            if (c.ParentIds.Count > 0) continue;
+            foreach (var pid in c.PartnerIds)
+            {
+                if (rowById.TryGetValue(pid, out var pr) && pr > rowById.GetValueOrDefault(c.Id, 0))
+                {
+                    rowById[c.Id] = pr;
+                    break;
+                }
+            }
+        }
+    }
+
+    private static void AssignHalfRanksForMultiPartnerNodes(
+        IReadOnlyList<FamilyMemberCardViewModel> cards,
+        Dictionary<long, FamilyMemberCardViewModel> cardById,
+        Dictionary<long, double> rankById,
+        LineageMode pathMode)
+    {
         bool isPrimary(FamilyMemberCardViewModel c) => pathMode == LineageMode.Paternal ? c.IsMale : !c.IsMale;
 
         bool dominates(FamilyMemberCardViewModel nodeA, FamilyMemberCardViewModel nodeB)
         {
-            if (nodeA == null) return false;
             if (nodeB == null) return true;
 
             bool bloodlineA = nodeA.ParentIds.Count > 0;
@@ -135,22 +150,15 @@ public static class TreeLayoutRanking
             return isPrimary(nodeA) && !isPrimary(nodeB);
         }
 
-        var multiPartnerNodes = cards.Where(c => c.PartnerIds.Count > 1).ToList();
-
-        foreach (var primary in multiPartnerNodes)
+        foreach (var primary in cards.Where(c => c.PartnerIds.Count > 1))
         {
             var primaryRank = rankById.GetValueOrDefault(primary.Id, 0);
             foreach (var pid in primary.PartnerIds)
             {
                 if (!cardById.TryGetValue(pid, out var partner)) continue;
-                if (dominates(primary, partner))
-                {
-                    if (partner.ParentIds.Count > 0) continue;
-                    rankById[pid] = primaryRank + 0.5;
-                }
+                if (!dominates(primary, partner) || partner.ParentIds.Count > 0) continue;
+                rankById[pid] = primaryRank + 0.5;
             }
         }
-
-        return rankById;
     }
 }
