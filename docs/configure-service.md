@@ -120,7 +120,7 @@ sudo systemctl restart familytree-dev
 
 | Config | Source | Notes |
 |--------|--------|--------|
-| `Email:Provider` | var `EMAIL_PROVIDER` (default `Ses` on deploy) | Use `Logging` locally |
+| `Email:Provider` | var `EMAIL_PROVIDER` (default `Ses` on deploy) | Use `Logging` locally. With `Logging`, recipient and subject are ASP.NET Data Protection–encrypted in logs (`ToProtected` / `SubjectProtected`); decrypt on the same host via `IEmailLogProtector.Unprotect` (same DP keys). |
 | `Email:FromDisplayName` | var `EMAIL_FROM_DISPLAY_NAME` (default `GOOM Family Tree`) | Shown in the From header |
 | `Email:FromAddress` | derived as `noreply@{FULL_HOSTNAME}` unless secret `EMAIL_FROM_ADDRESS` is set | e.g. `noreply@familytree-dev.goom.life` / `noreply@familytree.goom.life` |
 | `Email:ReplyToAddress` | var `EMAIL_REPLY_TO_ADDRESS` (optional) | Monitored reply address; omitted when empty |

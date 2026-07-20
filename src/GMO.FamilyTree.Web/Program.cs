@@ -150,6 +150,9 @@ builder.Services.AddHealthChecks()
 // Add services to the container.
 builder.Services.AddControllersWithViews();
 
+builder.Services.AddDataProtection();
+builder.Services.AddSingleton<IEmailLogProtector, EmailLogProtector>();
+
 var emailProvider = builder.Configuration["Email:Provider"] ?? "Logging";
 if (emailProvider.Equals("Ses", StringComparison.OrdinalIgnoreCase)
     && !builder.Environment.IsEnvironment("Testing"))
