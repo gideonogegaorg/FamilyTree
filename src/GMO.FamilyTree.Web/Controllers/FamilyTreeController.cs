@@ -128,6 +128,6 @@ public sealed class FamilyTreeController : Controller
             : GetTreeFormView(entity, viewName);
     }
 
-    private IActionResult GetTreeFormView(Data.FamilyTree entity, string? viewName)
+    private ViewResult GetTreeFormView(Data.FamilyTree entity, string? viewName)
         => viewName == null ? View(entity) : View(viewName, entity);
 }
