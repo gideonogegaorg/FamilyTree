@@ -125,8 +125,7 @@ public sealed class FamilyTreeController : Controller
         var entity = await _db.FamilyTrees.FindAsync(new object[] { id.Value }, cancellationToken);
         if (entity == null || entity.OwnerId != OwnerId)
             return NotFound();
-        if (viewName == null)
-            return View(entity);
-        return View(viewName, entity);
+
+        return viewName == null ? View(entity) : View(viewName, entity);
     }
 }

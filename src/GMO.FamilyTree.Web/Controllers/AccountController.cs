@@ -243,9 +243,10 @@ public class AccountController : Controller
         var existing = await _userManager.FindByEmailAsync(email);
         if (existing == null)
             return null;
-        if (!await _userManager.HasPasswordAsync(existing))
-            return "An account with this email already exists (for example via Google). Sign in with Google, then use Set password from your account menu.";
-        return "An account with this email already exists. Sign in instead, or use Forgot password if you need to reset it.";
+
+        return !await _userManager.HasPasswordAsync(existing)
+            ? "An account with this email already exists (for example via Google). Sign in with Google, then use Set password from your account menu."
+            : "An account with this email already exists. Sign in instead, or use Forgot password if you need to reset it.";
     }
 
     private async Task<IActionResult> CreateRegisteredUserAsync(RegisterViewModel model, CancellationToken cancellationToken)
@@ -645,10 +646,9 @@ public class AccountController : Controller
         if (user == null)
             return NotFound();
 
-        if (await _userManager.HasPasswordAsync(user))
-            return View("ChangePassword", new ChangePasswordViewModel());
-
-        return View("SetPassword", new SetPasswordViewModel());
+        return await _userManager.HasPasswordAsync(user)
+            ? View("ChangePassword", new ChangePasswordViewModel())
+            : View("SetPassword", new SetPasswordViewModel());
     }
 
     [HttpPost]
