@@ -2,7 +2,7 @@
 #
 #   docker compose up -d
 #
-# Postgres: localhost:5432 (family/family, db family)
+# Postgres: localhost:5432 (familytree/familytree, db familytree)
 # MinIO API: http://localhost:9000  bucket: gideonogega-internal
 # MinIO console: http://localhost:9001  (minioadmin / minioadmin)
 #
@@ -11,17 +11,17 @@
 services:
   postgres:
     image: postgres:16-alpine
-    container_name: family-postgres
+    container_name: familytree-postgres
     environment:
-      POSTGRES_USER: family
-      POSTGRES_PASSWORD: family
-      POSTGRES_DB: family
+      POSTGRES_USER: familytree
+      POSTGRES_PASSWORD: familytree
+      POSTGRES_DB: familytree
     ports:
       - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U family -d family"]
+      test: ["CMD-SHELL", "pg_isready -U familytree -d familytree"]
       interval: 5s
       timeout: 5s
       retries: 5

@@ -78,7 +78,8 @@ public class TreeToolbarViewComponentTests
         var viewMode = new Mock<ITreeCardViewModeService>();
         viewMode.Setup(s => s.GetAsync(It.IsAny<CancellationToken>())).ReturnsAsync(TreeCardViewMode.Standard);
 
-        var component = new TreeToolbarViewComponent(db, current.Object, orientation.Object, lineage.Object, viewMode.Object);
+        var component = new TreeToolbarViewComponent(
+            current.Object, orientation.Object, lineage.Object, viewMode.Object, new FamilyTreeAccessService(db));
         ViewComponentTestHelper.AttachContext(component, ViewComponentTestHelper.AuthenticatedUser("user-1"));
 
         var model = GetModel(await component.InvokeAsync(hasMembers: false));
@@ -103,7 +104,8 @@ public class TreeToolbarViewComponentTests
         var viewMode = new Mock<ITreeCardViewModeService>();
         viewMode.Setup(s => s.GetAsync(It.IsAny<CancellationToken>())).ReturnsAsync(TreeCardViewMode.Standard);
 
-        var component = new TreeToolbarViewComponent(db, current.Object, orientation.Object, lineage.Object, viewMode.Object);
+        var component = new TreeToolbarViewComponent(
+            current.Object, orientation.Object, lineage.Object, viewMode.Object, new FamilyTreeAccessService(db));
         ViewComponentTestHelper.AttachContext(
             component,
             authenticated ? ViewComponentTestHelper.AuthenticatedUser("user-1") : null);

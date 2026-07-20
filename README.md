@@ -1,6 +1,6 @@
 # GMO.FamilyTree
 
-ASP.NET Core MVC app skeleton. Solution and project live under `src/`. Uses central package management ([Directory.Packages.props](Directory.Packages.props)), Serilog, and GMO OpenTelemetry packages from the org NuGet feed.
+ASP.NET Core MVC family-tree app (solution under `src/`). Uses central package management ([Directory.Packages.props](Directory.Packages.props)), Serilog, and GMO OpenTelemetry packages from the org NuGet feed. Anonymous visitors see a public **landing** page; signed-in users work on `/Home/Index`.
 
 ## Documentation
 
@@ -14,7 +14,7 @@ Start dependencies (PostgreSQL + MinIO S3):
 docker compose up -d
 ```
 
-MinIO serves the same bucket name as production (`gideonogega-internal`) at **http://localhost:9000** (console: **http://localhost:9001**, `minioadmin` / `minioadmin`). Object keys use prefix `family/local/` — matching prod layout with a local environment segment.
+MinIO serves the same bucket name as production (`gideonogega-internal`) at **http://localhost:9000** (console: **http://localhost:9001**, `minioadmin` / `minioadmin`). Object keys use prefix `familytree/local/` — matching prod layout with a local environment segment.
 
 `appsettings.json` is **gitignored** and generated from [appsettings.json.template](src/GMO.FamilyTree.Web/appsettings.json.template). To set up for local dev:
 
@@ -42,7 +42,7 @@ bash scripts/generate-appsettings.sh
 dotnet build GMO.FamilyTree.sln
 ```
 
-Restore requires authentication to the GMO GitHub Packages feed when using `GMO.*` packages. Set `GITHUB_USERNAME` and `GITHUB_PAT` (or use [nuget.config](src/nuget.config) with `packageSourceCredentials`) so NuGet can read from `https://nuget.pkg.github.com/gideonogegaorg/index.json`.
+Restore requires authentication to the GMO GitHub Packages feed when using `GMO.*` packages. Set `GITHUB_USERNAME` and `GITHUB_PAT` (or use [nuget.config](nuget.config) with `packageSourceCredentials`) so NuGet can read from `https://nuget.pkg.github.com/gideonogegaorg/index.json`.
 
 ## Run
 
@@ -50,16 +50,28 @@ Restore requires authentication to the GMO GitHub Packages feed when using `GMO.
 dotnet run --project src/GMO.FamilyTree.Web
 ```
 
-With `docker compose up -d` running, launch profiles default to **Local** filesystem storage under `Paths:UploadsPath` (see [launchSettings.json](src/GMO.FamilyTree.Web/Properties/launchSettings.json)). To exercise S3 parity with MinIO, set `Photos__Provider=S3` (MinIO at `http://localhost:9000`, bucket `gideonogega-internal`, prefix `family/local/`).
+With `docker compose up -d` running, launch profiles default to **Local** filesystem storage under `Paths:UploadsPath` (see [launchSettings.json](src/GMO.FamilyTree.Web/Properties/launchSettings.json)). To exercise S3 parity with MinIO, set `Photos__Provider=S3` (MinIO at `http://localhost:9000`, bucket `gideonogega-internal`, prefix `familytree/local/`).
 
 Then open https://localhost:7295 (HTTPS) or http://localhost:5229 (HTTP) from [launchSettings](src/GMO.FamilyTree.Web/Properties/launchSettings.json), or the URL shown in the console.
+
+## Local quality gates (before PRs to `dev` / `prod`)
+
+From the repo root:
+
+```powershell
+dotnet format GMO.FamilyTree.sln --verify-no-changes
+npm run lint:js
+dotnet test GMO.FamilyTree.sln
+```
+
+If `GMO.FamilyTree.Web.exe` is locked by a running site, stop that process and re-run tests. CI is a backstop only.
 
 ## Deploy
 
 Pushes to `prod` and `dev` trigger GitHub Actions to build, publish, and deploy to EC2. You can also run the workflow manually (Actions > Build and Deploy > Run workflow) and choose the branch.
 
-- **prod** → `https://family.<DEPLOY_DOMAIN>`
-- **dev** → `https://family-dev.<DEPLOY_DOMAIN>`
+- **prod** → `https://familytree.<DEPLOY_DOMAIN>`
+- **dev** → `https://familytree-dev.<DEPLOY_DOMAIN>`
 
 ### Branch workflow checklist
 
@@ -80,9 +92,9 @@ The pipeline generates `appsettings.json` from the template on the **GitHub Acti
 
 The deploy job uses GitHub **Environments** (`prod` and `dev`). For each environment, configure:
 
-- **SERVICE_NAME** (variable): systemd service to restart (e.g. `family` for prod, `family-dev` for dev).
+- **SERVICE_NAME** (variable): systemd service to restart (e.g. `familytree` for prod, `familytree-dev` for dev).
 - **PORT** (variable): local port for the app (`5002` for prod, `5003` for dev).
-- **DEPLOY_DOMAIN** (secret): used for deploy paths and Let's Encrypt cert path (e.g. `example.com` → `/var/www/family.example.com` and `/etc/letsencrypt/live/example.com/`). Set in both **prod** and **dev** (or at repository level).
+- **DEPLOY_DOMAIN** (secret): used for deploy paths and Let's Encrypt cert path (e.g. `example.com` → `/var/www/familytree.example.com` and `/etc/letsencrypt/live/example.com/`). Set in both **prod** and **dev** (or at repository level).
 
 **Repository secrets** (required for CI on private repos; org secrets are not available to private repos on some plans):
 
@@ -92,13 +104,13 @@ The deploy job uses GitHub **Environments** (`prod` and `dev`). For each environ
 
 **PostgreSQL** (organization-wide): set **`PG_USER`** and **`PG_PASS`** once under **Organization → Settings → Secrets and variables → Actions** (`gideonogegaorg`), with access to every repo that deploys to EC2 Postgres. Do **not** duplicate them on individual repositories or GitHub Environments — environment secrets override org secrets and force per-env updates when the password rotates.
 
-The deploy job builds the connection string as `Host=localhost;Port=5432;Database=<SERVICE_NAME>;Username=<PG_USER>;Password=<PG_PASS>` (database name comes from each environment’s **SERVICE_NAME** variable: `family` for prod, `family-dev` for dev).
+The deploy job builds the connection string as `Host=localhost;Port=5432;Database=<SERVICE_NAME>;Username=<PG_USER>;Password=<PG_PASS>` (database name comes from each environment’s **SERVICE_NAME** variable: `familytree` for prod, `familytree-dev` for dev).
 
 To rotate the password: update the org secret only, then re-run deploy on affected branches. Helper script (requires `gh auth refresh -h github.com -s admin:org`): [`scripts/set-org-postgres-secrets.sh`](scripts/set-org-postgres-secrets.sh).
 
 Optional for OpenTelemetry (same pattern — generated on the runner, deployed to EC2 only): **OPENTELEMETRY_ENABLED**, **OPENTELEMETRY_OTLPEXPORTENDPOINT**, **OPENTELEMETRY_HEADERS**, **OPENTELEMETRY_METRICSENDPOINT**, **OPENTELEMETRY_LOGGINGENDPOINT**. `Telemetry.EnvironmentName` is set automatically to `prod` or `dev`.
 
-Optional for Google sign-in: **GOOGLE_CLIENT_ID** and **GOOGLE_CLIENT_SECRET**. When both are set, the site requires sign-in except on the home and error pages.
+Optional for Google sign-in: **GOOGLE_CLIENT_ID** and **GOOGLE_CLIENT_SECRET**. The site requires sign-in for authenticated app routes; anonymous access remains for the landing page (`/`), Privacy, Account, and `/health`. When Google secrets are set, Google sign-in is offered alongside password auth.
 
 Optional variable: **S3_PHOTOS_BUCKET** (environment variable — private bucket name for photo storage).
 
@@ -112,23 +124,22 @@ On the server, the deployed DLL’s **InformationalVersion** is set by the pipel
 
 - **From the DLL** (SSH into the server):
   ```bash
-  DEPLOY_PATH=/var/www/family.example.com   # or family-dev.example.com for dev
+  DEPLOY_PATH=/var/www/familytree.example.com   # or familytree-dev.example.com for dev
   strings "$DEPLOY_PATH/site/GMO.FamilyTree.Web.dll" | grep -E '^(DEV-)?[0-9]{12,}$'
   ```
 
 - **From the live site**:
   ```bash
-  curl -s https://family.example.com/ | grep -o 'Family Tree [^ -]*'
+  curl -s https://familytree.example.com/ | grep -o 'Family Tree [^ -]*'
   ```
 
 ### Adding a new subdomain on the server
 
-Use the provisioning script (run on the EC2 instance, e.g. from the deploy directory):
+Use the shared provisioner from [gideonogegaorg/DevOps](https://github.com/gideonogegaorg/DevOps) (`ec2/nginx/configure-subdomain.sh`). The pipeline checks out DevOps and runs it automatically when the workflow or service file changes.
 
 ```bash
-sudo ./scripts/configure-service.sh <subdomain> <port> <service_name> [cert_domain]
-# Example (dev): sudo ./scripts/configure-service.sh family-dev.example.com 5003 family-dev example.com
-# Then: sudo systemctl restart family-dev
+# Example (dev): sudo DLL_NAME=GMO.FamilyTree.Web.dll ./configure-subdomain.sh familytree-dev.example.com 5003 familytree-dev example.com
+# Then: sudo systemctl restart familytree-dev
 ```
 
-This creates the web directory, systemd service, and Nginx config. The pipeline runs this script **only when** `scripts/configure-service.sh` has changed or the systemd service file is missing; otherwise it just copies the site output and restarts the service. Full prerequisites and manual steps: [docs/configure-service.md](docs/configure-service.md).
+Full prerequisites: [DevOps ec2/domain-migration.md](https://github.com/gideonogegaorg/DevOps/blob/main/ec2/domain-migration.md) and [docs/configure-service.md](docs/configure-service.md).

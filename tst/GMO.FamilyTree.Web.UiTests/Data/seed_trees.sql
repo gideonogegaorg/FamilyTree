@@ -1,15 +1,16 @@
 -- Seed trees: 3-gen test, empty, single-member, and large (6-gen) trees.
--- Run with: psql -h localhost -p 5432 -U family -d family -f tst/GMO.Family.Web.UiTests/Data/seed_trees.sql
+-- Run with: psql -h localhost -p 5432 -U family -d family -f tst/GMO.FamilyTree.Web.UiTests/Data/seed_trees.sql
 -- Idempotent: safe to re-run.
 
 -- ========== Variables (change these for a different environment) ==========
 CREATE TEMP TABLE IF NOT EXISTS _seed_vars (key text PRIMARY KEY, val text);
-DELETE FROM _seed_vars WHERE key IN ('tree_primary', 'tree_empty', 'tree_single', 'tree_large', 'owner_id');
+DELETE FROM _seed_vars WHERE key IN ('tree_primary', 'tree_empty', 'tree_single', 'tree_large', 'tree_halfsib', 'owner_id');
 INSERT INTO _seed_vars (key, val) VALUES
   ('tree_primary', '1'),
   ('tree_empty', '2'),
   ('tree_single', '3'),
-  ('tree_large', '4');
+  ('tree_large', '4'),
+  ('tree_halfsib', '5');
 -- Owner: prefer test user so seed trees appear for test@example.com; else first AspNetUser.
 INSERT INTO _seed_vars (key, val)
 SELECT 'owner_id', COALESCE(
@@ -36,13 +37,18 @@ INSERT INTO "FamilyTrees" ("Id", "Uid", "Name", "OwnerId")
 SELECT (SELECT val::bigint FROM _seed_vars WHERE key = 'tree_large'), gen_random_uuid(), 'Large Tree (6 Gen)', (SELECT val FROM _seed_vars WHERE key = 'owner_id')
 ON CONFLICT ("Id") DO NOTHING;
 
+INSERT INTO "FamilyTrees" ("Id", "Uid", "Name", "OwnerId")
+SELECT (SELECT val::bigint FROM _seed_vars WHERE key = 'tree_halfsib'), gen_random_uuid(), 'Half-Sibling Alignment Tree', (SELECT val FROM _seed_vars WHERE key = 'owner_id')
+ON CONFLICT ("Id") DO NOTHING;
+
 -- Keep ownership in sync on re-run (idempotent)
 UPDATE "FamilyTrees" SET "OwnerId" = (SELECT val FROM _seed_vars WHERE key = 'owner_id')
 WHERE "Id" IN (
   (SELECT val::bigint FROM _seed_vars WHERE key = 'tree_primary'),
   (SELECT val::bigint FROM _seed_vars WHERE key = 'tree_empty'),
   (SELECT val::bigint FROM _seed_vars WHERE key = 'tree_single'),
-  (SELECT val::bigint FROM _seed_vars WHERE key = 'tree_large')
+  (SELECT val::bigint FROM _seed_vars WHERE key = 'tree_large'),
+  (SELECT val::bigint FROM _seed_vars WHERE key = 'tree_halfsib')
 );
 
 -- ========== 3-Gen primary tree members ==========
@@ -74,7 +80,8 @@ FROM (VALUES
   (71, 'SingleOwnWife', false),
   (72, 'SingleOwnHusband', true),
   (73, 'SingleOwnOther', true),
-  (74, 'SingleOwnChild', true)
+  (74, 'SingleOwnChild', true),
+  (76, 'FB Solo Child', true)
 ) AS v(id, name, ismale)
 WHERE NOT EXISTS (SELECT 1 FROM "FamilyMembers" m WHERE m."FamilyTreeId" = (SELECT val::bigint FROM _seed_vars WHERE key = 'tree_primary') AND m."Id" = v.id);
 
@@ -99,6 +106,7 @@ FROM (VALUES
   (52, 57), (53, 57), (52, 61), (54, 61),
   (55, 56), (57, 56),
   (58, 62), (59, 62), (58, 63), (59, 63), (58, 64), (60, 64), (60, 65),
+  (58, 76),
   (71, 74), (73, 74)
 ) AS v(parent, child)
 ON CONFLICT ("FromMemberId", "ToMemberId", "RelationshipType") DO NOTHING;
@@ -245,5 +253,31 @@ FROM (VALUES
 ) AS v(parent, child)
 ON CONFLICT ("FromMemberId", "ToMemberId", "RelationshipType") DO NOTHING;
 
--- Advance sequence
-SELECT setval(pg_get_serial_sequence('"FamilyMembers"', 'Id'), (SELECT COALESCE(MAX("Id"), 1) FROM "FamilyMembers"));
+-- ========== Half-Sibling Alignment Tree: isolated repro of the production Ray/Eve/Gideon bug ==========
+-- Deliberately has NO half-rank members anywhere, so family-tree.js's insertHalfRankSpacers()
+-- (which only activates when a half-rank exists somewhere on the page) cannot mask the
+-- ft-partner-unit-single offset bug; only alignSingleParentBranches() can fix it here.
+-- HS Father/HS Mother are a couple inferred purely from their shared children (no explicit
+-- Couple relationship row), matching production exactly. HS Half Child has HS Father as its
+-- only listed parent, alongside full siblings HS Child A/B, so it renders in a card-less
+-- ".ft-partner-unit-single" next to their card-bearing ".ft-partner-unit".
+INSERT INTO "FamilyMembers" ("Id", "FamilyTreeId", "Name", "IsMale", "UserId")
+OVERRIDING SYSTEM VALUE
+SELECT v.id, (SELECT val::bigint FROM _seed_vars WHERE key = 'tree_halfsib'), v.name, v.ismale, NULL
+FROM (VALUES
+  (90::bigint, 'HS Father', true),
+  (91, 'HS Mother', false),
+  (92, 'HS Child A', true),
+  (93, 'HS Child B', false),
+  (94, 'HS Half Child', true)
+) AS v(id, name, ismale)
+WHERE NOT EXISTS (SELECT 1 FROM "FamilyMembers" m WHERE m."FamilyTreeId" = (SELECT val::bigint FROM _seed_vars WHERE key = 'tree_halfsib') AND m."Id" = v.id);
+
+INSERT INTO "FamilyMemberRelationships" ("FamilyTreeId", "FromMemberId", "ToMemberId", "RelationshipType")
+SELECT (SELECT val::bigint FROM _seed_vars WHERE key = 'tree_halfsib'), parent, child, 0
+FROM (VALUES (90, 92), (91, 92), (90, 93), (91, 93), (90, 94)) AS v(parent, child)
+ON CONFLICT ("FromMemberId", "ToMemberId", "RelationshipType") DO NOTHING;
+
+-- Advance identity sequences after explicit Id inserts (keeps new registrations/trees from colliding).
+SELECT setval(pg_get_serial_sequence('"FamilyTrees"', 'Id'), COALESCE((SELECT MAX("Id") FROM "FamilyTrees"), 1));
+SELECT setval(pg_get_serial_sequence('"FamilyMembers"', 'Id'), COALESCE((SELECT MAX("Id") FROM "FamilyMembers"), 1));

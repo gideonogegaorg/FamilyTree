@@ -36,9 +36,8 @@ public class AccountControllerUploadPhotoTests : IClassFixture<AccountController
 
         var result = controller.UploadPhoto();
 
-        var redirect = Assert.IsType<RedirectToActionResult>(result);
-        Assert.Equal("Index", redirect.ActionName);
-        Assert.Equal("Home", redirect.ControllerName);
+        var redirect = Assert.IsType<RedirectResult>(result);
+        Assert.Equal("/Home/Index", redirect.Url);
     }
 
     [Fact]

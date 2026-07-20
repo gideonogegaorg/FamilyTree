@@ -28,9 +28,8 @@ public class FamilyTreeControllerTests
 
         var result = await controller.Create(model, CancellationToken.None);
 
-        var redirect = Assert.IsType<RedirectToActionResult>(result);
-        Assert.Equal("Index", redirect.ActionName);
-        Assert.Equal("Home", redirect.ControllerName);
+        var redirect = Assert.IsType<RedirectResult>(result);
+        Assert.Equal("/Home/Index", redirect.Url);
         var saved = await db.FamilyTrees.SingleAsync();
         Assert.Equal("New Tree", saved.Name);
         currentTree.Verify(s => s.SetCurrentFamilyTreeIdAsync(saved.Id, It.IsAny<CancellationToken>()), Times.Once);
@@ -61,8 +60,8 @@ public class FamilyTreeControllerTests
 
         var result = await controller.Edit(entity.Id, new FamilyTreeEntity { Id = entity.Id, Uid = entity.Uid, Name = "New" }, CancellationToken.None);
 
-        var redirect = Assert.IsType<RedirectToActionResult>(result);
-        Assert.Equal("Home", redirect.ControllerName);
+        var redirect = Assert.IsType<RedirectResult>(result);
+        Assert.Equal("/Home/Index", redirect.Url);
         Assert.Equal("New", (await db.FamilyTrees.FindAsync(entity.Id))!.Name);
     }
 
@@ -88,8 +87,8 @@ public class FamilyTreeControllerTests
 
         var result = await controller.DeleteConfirmed(5, CancellationToken.None);
 
-        var redirect = Assert.IsType<RedirectToActionResult>(result);
-        Assert.Equal("Home", redirect.ControllerName);
+        var redirect = Assert.IsType<RedirectResult>(result);
+        Assert.Equal("/Home/Index", redirect.Url);
         deletion.Verify(s => s.DeleteAsync("owner-1", 5, It.IsAny<CancellationToken>()), Times.Once);
     }
 

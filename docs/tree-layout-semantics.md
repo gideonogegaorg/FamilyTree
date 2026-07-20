@@ -91,6 +91,12 @@ tree. This mirrors production's per-marriage island behavior.
 | Row (generation depth) + visual rank incl. half-ranks | `src/GMO.FamilyTree.Web/Services/TreeLayoutRanking.cs` (server-side, ground truth) |
 | Marriage-tree forest placement | `src/GMO.FamilyTree.Web/wwwroot/js/family-tree.js` (`buildBranchBottomUp`, `getPartnerFamilies`) |
 | Card rendering, orientation wiring | `src/GMO.FamilyTree.Web/wwwroot/js/family-tree.js` |
+| Single-parent (half-sibling) rank-axis alignment | `src/GMO.FamilyTree.Web/wwwroot/js/family-tree.js` (`alignSingleParentBranches`) |
+
+A child with only one listed parent renders under `.ft-partner-unit-single`. Couples
+may be **inferred** from shared children with no explicit `Couple` relationship row
+(production David/Esther). Rank-axis alignment for that card-less unit is a client
+layout concern — see [`tree-layout-orientation.md`](tree-layout-orientation.md#4-single-parent-branch-alignment-alignsingleparentbranches).
 
 The client **must not** re-derive dominance in a way that can disagree with
 the server's `visualRank`. The server's half-rank assignment is the ground
@@ -100,7 +106,7 @@ left-right ordering within a lane).
 
 ---
 
-## Edge cases validated against production (family-dev.goom.life, 2026-07-04)
+## Edge cases validated against production (familytree-dev.goom.life, 2026-07-04)
 
 When in doubt, production is the reference. The 3-gen test tree was inspected
 on family-dev in both lineage modes; observed `data-visual-rank` values are
@@ -165,7 +171,7 @@ orientation × lineage ASCII tables (3-Gen Test Tree).
 
 ## Reference render — marriage-tree forest (Horizontal × Paternal, 3-gen "Default" tree)
 
-Validated against production (family-dev.goom.life, 2026-07-05). The tree is a
+Validated against production (familytree-dev.goom.life, 2026-07-05). The tree is a
 **forest of marriage trees**. Each marriage (or single-parent family) renders
 exactly once as a couple/branch unit; a person who participates in several
 marriages is **duplicated** into each one (`*` below, DOM id

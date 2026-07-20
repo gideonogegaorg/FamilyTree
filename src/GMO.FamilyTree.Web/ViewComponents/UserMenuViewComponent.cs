@@ -1,18 +1,19 @@
 using GMO.FamilyTree.Web.Data;
-using GMO.FamilyTree.Web.Services;
 
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 
 namespace GMO.FamilyTree.Web.ViewComponents;
 
 public sealed class UserMenuViewComponent : ViewComponent
 {
     private readonly AppDbContext _db;
+    private readonly UserManager<IdentityUser> _userManager;
 
-    public UserMenuViewComponent(AppDbContext db)
+    public UserMenuViewComponent(AppDbContext db, UserManager<IdentityUser> userManager)
     {
         _db = db;
+        _userManager = userManager;
     }
 
     public async Task<IViewComponentResult> InvokeAsync()
@@ -26,10 +27,19 @@ public sealed class UserMenuViewComponent : ViewComponent
         var profile = userId != null ? await _db.UserProfiles.FindAsync(userId) : null;
         var hasPhoto = !string.IsNullOrEmpty(profile?.PhotoKey) || !string.IsNullOrEmpty(profile?.PhotoUrl);
 
+        var hasPassword = false;
+        if (userId != null)
+        {
+            var user = await _userManager.FindByIdAsync(userId);
+            if (user != null)
+                hasPassword = await _userManager.HasPasswordAsync(user);
+        }
+
         var model = new UserMenuViewModel
         {
             Email = email,
-            PhotoUrl = hasPhoto ? "/photos/profiles/me" : null
+            PhotoUrl = hasPhoto ? "/photos/profiles/me" : null,
+            HasPassword = hasPassword
         };
         return View("Default", model);
     }

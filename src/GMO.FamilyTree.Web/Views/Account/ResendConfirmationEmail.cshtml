@@ -1,0 +1,26 @@
+@model GMO.FamilyTree.Web.Models.ResendConfirmationViewModel
+@{
+    Layout = "_LayoutLogin";
+    ViewData["Title"] = "Resend confirmation";
+}
+
+<div class="ft-auth-card mx-auto">
+    <h1 class="ft-page-title">Resend confirmation</h1>
+    <p class="ft-auth-subtitle">Enter your email and we will send another confirmation link if the account is unconfirmed.</p>
+    <form asp-action="ResendConfirmationEmail" method="post">
+        <div asp-validation-summary="ModelOnly" class="text-danger mb-2" role="alert"></div>
+        <div class="mb-3">
+            <label asp-for="Email" class="form-label"></label>
+            <input asp-for="Email" class="form-control" autocomplete="username" />
+            <span asp-validation-for="Email" class="text-danger"></span>
+        </div>
+        <button type="submit" class="btn btn-primary w-100 mb-2">Resend</button>
+    </form>
+    <p class="mb-0 text-center small">
+        <a asp-action="Login">Back to sign in</a>
+    </p>
+</div>
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+}

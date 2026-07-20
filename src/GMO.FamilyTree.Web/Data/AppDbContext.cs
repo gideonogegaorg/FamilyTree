@@ -15,6 +15,8 @@ public class AppDbContext : IdentityDbContext<IdentityUser>
     public DbSet<FamilyMember> FamilyMembers => Set<FamilyMember>();
     public DbSet<FamilyMemberRelationship> FamilyMemberRelationships => Set<FamilyMemberRelationship>();
     public DbSet<UserProfile> UserProfiles => Set<UserProfile>();
+    public DbSet<FamilyTreeAccess> FamilyTreeAccesses => Set<FamilyTreeAccess>();
+    public DbSet<FamilyTreeInvite> FamilyTreeInvites => Set<FamilyTreeInvite>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -39,6 +41,9 @@ public class AppDbContext : IdentityDbContext<IdentityUser>
             e.Property(x => x.Name).HasMaxLength(200).IsRequired();
             e.Property(x => x.NickName).HasMaxLength(100);
             e.Property(x => x.UserId).HasMaxLength(450);
+            e.ToTable(t => t.HasCheckConstraint(
+                "CK_FamilyMember_DOD_After_DOB",
+                "\"DOD\" IS NULL OR \"DOB\" IS NULL OR \"DOD\" >= \"DOB\""));
             e.HasOne(x => x.FamilyTree)
                 .WithMany(x => x.Members)
                 .HasForeignKey(x => x.FamilyTreeId)
@@ -74,6 +79,38 @@ public class AppDbContext : IdentityDbContext<IdentityUser>
             e.Property(x => x.PhotoUrl).HasMaxLength(500);
             e.Property(x => x.TreeViewOrientation).HasConversion<int>();
             e.Property(x => x.LineageMode).HasConversion<int>();
+        });
+        modelBuilder.Entity<FamilyTreeAccess>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => new { x.FamilyTreeId, x.UserId }).IsUnique();
+            e.HasIndex(x => x.UserId);
+            e.Property(x => x.UserId).HasMaxLength(450).IsRequired();
+            e.Property(x => x.GrantedByUserId).HasMaxLength(450).IsRequired();
+            e.Property(x => x.Role).HasConversion<int>();
+            e.HasOne(x => x.FamilyTree)
+                .WithMany(x => x.AccessGrants)
+                .HasForeignKey(x => x.FamilyTreeId)
+                .OnDelete(DeleteBehavior.Cascade);
+            e.HasOne(x => x.User)
+                .WithMany()
+                .HasForeignKey(x => x.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+        modelBuilder.Entity<FamilyTreeInvite>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.HasIndex(x => x.Token).IsUnique();
+            e.HasIndex(x => x.FamilyTreeId);
+            e.Property(x => x.Token).HasMaxLength(64).IsRequired();
+            e.Property(x => x.Email).HasMaxLength(256);
+            e.Property(x => x.CreatedByUserId).HasMaxLength(450).IsRequired();
+            e.Property(x => x.AcceptedByUserId).HasMaxLength(450);
+            e.Property(x => x.Role).HasConversion<int>();
+            e.HasOne(x => x.FamilyTree)
+                .WithMany(x => x.Invites)
+                .HasForeignKey(x => x.FamilyTreeId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
     }
 }

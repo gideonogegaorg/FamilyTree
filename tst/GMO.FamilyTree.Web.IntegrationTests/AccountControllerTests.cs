@@ -48,6 +48,7 @@ public class AccountControllerTests : IClassFixture<WebAppFixture>
         response.EnsureSuccessStatusCode();
         var html = await response.Content.ReadAsStringAsync();
         Assert.Contains("Sign in", html);
+        Assert.Contains("Sign up", html);
     }
 
 
@@ -85,11 +86,13 @@ public class AccountControllerTests : IClassFixture<WebAppFixture>
 
         // Assert
         Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        Assert.Contains("RegisterConfirmation", response.Headers.Location?.ToString());
         using (var scope = _fixture.CreateScope())
         {
             var db = _fixture.GetDbContext(scope);
             var user = await db.Users.SingleOrDefaultAsync(u => u.Email == email);
             Assert.NotNull(user);
+            Assert.False(user.EmailConfirmed);
             var userId = user.Id;
             var tree = await db.FamilyTrees.SingleOrDefaultAsync(t => t.OwnerId == userId && t.Name == "Default");
             Assert.NotNull(tree);
@@ -106,14 +109,7 @@ public class AccountControllerTests : IClassFixture<WebAppFixture>
         var client = _fixture.CreateClient(signIn: false);
         var email = "login-" + Guid.NewGuid().ToString("N")[..8] + "@example.com";
         var password = "TestPassword1!";
-        var regToken = await GetAntiforgeryTokenAsync(client, "/Account/Register");
-        await client.PostAsync("/Account/Register", new FormUrlEncodedContent(new Dictionary<string, string>
-        {
-            ["Email"] = email,
-            ["Password"] = password,
-            ["ConfirmPassword"] = password,
-            ["__RequestVerificationToken"] = regToken
-        }));
+        await RegisterAndConfirmAsync(client, email, password);
         client = _fixture.CreateClient(signIn: false);
         var loginToken = await GetAntiforgeryTokenAsync(client, "/Account/Login");
         var form = new Dictionary<string, string>
@@ -138,14 +134,7 @@ public class AccountControllerTests : IClassFixture<WebAppFixture>
         var client = _fixture.CreateClient(signIn: false);
         var email = "existing-" + Guid.NewGuid().ToString("N")[..8] + "@example.com";
         var password = "TestPassword1!";
-        var regToken = await GetAntiforgeryTokenAsync(client, "/Account/Register");
-        await client.PostAsync("/Account/Register", new FormUrlEncodedContent(new Dictionary<string, string>
-        {
-            ["Email"] = email,
-            ["Password"] = password,
-            ["ConfirmPassword"] = password,
-            ["__RequestVerificationToken"] = regToken
-        }));
+        await RegisterAndConfirmAsync(client, email, password);
         client = _fixture.CreateClient(signIn: false);
         var loginToken = await GetAntiforgeryTokenAsync(client, "/Account/Login");
         var form = new Dictionary<string, string>
@@ -165,7 +154,7 @@ public class AccountControllerTests : IClassFixture<WebAppFixture>
     }
 
     [Fact]
-    public async Task SignOut_POST_signs_out_and_redirects_to_Home()
+    public async Task SignOut_POST_signs_out_and_redirects_to_landing()
     {
         // Arrange
         var token = await GetAntiforgeryTokenAsync(_client, "/FamilyTree");
@@ -177,7 +166,7 @@ public class AccountControllerTests : IClassFixture<WebAppFixture>
         // Assert
         Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
         Assert.NotNull(response.Headers.Location);
-        Assert.StartsWith("/", response.Headers.Location.ToString());
+        Assert.Equal("/", response.Headers.Location!.ToString());
     }
 
     [Fact]
@@ -201,14 +190,7 @@ public class AccountControllerTests : IClassFixture<WebAppFixture>
         // Arrange
         var client = _fixture.CreateClient(signIn: false);
         var email = "forgot-" + Guid.NewGuid().ToString("N")[..8] + "@example.com";
-        var regToken = await GetAntiforgeryTokenAsync(client, "/Account/Register");
-        await client.PostAsync("/Account/Register", new FormUrlEncodedContent(new Dictionary<string, string>
-        {
-            ["Email"] = email,
-            ["Password"] = "TestPassword1!",
-            ["ConfirmPassword"] = "TestPassword1!",
-            ["__RequestVerificationToken"] = regToken
-        }));
+        await RegisterAndConfirmAsync(client, email, "TestPassword1!");
         client = _fixture.CreateClient(signIn: false);
         var token = await GetAntiforgeryTokenAsync(client, "/Account/ForgotPassword");
         var form = new Dictionary<string, string>
@@ -371,7 +353,7 @@ public class AccountControllerTests : IClassFixture<WebAppFixture>
     public async Task UploadPhoto_POST_without_file_returns_json_error()
     {
         // Arrange
-        var token = await GetAntiforgeryTokenAsync(_client, "/");
+        var token = await GetAntiforgeryTokenAsync(_client, "/Home/Index");
         using var request = new HttpRequestMessage(HttpMethod.Post, "/Account/UploadPhoto");
         request.Headers.Add("Accept", "application/json");
         request.Headers.Add("X-Requested-With", "XMLHttpRequest");
@@ -392,9 +374,18 @@ public class AccountControllerTests : IClassFixture<WebAppFixture>
     [Fact]
     public async Task UploadPhoto_POST_with_valid_image_returns_json_success()
     {
+        // Arrange: ensure signed-in user has a tree so /Home/Index renders the profile form
+        var createToken = await GetAntiforgeryTokenAsync(_client, "/FamilyTree/Create");
+        await _client.PostAsync("/FamilyTree/Create", new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["Name"] = "UploadPhotoTest " + Guid.NewGuid().ToString("N")[..6],
+            ["Uid"] = Guid.NewGuid().ToString(),
+            ["__RequestVerificationToken"] = createToken
+        }));
+
         // Arrange: minimal PNG (1x1)
         var pngBytes = new byte[] { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x02, 0x00, 0x00, 0x00, 0x90, 0x77, 0x53, 0xDE, 0x00, 0x00, 0x00, 0x0C, 0x49, 0x44, 0x41, 0x54, 0x08, 0xD7, 0x63, 0xF8, 0xFF, 0xFF, 0x3F, 0x00, 0x05, 0xFE, 0x02, 0xFE, 0xDC, 0xCC, 0x59, 0xE7, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82 };
-        var token = await GetAntiforgeryTokenAsync(_client, "/");
+        var token = await GetAntiforgeryTokenAsync(_client, "/Home/Index");
         using var content = new MultipartFormDataContent();
         content.Add(new StringContent(token), "__RequestVerificationToken");
         content.Add(new ByteArrayContent(pngBytes), "photo", "photo.png");
@@ -414,7 +405,7 @@ public class AccountControllerTests : IClassFixture<WebAppFixture>
     }
 
     [Fact]
-    public async Task SwitchFamilyTree_POST_redirects_to_Home()
+    public async Task SwitchFamilyTree_POST_redirects_to_Home_Index()
     {
         // Arrange: ensure signed-in user has a tree (create one), then switch to it
         var createToken = await GetAntiforgeryTokenAsync(_client, "/FamilyTree/Create");
@@ -428,7 +419,11 @@ public class AccountControllerTests : IClassFixture<WebAppFixture>
         using (var scope = _fixture.CreateScope())
         {
             var db = _fixture.GetDbContext(scope);
-            var tree = await db.FamilyTrees.FirstOrDefaultAsync();
+            var testUser = await db.Users.SingleAsync(u => u.Email == Controllers.TestAuthController.TestUserEmail);
+            var tree = await db.FamilyTrees
+                .Where(t => t.OwnerId == testUser.Id)
+                .OrderByDescending(t => t.Id)
+                .FirstOrDefaultAsync();
             Assert.NotNull(tree);
             treeId = tree.Id;
         }
@@ -445,7 +440,25 @@ public class AccountControllerTests : IClassFixture<WebAppFixture>
         // Assert
         Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
         Assert.NotNull(response.Headers.Location);
-        Assert.StartsWith("/", response.Headers.Location.ToString());
+        Assert.Contains("/Home/Index", response.Headers.Location.ToString(), StringComparison.OrdinalIgnoreCase);
+    }
+
+    private async Task RegisterAndConfirmAsync(HttpClient client, string email, string password)
+    {
+        var regToken = await GetAntiforgeryTokenAsync(client, "/Account/Register");
+        await client.PostAsync("/Account/Register", new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["Email"] = email,
+            ["Password"] = password,
+            ["ConfirmPassword"] = password,
+            ["__RequestVerificationToken"] = regToken
+        }));
+
+        using var scope = _fixture.CreateScope();
+        var db = _fixture.GetDbContext(scope);
+        var user = await db.Users.SingleAsync(u => u.Email == email);
+        user.EmailConfirmed = true;
+        await db.SaveChangesAsync();
     }
 
     private static async Task<string> GetAntiforgeryTokenAsync(HttpClient client, string pageUrl)

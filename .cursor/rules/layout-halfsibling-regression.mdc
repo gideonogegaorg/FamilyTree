@@ -1,0 +1,14 @@
+---
+description: Half-sibling / single-parent layout alignment regression caveats
+globs: **/family-tree.js,**/LayoutOrientationTests.cs,**/seed_trees.sql,docs/tree-layout*.md
+alwaysApply: false
+---
+
+# Half-sibling layout alignment
+
+When fixing or testing `.ft-partner-unit-single` (child known to only one parent):
+
+- **Do not rely on the 3-Gen Test Tree alone** to prove `alignSingleParentBranches`. That tree has half-ranks elsewhere, so `insertHalfRankSpacers` can mask the single-parent offset bug.
+- Use the isolated **Half-Sibling Alignment Tree** (seed tree **5**, members 90–94, **no half-ranks**) — `LayoutOrientationTests.HalfSibling_HalfChildAlignsWithFullSiblings` fails without the JS fix.
+- When applying measured rank-axis offsets in JS, **add** to `getComputedStyle(...).marginTop/marginLeft`; replacing the margin drops the CSS drop-line gap (~24px residual in horizontal).
+- Couples may be inferred from shared children with no `Couple` row — match production when recreating scenarios.

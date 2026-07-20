@@ -1,0 +1,260 @@
+@model GMO.FamilyTree.Web.Models.ShareManageViewModel
+@using GMO.FamilyTree.Web.Data
+@{
+    ViewData["Title"] = "Share " + Model.TreeName;
+}
+<h1 class="ft-page-title">Share “@Model.TreeName”</h1>
+<p class="ft-page-lead">
+    Invite people by link or email. Recipients must sign in before they can access the tree.
+    Only you (the owner) can manage sharing.
+    &middot;
+    <a asp-controller="Home" asp-action="Index" class="ft-link">Back to tree</a>
+</p>
+
+@if (!string.IsNullOrEmpty(Model.StatusMessage))
+{
+    <div class="alert alert-success" role="status">@Model.StatusMessage</div>
+}
+@if (!string.IsNullOrEmpty(Model.CreatedLinkUrl))
+{
+    <div class="alert alert-info">
+        <label class="form-label fw-semibold" for="created-share-link">Share link</label>
+        <div class="input-group">
+            <input type="text" class="form-control" id="created-share-link" value="@Model.CreatedLinkUrl" readonly />
+            <button type="button" class="btn btn-outline-secondary" id="copy-share-link">Copy</button>
+        </div>
+    </div>
+}
+
+<div class="row g-4">
+    <div class="col-lg-6">
+        <h2 class="h5">Create link invite</h2>
+        <form asp-action="CreateLinkInvite" method="post">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="treeId" value="@Model.TreeId" />
+            <div class="mb-3">
+                <label class="form-label" for="link-role">Role</label>
+                <select class="form-select" id="link-role" name="createLink.Role" asp-for="CreateLink.Role" asp-items="Html.GetEnumSelectList<TreeShareRole>()"></select>
+            </div>
+            <div class="mb-3">
+                <label class="form-label" for="link-expires">Expires in days (optional)</label>
+                <input class="form-control" id="link-expires" type="number" min="1" name="createLink.ExpiresInDays" value="@Model.CreateLink.ExpiresInDays" />
+            </div>
+            <button type="submit" class="btn btn-primary">Create link</button>
+        </form>
+    </div>
+    <div class="col-lg-6">
+        <h2 class="h5">Invite by email</h2>
+        <form asp-action="CreateEmailInvite" method="post">
+            @Html.AntiForgeryToken()
+            <input type="hidden" name="treeId" value="@Model.TreeId" />
+            <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+            <div class="mb-3">
+                <label class="form-label" for="email-to">Email</label>
+                <input class="form-control" id="email-to" type="email" name="createEmail.Email" value="@Model.CreateEmail.Email" required />
+                <span asp-validation-for="CreateEmail.Email" class="text-danger"></span>
+            </div>
+            <div class="mb-3">
+                <label class="form-label" for="email-role">Role</label>
+                <select class="form-select" id="email-role" name="createEmail.Role" asp-for="CreateEmail.Role" asp-items="Html.GetEnumSelectList<TreeShareRole>()"></select>
+            </div>
+            <div class="mb-3">
+                <label class="form-label" for="email-expires">Expires in days (optional)</label>
+                <input class="form-control" id="email-expires" type="number" min="1" name="createEmail.ExpiresInDays" value="@Model.CreateEmail.ExpiresInDays" />
+            </div>
+            <button type="submit" class="btn btn-primary">Send invite</button>
+        </form>
+    </div>
+</div>
+
+<hr class="my-4" />
+
+<h2 class="h5">People with access</h2>
+@if (Model.Collaborators.Count == 0)
+{
+    <p class="text-muted">No collaborators yet.</p>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table share-manage-table">
+            <thead>
+                <tr>
+                    <th>Email</th>
+                    <th>Role</th>
+                    <th>Granted</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+            @foreach (var c in Model.Collaborators)
+            {
+                <tr>
+                    <td class="text-break">@c.Email</td>
+                    <td>
+                        <form asp-action="ChangeRole" method="post" class="d-inline-flex gap-2 align-items-center">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="treeId" value="@Model.TreeId" />
+                            <input type="hidden" name="collaboratorUserId" value="@c.UserId" />
+                            <label class="visually-hidden" for="role-@c.UserId">Role for @c.Email</label>
+                            <select class="form-select form-select-sm" id="role-@c.UserId" name="role" onchange="this.form.submit()">
+                                @foreach (TreeShareRole roleOption in Enum.GetValues<TreeShareRole>())
+                                {
+                                    if (c.Role == roleOption)
+                                    {
+                                        <option value="@((int)roleOption)" selected>@roleOption</option>
+                                    }
+                                    else
+                                    {
+                                        <option value="@((int)roleOption)">@roleOption</option>
+                                    }
+                                }
+                            </select>
+                        </form>
+                    </td>
+                    <td>@c.GrantedAt.ToLocalTime().ToString("g")</td>
+                    <td>
+                        <form asp-action="RemoveCollaborator" method="post" class="d-inline">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="treeId" value="@Model.TreeId" />
+                            <input type="hidden" name="collaboratorUserId" value="@c.UserId" />
+                            <button type="submit" class="btn btn-sm btn-outline-danger">Remove</button>
+                        </form>
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+}
+
+<h2 class="h5 mt-4">Pending invites</h2>
+@if (Model.PendingInvites.Count == 0)
+{
+    <p class="text-muted">No pending invites.</p>
+}
+else
+{
+    <div class="share-invite-cards d-md-none">
+        @foreach (var invite in Model.PendingInvites)
+        {
+            <div class="share-invite-card">
+                <div class="share-invite-card-type text-break">
+                    @if (invite.IsLink)
+                    {
+                        <span class="fw-semibold">Link</span>
+                        <div class="small"><code class="text-break">@invite.AcceptUrl</code></div>
+                    }
+                    else
+                    {
+                        <span class="fw-semibold">Email</span>
+                        <div>@invite.Email</div>
+                    }
+                </div>
+                <dl class="share-invite-card-meta">
+                    <div>
+                        <dt>Role</dt>
+                        <dd>@invite.Role</dd>
+                    </div>
+                    <div>
+                        <dt>Created</dt>
+                        <dd>@invite.CreatedAt.ToLocalTime().ToString("g")</dd>
+                    </div>
+                    <div>
+                        <dt>Expires</dt>
+                        <dd>@(invite.ExpiresAt?.ToLocalTime().ToString("g") ?? "—")</dd>
+                    </div>
+                </dl>
+                <div class="share-invite-card-actions">
+                    @if (!invite.IsLink)
+                    {
+                        <form asp-action="ResendInvite" method="post">
+                            @Html.AntiForgeryToken()
+                            <input type="hidden" name="treeId" value="@Model.TreeId" />
+                            <input type="hidden" name="inviteId" value="@invite.Id" />
+                            <button type="submit" class="btn btn-sm btn-outline-secondary">Resend</button>
+                        </form>
+                    }
+                    <form asp-action="RevokeInvite" method="post">
+                        @Html.AntiForgeryToken()
+                        <input type="hidden" name="treeId" value="@Model.TreeId" />
+                        <input type="hidden" name="inviteId" value="@invite.Id" />
+                        <button type="submit" class="btn btn-sm btn-outline-danger">Revoke</button>
+                    </form>
+                </div>
+            </div>
+        }
+    </div>
+
+    <div class="table-responsive d-none d-md-block">
+        <table class="table share-manage-table">
+            <thead>
+                <tr>
+                    <th>Type</th>
+                    <th>Role</th>
+                    <th>Created</th>
+                    <th>Expires</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+            @foreach (var invite in Model.PendingInvites)
+            {
+                <tr>
+                    <td>
+                        @if (invite.IsLink)
+                        {
+                            <span>Link</span>
+                            <div class="small text-break"><code>@invite.AcceptUrl</code></div>
+                        }
+                        else
+                        {
+                            <div class="text-break"><span class="text-nowrap">Email:</span> @invite.Email</div>
+                        }
+                    </td>
+                    <td>@invite.Role</td>
+                    <td>@invite.CreatedAt.ToLocalTime().ToString("g")</td>
+                    <td>@(invite.ExpiresAt?.ToLocalTime().ToString("g") ?? "—")</td>
+                    <td>
+                        <div class="d-flex flex-wrap gap-1 justify-content-md-end">
+                            @if (!invite.IsLink)
+                            {
+                                <form asp-action="ResendInvite" method="post">
+                                    @Html.AntiForgeryToken()
+                                    <input type="hidden" name="treeId" value="@Model.TreeId" />
+                                    <input type="hidden" name="inviteId" value="@invite.Id" />
+                                    <button type="submit" class="btn btn-sm btn-outline-secondary">Resend</button>
+                                </form>
+                            }
+                            <form asp-action="RevokeInvite" method="post">
+                                @Html.AntiForgeryToken()
+                                <input type="hidden" name="treeId" value="@Model.TreeId" />
+                                <input type="hidden" name="inviteId" value="@invite.Id" />
+                                <button type="submit" class="btn btn-sm btn-outline-danger">Revoke</button>
+                            </form>
+                        </div>
+                    </td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+}
+
+@section Scripts {
+    <partial name="_ValidationScriptsPartial" />
+    <script>
+        document.getElementById('copy-share-link')?.addEventListener('click', async function () {
+            const input = document.getElementById('created-share-link');
+            if (!input) return;
+            try {
+                await navigator.clipboard.writeText(input.value);
+                this.textContent = 'Copied';
+            } catch {
+                input.select();
+                document.execCommand('copy');
+                this.textContent = 'Copied';
+            }
+        });
+    </script>
+}

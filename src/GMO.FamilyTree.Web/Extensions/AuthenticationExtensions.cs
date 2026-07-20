@@ -39,6 +39,7 @@ public static class AuthenticationExtensions
         services
             .AddIdentity<IdentityUser, IdentityRole>(options =>
             {
+                options.SignIn.RequireConfirmedEmail = true;
                 options.Password.RequireDigit = true;
                 options.Password.RequireLowercase = true;
                 options.Password.RequireUppercase = true;

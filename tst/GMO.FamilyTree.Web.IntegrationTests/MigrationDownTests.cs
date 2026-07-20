@@ -18,7 +18,7 @@ namespace GMO.FamilyTree.Web.IntegrationTests;
 /// </summary>
 public sealed class MigrationDownTests
 {
-    private const string BaseConnectionString = "Host=localhost;Port=5432;Username=family;Password=family";
+    private const string BaseConnectionString = "Host=localhost;Port=5432;Username=familytree;Password=familytree";
 
     [Fact]
     public async Task MigrateDown_to_zero_succeeds_and_leaves_db_empty()

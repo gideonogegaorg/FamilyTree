@@ -52,7 +52,7 @@ public class LayoutOrientationTests : IAsyncLifetime
 
     private async Task GotoTreeAndWaitForGraphAsync()
     {
-        await _page.GotoAsync(_fixture.ServerAddress + "/");
+        await _page.GotoAsync(_fixture.ServerAddress + AppFixture.TreePagePath);
         await _page.Locator("#family-tree-graph .family-tree-card").First.WaitForAsync();
     }
 
@@ -64,8 +64,7 @@ public class LayoutOrientationTests : IAsyncLifetime
         var btn = ToolbarPill(buttonText);
         await btn.WaitForAsync();
         await btn.ClickAsync();
-        await _page.WaitForURLAsync(_fixture.ServerAddress + "/");
-        await _page.Locator("#family-tree-graph .family-tree-card").First.WaitForAsync();
+        await WaitForTreeGraphReadyAsync();
     }
 
     private async Task EnsureOrientationAsync(string orientation)
@@ -102,7 +101,20 @@ public class LayoutOrientationTests : IAsyncLifetime
         await _page.Locator(".ft-tree-picker-btn").ClickAsync();
         await _page.Locator(".ft-tree-picker-menu").WaitForAsync(new() { State = WaitForSelectorState.Visible });
         await _page.Locator(".ft-tree-picker-item").Filter(new() { HasText = treeName }).ClickAsync();
-        await _page.WaitForURLAsync(_fixture.ServerAddress + "/");
+        await WaitForTreeGraphReadyAsync();
+    }
+
+    private async Task WaitForTreeGraphReadyAsync()
+    {
+        await _page.Locator("#family-tree-graph, .ft-empty-state-title").First.WaitForAsync();
+        try
+        {
+            await _page.Locator("#family-tree-graph .family-tree-card").First.WaitForAsync(new() { Timeout = 5000 });
+        }
+        catch (TimeoutException)
+        {
+            await _page.Locator("text=Your family tree is empty").WaitForAsync();
+        }
     }
 
     private async Task PrepareForSameSexTestAsync(LineageMode mode)
@@ -710,6 +722,55 @@ public class LayoutOrientationTests : IAsyncLifetime
             $"Wife2 Only Child island (X={wife2Box.X}) should not share column with Cousin 3 (X={cousin3Box.X})");
         Assert.True(wife2Box.X > cousin3Box.X,
             $"Wife2 Only Child island (X={wife2Box.X}) should be to the right of Cousin 3 (X={cousin3Box.X})");
+    }
+
+    [Theory]
+    [InlineData("Vertical", "Y")]
+    [InlineData("Horizontal", "X")]
+    public async Task ColumnLayout_FBSoloChildAlignsWithCousinsAtRank2(string orientation, string alignmentAxis)
+    {
+        // Broader structural coverage for a half-sibling (card-less ".ft-partner-unit-single")
+        // alongside a full-sibling ".ft-partner-unit". "FB Solo Child" is Fathers Brother's only
+        // child with no listed second parent; it must share Rank 2 with Cousin 1/2. Note: the "3-Gen
+        // Test Tree" has half-ranks elsewhere, so insertHalfRankSpacers()'s spacer mechanism alone can
+        // also keep this aligned - see HalfSibling_HalfChildAlignsWithFullSiblings below for a test
+        // isolated to alignSingleParentBranches() specifically (the fix from this change).
+        await AuthenticateAsync();
+        await GotoTreeAndWaitForGraphAsync();
+        await EnsureOrientationAsync(orientation);
+        await EnsureLineageModeAsync(LineageMode.Paternal);
+
+        await AssertVisualRankAsync("FB Solo Child", "2");
+        await AssertVisualRankAsync("Cousin 1", "2");
+        await AssertVisualRankAsync("Cousin 2", "2");
+
+        var boxes = await GetBoxesAsync(new[] { "FB Solo Child", "Cousin 1", "Cousin 2" });
+        AssertAlignment(boxes, "Rank2 (FB Solo Child + Cousins)", alignmentAxis, tolerance: 30f);
+    }
+
+    [Theory]
+    [InlineData("Vertical", "Y")]
+    [InlineData("Horizontal", "X")]
+    public async Task HalfSibling_HalfChildAlignsWithFullSiblings(string orientation, string alignmentAxis)
+    {
+        // Direct regression for the production bug: Ray (known only to David, not Esther) rendered
+        // out of alignment with full siblings Eve/Gideon. "Half-Sibling Alignment Tree" reproduces
+        // that scenario in isolation - HS Father/HS Mother are a couple inferred only from shared
+        // children (no explicit Couple row, like David/Esther), and HS Half Child has HS Father as
+        // its only listed parent. Crucially this tree has NO half-rank members anywhere, so
+        // insertHalfRankSpacers() never activates; only alignSingleParentBranches() in family-tree.js
+        // can correct HS Half Child's position here, so this test fails without that fix.
+        await AuthenticateAsync();
+        await GotoTreeAndWaitForGraphAsync();
+        await SwitchToTreeByNameAsync("Half-Sibling Alignment Tree");
+        await EnsureOrientationAsync(orientation);
+
+        await AssertVisualRankAsync("HS Half Child", "1");
+        await AssertVisualRankAsync("HS Child A", "1");
+        await AssertVisualRankAsync("HS Child B", "1");
+
+        var boxes = await GetBoxesAsync(new[] { "HS Half Child", "HS Child A", "HS Child B" });
+        AssertAlignment(boxes, "Rank1 (HS Half Child + full siblings)", alignmentAxis, tolerance: 30f);
     }
 
     [Fact]

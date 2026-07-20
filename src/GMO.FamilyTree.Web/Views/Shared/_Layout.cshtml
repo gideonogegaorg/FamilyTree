@@ -9,16 +9,19 @@
         <meta name="robots" content="noindex, nofollow" />
     }
     <title>@(ViewData["PageTitle"] ?? ViewData["Title"] + " - Family Tree")</title>
+    <link rel="icon" href="~/favicon.svg" type="image/svg+xml" asp-append-version="true" />
+    <link rel="icon" href="~/favicon.ico" sizes="any" asp-append-version="true" />
+    <link rel="apple-touch-icon" href="~/images/apple-touch-icon.png" asp-append-version="true" />
     <script type="importmap"></script>
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/GMO.FamilyTree.Web.styles.css" asp-append-version="true" />
 </head>
-<body>
-    <header>
+<body class="ft-site-body">
+    <header class="ft-site-header">
         <nav class="navbar navbar-expand-sm navbar-toggleable-sm ft-navbar border-bottom mb-3">
             <div class="container-fluid">
-                <a class="navbar-brand" asp-area="" asp-controller="Home" asp-action="Index">Family Tree</a>
+                <a class="navbar-brand" asp-area="" asp-controller="Home" asp-action="@(User.Identity?.IsAuthenticated == true ? "Index" : "Landing")">Family Tree</a>
                 <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target=".navbar-collapse" aria-controls="navbarSupportedContent"
                         aria-expanded="false" aria-label="Toggle navigation">
                     <span class="navbar-toggler-icon"></span>
@@ -31,8 +34,8 @@
             </div>
         </nav>
     </header>
-    <div class="container" style="flex:1;display:flex;flex-direction:column">
-        <main role="main" class="pb-3" style="flex:1;display:flex;flex-direction:column">
+    <div class="container ft-site-content">
+        <main role="main" class="ft-site-main pb-3">
             @if (ViewData["BareMain"] as bool? == true)
             {
                 @RenderBody()
@@ -48,7 +51,7 @@
         </main>
     </div>
 
-    <footer class="border-top footer text-muted">
+    <footer class="ft-site-footer border-top text-muted">
         <div class="container">
             @{
                 var fullVersion = System.Reflection.Assembly.GetExecutingAssembly().GetCustomAttribute<System.Reflection.AssemblyInformationalVersionAttribute>()?.InformationalVersion ?? "0.0.0";
@@ -68,6 +71,7 @@
     <script src="~/lib/jquery/dist/jquery.min.js"></script>
     <script src="~/lib/bootstrap/dist/js/bootstrap.bundle.min.js"></script>
     <script src="~/js/site.js" asp-append-version="true"></script>
+    <script src="~/js/flex-date.js" asp-append-version="true"></script>
     <script src="~/js/profile-photo.js" asp-append-version="true"></script>
     @await RenderSectionAsync("Scripts", required: false)
 </body>

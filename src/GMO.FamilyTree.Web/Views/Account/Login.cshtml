@@ -2,7 +2,7 @@
 @{
     Layout = "_LayoutLogin";
     ViewData["Title"] = "Log in";
-    var returnUrl = ViewData["ReturnUrl"] as string ?? "/";
+    var returnUrl = ViewData["ReturnUrl"] as string ?? "/Home/Index";
 }
 
 <div class="ft-auth-card mx-auto">
@@ -27,6 +27,13 @@
         </div>
         <button type="submit" class="btn btn-primary w-100 mb-2">Log in</button>
     </form>
+
+    @if (ViewBag.ShowResendConfirmation == true)
+    {
+        <p class="small mb-2">
+            <a asp-action="ResendConfirmationEmail" asp-route-email="@ViewBag.ResendEmail">Resend confirmation email</a>
+        </p>
+    }
 
     <p class="mb-0">
         <a asp-action="ForgotPassword">Forgot your password?</a>

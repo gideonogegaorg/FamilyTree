@@ -133,9 +133,9 @@ public class PhotoStoragePathsTests
     [Theory]
     [InlineData(null, "members/1/2.jpg", "members/1/2.jpg")]
     [InlineData("", "members/1/2.jpg", "members/1/2.jpg")]
-    [InlineData("family/dev", "members/1/2.jpg", "family/dev/members/1/2.jpg")]
-    [InlineData("family/dev/", "profiles/u.png", "family/dev/profiles/u.png")]
-    [InlineData("/family/prod/", "members/1/2.jpg", "family/prod/members/1/2.jpg")]
+    [InlineData("familytree/dev", "members/1/2.jpg", "familytree/dev/members/1/2.jpg")]
+    [InlineData("familytree/dev/", "profiles/u.png", "familytree/dev/profiles/u.png")]
+    [InlineData("/familytree/prod/", "members/1/2.jpg", "familytree/prod/members/1/2.jpg")]
     public void ToStorageKey_applies_prefix(string? prefix, string logicalKey, string expected)
     {
         Assert.Equal(expected, PhotoStoragePaths.ToStorageKey(prefix, logicalKey));
@@ -156,7 +156,7 @@ public class LocalPhotoStorageServiceTests
             var options = Microsoft.Extensions.Options.Options.Create(new PhotosOptions
             {
                 LocalBasePath = "photos",
-                StoragePrefix = "family/local"
+                StoragePrefix = "familytree/local"
             });
             var service = new LocalPhotoStorageService(envMock.Object, options);
             var key = "members/1/2.png";
@@ -164,7 +164,7 @@ public class LocalPhotoStorageServiceTests
             await using (var ms = new MemoryStream(bytes))
                 await service.SaveAsync(key, ms, "image/png");
 
-            var expectedPath = Path.Combine(root, "photos", "family", "local", "members", "1", "2.png");
+            var expectedPath = Path.Combine(root, "photos", "familytree", "local", "members", "1", "2.png");
             Assert.True(File.Exists(expectedPath));
 
             var result = await service.GetAsync(key);
@@ -188,7 +188,7 @@ public class LocalPhotoStorageServiceTests
     }
 }
 
-public class FamilyTreeAccessServiceTests
+public class FamilyTreeAccessLegacyHelperTests
 {
     [Fact]
     public async Task UserOwnsMember_returns_true_only_for_tree_owner()

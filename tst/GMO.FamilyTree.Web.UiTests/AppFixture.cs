@@ -12,7 +12,9 @@ namespace GMO.FamilyTree.Web.UiTests;
 
 public sealed class AppFixture : WebApplicationFactory<WebAppEntry>, IDisposable
 {
-    private const string BaseConnectionString = "Host=localhost;Port=5432;Username=family;Password=family";
+    public const string TreePagePath = "/Home/Index";
+
+    private const string BaseConnectionString = "Host=localhost;Port=5432;Username=familytree;Password=familytree";
     private string _testDatabaseName = null!;
     private string _testConnectionString = null!;
     private bool _dbDropped;
@@ -68,6 +70,9 @@ public sealed class AppFixture : WebApplicationFactory<WebAppEntry>, IDisposable
         // 2. Now spin up the Kestrel server on a random port for Playwright
         builder.ConfigureWebHost(webHostBuilder =>
         {
+            // Ambient ASPNETCORE_ENVIRONMENT (e.g. Development) must not override Testing,
+            // or TestAuth/SignIn is blocked by the fallback auth policy.
+            webHostBuilder.UseEnvironment("Testing");
             webHostBuilder.UseStaticWebAssets();
             webHostBuilder.UseKestrel();
             webHostBuilder.UseUrls(ServerAddress);
@@ -141,11 +146,18 @@ public sealed class AppFixture : WebApplicationFactory<WebAppEntry>, IDisposable
             if (count4 < 85)
                 throw new InvalidOperationException($"Seed incomplete: expected at least 85 members in tree 4 (large), got {count4}.");
         }
+        await using (var verify5 = new NpgsqlCommand("SELECT COUNT(*) FROM \"FamilyMembers\" WHERE \"FamilyTreeId\" = 5", conn))
+        {
+            var count5 = Convert.ToInt64(await verify5.ExecuteScalarAsync() ?? 0);
+            if (count5 != 5)
+                throw new InvalidOperationException($"Seed incomplete: expected 5 members in tree 5 (half-sibling), got {count5}.");
+        }
     }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseSetting("ConnectionStrings:DefaultConnection", _testConnectionString);
+        builder.UseSetting("Photos:Provider", "Local");
         builder.UseSetting("Telemetry:Otlp:Endpoint", "http://localhost:4317");
 
         // Suppress verbose EF Core and ASP.NET Core Information logs during tests

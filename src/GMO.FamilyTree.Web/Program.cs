@@ -1,7 +1,9 @@
 using System.Diagnostics;
 using System.Net;
 
+using Amazon;
 using Amazon.S3;
+using Amazon.SimpleEmail;
 
 using GMO.FamilyTree.Web;
 using GMO.FamilyTree.Web.Data;
@@ -30,6 +32,10 @@ var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.Configure<PathsOptions>(builder.Configuration.GetSection("Paths"));
 builder.Services.Configure<PhotosOptions>(builder.Configuration.GetSection("Photos"));
+builder.Services.Configure<EmailOptions>(builder.Configuration.GetSection(EmailOptions.SectionName));
+builder.Services.Configure<EmailRateLimitOptions>(builder.Configuration.GetSection(EmailRateLimitOptions.SectionName));
+builder.Services.AddMemoryCache();
+builder.Services.AddSingleton<IEmailRateLimiter, EmailRateLimiter>();
 
 var photosProvider = builder.Configuration["Photos:Provider"] ?? "Local";
 if (photosProvider.Equals("S3", StringComparison.OrdinalIgnoreCase))
@@ -122,15 +128,13 @@ if (telemetryOptions.Enabled && hasOtlpEndpoint)
 
 builder.Services.AddMetrics(otelBuilder, telemetryOptions, _ => { });
 
-// PostgreSQL data source with OpenTelemetry enrichment (statements + parameters).
+// PostgreSQL data source with OpenTelemetry enrichment (SQL text only — never bind parameter values).
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
-    ?? "Host=localhost;Port=5432;Database=family;Username=family;Password=family";
+    ?? "Host=localhost;Port=5432;Database=familytree;Username=familytree;Password=familytree";
 var dataSourceBuilder = new NpgsqlDataSourceBuilder(connectionString);
 dataSourceBuilder.ConfigureTracing(o => o.ConfigureCommandEnrichmentCallback((activity, cmd) =>
 {
     activity?.SetTag("db.statement", cmd.CommandText);
-    foreach (NpgsqlParameter p in cmd.Parameters)
-        activity?.SetTag($"db.query.parameter.{p.ParameterName}", p.Value?.ToString() ?? "(null)");
 }));
 var npgsqlDataSource = dataSourceBuilder.Build();
 builder.Services.AddSingleton(npgsqlDataSource);
@@ -143,13 +147,35 @@ builder.Services.AddHealthChecks()
 
 // Add services to the container.
 builder.Services.AddControllersWithViews();
-builder.Services.AddScoped<IEmailSender, LoggingEmailSender>();
+
+builder.Services.AddDataProtection();
+builder.Services.AddSingleton<IEmailLogProtector, EmailLogProtector>();
+
+var emailProvider = builder.Configuration["Email:Provider"] ?? "Logging";
+if (emailProvider.Equals("Ses", StringComparison.OrdinalIgnoreCase)
+    && !builder.Environment.IsEnvironment("Testing"))
+{
+    builder.Services.AddSingleton<IAmazonSimpleEmailService>(sp =>
+    {
+        var email = sp.GetRequiredService<IOptions<EmailOptions>>().Value;
+        var region = RegionEndpoint.GetBySystemName(
+            string.IsNullOrWhiteSpace(email.Region) ? "us-east-1" : email.Region);
+        return new AmazonSimpleEmailServiceClient(region);
+    });
+    builder.Services.AddScoped<IEmailSender, SesEmailSender>();
+}
+else
+{
+    builder.Services.AddScoped<IEmailSender, LoggingEmailSender>();
+}
+
 builder.Services.AddScoped<ICurrentFamilyTreeService, CurrentFamilyTreeService>();
 builder.Services.AddScoped<IFamilyTreeDeletionService, FamilyTreeDeletionService>();
 builder.Services.AddScoped<ITreeViewOrientationService, TreeViewOrientationService>();
 builder.Services.AddScoped<ILineageModeService, LineageModeService>();
 builder.Services.AddScoped<ITreeCardViewModeService, TreeCardViewModeService>();
 builder.Services.AddScoped<IFamilyTreeAccessService, FamilyTreeAccessService>();
+builder.Services.AddScoped<IFamilyTreeShareService, FamilyTreeShareService>();
 builder.Services.AddScoped<IDefaultFamilyTreeService, DefaultFamilyTreeService>();
 builder.Services.AddScoped<IExternalLoginInfoProvider, SignInManagerExternalLoginInfoProvider>();
 builder.Services.AddDistributedMemoryCache();
@@ -213,6 +239,12 @@ if (!string.IsNullOrWhiteSpace(pathsOptions.Uploads))
 app.MapStaticAssets().AllowAnonymous();
 
 app.MapHealthChecks("/health").AllowAnonymous();
+
+app.MapControllerRoute(
+    name: "landing",
+    pattern: "",
+    defaults: new { controller = "Home", action = "Landing" })
+    .WithStaticAssets();
 
 app.MapControllerRoute(
     name: "default",

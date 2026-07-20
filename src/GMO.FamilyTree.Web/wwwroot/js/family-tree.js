@@ -4,6 +4,9 @@
     var container = document.getElementById('family-tree-graph');
     if (!container) return;
 
+    var isDemo = container.getAttribute('data-demo') === 'true';
+    var canEdit = !isDemo && container.getAttribute('data-can-edit') !== 'false';
+
     var orientation = (container.getAttribute('data-orientation') || 'Horizontal').toString();
     if (orientation === 'Horizontal' || orientation === '0') container.classList.add('ft-orientation-horizontal');
 
@@ -35,16 +38,20 @@
         var id = toId(n.id);
         nodeById[id] = {
             id: id,
+            name: (n.name || '').toString(),
+            nickName: (n.nickName || '').toString(),
             label: (n.label || '').toString(),
             isMe: !!n.isMe,
             isMale: !!n.isMale,
             dob: n.dob,
+            dod: n.dod,
             birthOrder: n.birthOrder != null ? toId(n.birthOrder) : null,
             visualRank: n.visualRank != null ? parseFloat(n.visualRank) : 0,
             parentIds: (n.parentIds || []).map(toId),
             childIds: (n.childIds || []).map(toId),
             partnerIds: (n.partnerIds || []).map(toId),
-            hasPhoto: !!n.hasPhoto
+            hasPhoto: !!n.hasPhoto,
+            photoUrl: n.photoUrl ? n.photoUrl.toString() : null
         };
     });
 
@@ -169,16 +176,30 @@
     }
 
     function initials(name) {
-        var parts = name.split(/\s+/).filter(Boolean);
+        var parts = String(name || '').split(/\s+/).filter(Boolean);
         if (parts.length >= 2) {
             return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
         }
         return parts[0] ? parts[0].slice(0, 2).toUpperCase() : '?';
     }
 
-    function birthYear(dob) {
-        if (!dob) return null;
-        var s = String(dob);
+    /** Prefer first nickname word for avatar letters; else legal name (not "Name (Nick)"). */
+    function avatarInitials(node) {
+        var nick = (node && node.nickName) ? String(node.nickName).trim() : '';
+        if (nick) {
+            var firstNick = nick.split(/\s+/).filter(Boolean)[0];
+            return initials(firstNick || nick);
+        }
+        var name = (node && node.name) ? String(node.name).trim() : '';
+        if (name) return initials(name);
+        var label = (node && node.label) ? String(node.label).trim() : '';
+        var withoutParen = label.replace(/\s*\([^)]*\)\s*$/, '').trim();
+        return initials(withoutParen || label);
+    }
+
+    function dateYear(date) {
+        if (!date) return null;
+        var s = String(date);
         return s.length >= 4 ? s.substring(0, 4) : s;
     }
 
@@ -216,19 +237,34 @@
         var content = document.createElement('div');
         content.className = 'family-tree-card-content';
 
-        var avatar = document.createElement('button');
-        avatar.type = 'button';
-        avatar.className = 'family-tree-card-avatar member-photo-trigger';
-        avatar.setAttribute('aria-label', 'Add or change picture for ' + node.label);
-        avatar.title = 'Add or change picture';
-        if (node.hasPhoto) {
+        var avatar = document.createElement(isDemo ? 'div' : 'button');
+        if (!isDemo) avatar.type = 'button';
+        avatar.className = 'family-tree-card-avatar' + (isDemo ? '' : ' member-details-trigger');
+        if (!isDemo) {
+            if (canEdit) {
+                avatar.classList.add('member-photo-trigger');
+                avatar.setAttribute('aria-label', 'Add or change picture for ' + node.label);
+                avatar.title = 'Add or change picture';
+            } else {
+                avatar.setAttribute('aria-label', 'View details for ' + node.label);
+            }
+        } else {
+            avatar.setAttribute('aria-hidden', 'true');
+        }
+        if (node.photoUrl) {
+            var img = document.createElement('img');
+            img.src = node.photoUrl;
+            img.alt = '';
+            img.className = 'family-tree-card-photo';
+            avatar.appendChild(img);
+        } else if (node.hasPhoto) {
             var img = document.createElement('img');
             img.src = '/photos/members/' + node.id;
             img.alt = '';
             img.className = 'family-tree-card-photo';
             avatar.appendChild(img);
         } else {
-            avatar.textContent = initials(node.label);
+            avatar.textContent = avatarInitials(node);
         }
 
         var text = document.createElement('div');
@@ -240,11 +276,14 @@
         nameEl.title = node.label;
         text.appendChild(nameEl);
 
-        var year = birthYear(node.dob);
-        if (year) {
+        var birth = dateYear(node.dob);
+        var death = dateYear(node.dod);
+        if (birth || death) {
             var meta = document.createElement('div');
             meta.className = 'family-tree-card-meta';
-            meta.textContent = 'b. ' + year;
+            meta.textContent = birth && death
+                ? birth + '\u2013' + death
+                : birth ? 'b. ' + birth : 'd. ' + death;
             text.appendChild(meta);
         }
 
@@ -259,13 +298,15 @@
         content.appendChild(text);
         card.appendChild(content);
 
-        var trigger = document.createElement('button');
-        trigger.type = 'button';
-        trigger.className = 'member-action-trigger btn btn-sm btn-link p-0';
-        trigger.setAttribute('data-member-id', node.id);
-        trigger.setAttribute('aria-label', 'Actions');
-        trigger.innerHTML = '\u22EE';
-        card.appendChild(trigger);
+        if (!isDemo && canEdit) {
+            var trigger = document.createElement('button');
+            trigger.type = 'button';
+            trigger.className = 'member-action-trigger btn btn-sm btn-link p-0';
+            trigger.setAttribute('data-member-id', node.id);
+            trigger.setAttribute('aria-label', 'Actions');
+            trigger.innerHTML = '\u22EE';
+            card.appendChild(trigger);
+        }
         return card;
     }
 
@@ -296,7 +337,7 @@
             img.className = 'family-tree-card-photo';
             avatar.appendChild(img);
         } else {
-            avatar.textContent = node ? initials(node.label) : '?';
+            avatar.textContent = node ? avatarInitials(node) : '?';
         }
     }
 
@@ -710,19 +751,128 @@
         var panY = 0;
         var minScale = 0.35;
         var maxScale = 2.5;
-        var dragging = false;
+        var DRAG_THRESHOLD = 8;
+        var activePointers = Object.create(null);
+        var pointerCount = 0;
+        var panPointerId = null;
+        var panPending = false;
+        var panActive = false;
+        var panStartX = 0;
+        var panStartY = 0;
         var lastX = 0;
         var lastY = 0;
+        var pinchActive = false;
+        var pinchStartDist = 0;
+        var pinchStartScale = 1;
+        var suppressClick = false;
+        var suppressClickTimer = null;
 
         function applyTransform() {
             worldEl.style.transform = 'translate(' + panX + 'px, ' + panY + 'px) scale(' + scale + ')';
             worldEl.style.transformOrigin = '0 0';
         }
 
-        function shouldPanStart(target) {
+        function clearSuppressClickSoon() {
+            if (suppressClickTimer) clearTimeout(suppressClickTimer);
+            suppressClickTimer = setTimeout(function () {
+                suppressClick = false;
+                suppressClickTimer = null;
+            }, 400);
+        }
+
+        function clearSuppressClickNow() {
+            suppressClick = false;
+            if (suppressClickTimer) {
+                clearTimeout(suppressClickTimer);
+                suppressClickTimer = null;
+            }
+        }
+
+        function isInteractiveTarget(target) {
+            return !!(target.closest('.member-action-trigger') ||
+                target.closest('.ft-expand-down'));
+        }
+
+        function shouldDblClickReset(target) {
             return !target.closest('.family-tree-card') &&
-                !target.closest('.member-action-trigger') &&
-                !target.closest('.ft-expand-down');
+                !isInteractiveTarget(target);
+        }
+
+        function zoomAt(mx, my, newScale) {
+            newScale = Math.min(maxScale, Math.max(minScale, newScale));
+            var ratio = newScale / scale;
+            panX = mx - (mx - panX) * ratio;
+            panY = my - (my - panY) * ratio;
+            scale = newScale;
+            applyTransform();
+        }
+
+        function pointerList() {
+            var list = [];
+            for (var id in activePointers) {
+                if (Object.prototype.hasOwnProperty.call(activePointers, id)) {
+                    list.push(activePointers[id]);
+                }
+            }
+            return list;
+        }
+
+        function distanceBetween(a, b) {
+            var dx = a.x - b.x;
+            var dy = a.y - b.y;
+            return Math.sqrt(dx * dx + dy * dy);
+        }
+
+        function midpointBetween(a, b) {
+            return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+        }
+
+        function setPanningClass(on) {
+            if (on) stageEl.classList.add('ft-panning');
+            else stageEl.classList.remove('ft-panning');
+        }
+
+        function beginPinch() {
+            var pts = pointerList();
+            if (pts.length < 2) return;
+            panPending = false;
+            panActive = false;
+            panPointerId = null;
+            setPanningClass(false);
+            pinchActive = true;
+            pinchStartDist = distanceBetween(pts[0], pts[1]);
+            pinchStartScale = scale;
+            if (pinchStartDist < 1) pinchStartDist = 1;
+        }
+
+        function updatePinch() {
+            var pts = pointerList();
+            if (pts.length < 2 || !pinchActive) return;
+            var dist = distanceBetween(pts[0], pts[1]);
+            var mid = midpointBetween(pts[0], pts[1]);
+            var rect = stageEl.getBoundingClientRect();
+            var mx = mid.x - rect.left;
+            var my = mid.y - rect.top;
+            zoomAt(mx, my, pinchStartScale * (dist / pinchStartDist));
+            suppressClick = true;
+        }
+
+        function endPinchIfNeeded() {
+            if (!pinchActive) return;
+            if (pointerCount >= 2) {
+                beginPinch();
+                return;
+            }
+            pinchActive = false;
+            if (pointerCount === 1) {
+                var pts = pointerList();
+                panPointerId = pts[0].id;
+                lastX = pts[0].x;
+                lastY = pts[0].y;
+                panPending = false;
+                panActive = true;
+                setPanningClass(true);
+            }
         }
 
         stageEl.addEventListener('wheel', function (e) {
@@ -731,37 +881,111 @@
             var mx = e.clientX - rect.left;
             var my = e.clientY - rect.top;
             var delta = e.deltaY > 0 ? 0.9 : 1.1;
-            var newScale = Math.min(maxScale, Math.max(minScale, scale * delta));
-            var ratio = newScale / scale;
-            panX = mx - (mx - panX) * ratio;
-            panY = my - (my - panY) * ratio;
-            scale = newScale;
-            applyTransform();
+            zoomAt(mx, my, scale * delta);
         }, { passive: false });
 
-        stageEl.addEventListener('mousedown', function (e) {
-            if (e.button !== 0 || !shouldPanStart(e.target)) return;
-            dragging = true;
-            lastX = e.clientX;
-            lastY = e.clientY;
-            stageEl.classList.add('ft-panning');
-            e.preventDefault();
+        function canStartPan(target, pointerType) {
+            if (isInteractiveTarget(target)) return false;
+            // Touch/pen: allow pan on cards (they fill most of a phone screen).
+            // Mouse: keep desktop card clicks for menus; pan only on empty stage.
+            if (pointerType === 'touch' || pointerType === 'pen') return true;
+            return !target.closest('.family-tree-card');
+        }
+
+        stageEl.addEventListener('pointerdown', function (e) {
+            if (e.pointerType === 'mouse' && e.button !== 0) return;
+            if (pointerCount === 0 && !canStartPan(e.target, e.pointerType)) return;
+
+            activePointers[e.pointerId] = { id: e.pointerId, x: e.clientX, y: e.clientY };
+            pointerCount++;
+            try { stageEl.setPointerCapture(e.pointerId); } catch { /* ignore */ }
+
+            if (pointerCount === 2) {
+                beginPinch();
+                e.preventDefault();
+                return;
+            }
+
+            if (pointerCount === 1 && !pinchActive) {
+                panPointerId = e.pointerId;
+                panPending = true;
+                panActive = false;
+                panStartX = e.clientX;
+                panStartY = e.clientY;
+                lastX = e.clientX;
+                lastY = e.clientY;
+            }
         });
-        window.addEventListener('mousemove', function (e) {
-            if (!dragging) return;
+
+        stageEl.addEventListener('pointermove', function (e) {
+            if (!activePointers[e.pointerId]) return;
+            activePointers[e.pointerId].x = e.clientX;
+            activePointers[e.pointerId].y = e.clientY;
+
+            if (pinchActive && pointerCount >= 2) {
+                updatePinch();
+                e.preventDefault();
+                return;
+            }
+
+            if (panPointerId !== e.pointerId) return;
+
+            if (panPending && !panActive) {
+                var dx = e.clientX - panStartX;
+                var dy = e.clientY - panStartY;
+                if ((dx * dx + dy * dy) < DRAG_THRESHOLD * DRAG_THRESHOLD) return;
+                panPending = false;
+                panActive = true;
+                suppressClick = true;
+                setPanningClass(true);
+                lastX = e.clientX;
+                lastY = e.clientY;
+            }
+
+            if (!panActive) return;
             panX += e.clientX - lastX;
             panY += e.clientY - lastY;
             lastX = e.clientX;
             lastY = e.clientY;
             applyTransform();
-        });
-        window.addEventListener('mouseup', function () {
-            dragging = false;
-            stageEl.classList.remove('ft-panning');
+            e.preventDefault();
         });
 
+        function releasePointer(e) {
+            if (!activePointers[e.pointerId]) return;
+            delete activePointers[e.pointerId];
+            pointerCount = Math.max(0, pointerCount - 1);
+
+            if (panPointerId === e.pointerId) {
+                panPointerId = null;
+                panPending = false;
+                panActive = false;
+                setPanningClass(false);
+            }
+
+            if (pointerCount < 2) endPinchIfNeeded();
+            if (pointerCount === 0) {
+                panPointerId = null;
+                panPending = false;
+                panActive = false;
+                pinchActive = false;
+                setPanningClass(false);
+                if (suppressClick) clearSuppressClickSoon();
+            }
+        }
+
+        stageEl.addEventListener('pointerup', releasePointer);
+        stageEl.addEventListener('pointercancel', releasePointer);
+
+        stageEl.addEventListener('click', function (e) {
+            if (!suppressClick) return;
+            clearSuppressClickNow();
+            e.preventDefault();
+            e.stopPropagation();
+        }, true);
+
         stageEl.addEventListener('dblclick', function (e) {
-            if (!shouldPanStart(e.target)) return;
+            if (!shouldDblClickReset(e.target)) return;
             scale = 1;
             panX = 0;
             panY = 0;
@@ -902,57 +1126,451 @@
         }, 50);
     })();
 
-    // --- Popup / cascading menu logic (unchanged) ---
+    // A single-parent family (e.g. a half-sibling known to only one parent) renders
+    // its children in a card-less ".ft-partner-unit-single" alongside its full-sibling
+    // counterpart's card-bearing ".ft-partner-unit". Without a card+couple-link taking
+    // up space before them, that branch's children start one card-width/height early,
+    // landing on the wrong rank axis position relative to same-rank full siblings.
+    // Measure the gap the sibling unit's card+couple-link occupies and apply it as
+    // margin so both branches' children align on the shared rank axis.
+    (function alignSingleParentBranches() {
+        var singleUnits = container.querySelectorAll('.ft-partner-unit-single');
+        if (singleUnits.length === 0) return;
+
+        setTimeout(function () {
+            singleUnits.forEach(function (unit) {
+                var unitChildren = unit.querySelector('.ft-children');
+                var unitCard = unitChildren && unitChildren.querySelector('.family-tree-card[data-visual-rank]');
+                var partnerUnits = unit.parentElement;
+                if (!unitCard || !partnerUnits || !partnerUnits.classList.contains('ft-partner-units')) return;
+
+                var sibling = null;
+                Array.prototype.forEach.call(partnerUnits.children, function (candidate) {
+                    if (!sibling && candidate !== unit && candidate.classList.contains('ft-partner-unit'))
+                        sibling = candidate;
+                });
+                var siblingCard = sibling && sibling.querySelector('.ft-children .family-tree-card[data-visual-rank]');
+                if (!siblingCard) return;
+
+                // Compare actual rendered card positions (not container positions), since
+                // ".ft-partner-unit-single > .ft-children" also strips its own padding/margin,
+                // which would otherwise be double-counted against the sibling's container.
+                var diff = siblingCard.getBoundingClientRect()[rankPos] - unitCard.getBoundingClientRect()[rankPos];
+                if (diff > 1) {
+                    // Add to (not replace) the existing CSS margin - ".ft-children" already
+                    // carries its own base margin/padding for the drop-line gap.
+                    var currentMargin = parseFloat(getComputedStyle(unitChildren)[rankMargin]) || 0;
+                    unitChildren.style[rankMargin] = (currentMargin + diff) + 'px';
+                }
+            });
+        }, 50);
+    })();
+
+    // --- Details panel, hover preview, and action menu ---
 
     var popup = document.getElementById('member-action-popup');
-    if (!popup) return;
+    var detailsPopup = document.getElementById('member-details-popup');
+    var hoverCard = null;
+    var hoverHideTimer = null;
+    var hoverMemberId = null;
+    var hoverSourceCard = null;
 
     function getAntiForgeryToken(el) {
         var input = el && el.querySelector('input[name="__RequestVerificationToken"]');
         return input ? input.value : '';
     }
-    function closePopup() {
-        popup.style.display = 'none';
-        popup.innerHTML = '<div class="text-muted small p-2">Loading\u2026</div>';
-    }
-    document.addEventListener('mousedown', function (e) {
-        if (popup.style.display === 'none') return;
-        if (popup.contains(e.target)) return;
-        if (e.target.closest('.member-action-trigger')) return;
-        closePopup();
-    });
-    document.addEventListener('keydown', function (e) {
-        if (e.key === 'Escape') closePopup();
-    });
 
-    function clampPopupInView() {
+    function clampElementInView(el) {
+        if (!el) return;
         var pad = 8;
         var vw = window.innerWidth;
         var vh = window.innerHeight;
-        var r = popup.getBoundingClientRect();
+        var r = el.getBoundingClientRect();
         var left = r.left;
         var top = r.top;
-        if (r.right > vw - pad) left = vw - popup.offsetWidth - pad;
+        if (r.right > vw - pad) left = vw - el.offsetWidth - pad;
         if (left < pad) left = pad;
-        if (r.bottom > vh - pad) top = vh - popup.offsetHeight - pad;
+        if (r.bottom > vh - pad) top = vh - el.offsetHeight - pad;
         if (top < pad) top = pad;
-        popup.style.left = left + 'px';
-        popup.style.top = top + 'px';
+        el.style.left = left + 'px';
+        el.style.top = top + 'px';
     }
 
-    function positionPopupInView(triggerRect) {
-        var pad = 8;
-        popup.style.position = 'fixed';
-        popup.style.left = triggerRect.left + 'px';
-        popup.style.top = (triggerRect.bottom + 4) + 'px';
+    function positionElementInView(el, triggerRect) {
+        if (!el) return;
+        el.style.position = 'fixed';
+        el.style.left = triggerRect.left + 'px';
+        el.style.top = (triggerRect.bottom + 4) + 'px';
         requestAnimationFrame(function () {
-            clampPopupInView();
+            clampElementInView(el);
         });
     }
 
-    function openPopupForCard(cardEl) {
+    function closeActionPopup() {
+        if (!popup) return;
+        popup.style.display = 'none';
+        popup.innerHTML = '<div class="text-muted small p-2">Loading\u2026</div>';
+    }
+
+    function closeDetailsPopup() {
+        if (!detailsPopup) return;
+        detailsPopup.style.display = 'none';
+        detailsPopup.hidden = true;
+        detailsPopup.innerHTML = '';
+        detailsPopup._sourceCard = null;
+    }
+
+    function isActionPopupOpen() {
+        return !!(popup && popup.style.display !== 'none');
+    }
+
+    function isDetailsPopupOpen() {
+        return !!(detailsPopup && detailsPopup.style.display !== 'none' && !detailsPopup.hidden);
+    }
+
+    function isPhotoOnlyView() {
+        return (container.className || '').indexOf('ft-view-photo-') !== -1;
+    }
+
+    function canUseHoverPreview() {
+        return window.matchMedia &&
+            window.matchMedia('(hover: hover) and (pointer: fine)').matches;
+    }
+
+    function isFinePointerDesktop() {
+        return canUseHoverPreview();
+    }
+
+    function getSiblingIds(node) {
+        if (!node || !node.parentIds || !node.parentIds.length) return [];
+        var parentSet = {};
+        node.parentIds.forEach(function (pid) { parentSet[toId(pid)] = true; });
+        var seen = {};
+        var out = [];
+        Object.keys(nodeById).forEach(function (key) {
+            var other = nodeById[key];
+            if (!other || other.id === node.id) return;
+            if (!other.parentIds || !other.parentIds.length) return;
+            var shares = other.parentIds.some(function (pid) { return parentSet[toId(pid)]; });
+            if (shares && !seen[other.id]) {
+                seen[other.id] = true;
+                out.push(other.id);
+            }
+        });
+        return out;
+    }
+
+    function openMemberPhoto(cardEl) {
+        if (!canEdit || !window.MemberPhoto || !cardEl) return false;
+        var memberId = cardEl.getAttribute('data-member-id');
+        var node = nodeById[toId(memberId)];
+        var avatar = cardEl.querySelector('.family-tree-card-avatar');
+        window.MemberPhoto.open({
+            memberId: memberId,
+            label: node ? node.label : cardEl.getAttribute('aria-label') || '',
+            name: node ? node.name : '',
+            nickName: node ? node.nickName : '',
+            hasPhoto: node ? !!node.hasPhoto : !!(avatar && avatar.querySelector('.family-tree-card-photo')),
+            sourceCard: cardEl
+        });
+        return true;
+    }
+
+    function appendRelativeSection(parent, title, ids) {
+        if (!ids || !ids.length) return;
+        var section = document.createElement('div');
+        section.className = 'ft-details-section';
+        var heading = document.createElement('div');
+        heading.className = 'ft-details-section-title';
+        heading.textContent = title;
+        section.appendChild(heading);
+        ids.forEach(function (rid) {
+            var rel = nodeById[toId(rid)];
+            if (!rel) return;
+            var btn = document.createElement('button');
+            btn.type = 'button';
+            btn.className = 'ft-details-relative btn btn-sm btn-link p-0';
+            btn.setAttribute('data-member-id', String(rel.id));
+            btn.textContent = rel.label;
+            section.appendChild(btn);
+        });
+        if (section.querySelector('.ft-details-relative')) parent.appendChild(section);
+    }
+
+    function appendLifeDates(parent, node, className) {
+        if (!node.dob && !node.dod) return;
+        var life = document.createElement('div');
+        life.className = className;
+        if (node.dob) {
+            var born = document.createElement('div');
+            born.textContent = 'Born ' + String(node.dob);
+            life.appendChild(born);
+        }
+        if (node.dod) {
+            var died = document.createElement('div');
+            died.textContent = 'Died ' + String(node.dod);
+            life.appendChild(died);
+        }
+        parent.appendChild(life);
+    }
+
+    function buildDetailsContent(node, cardEl) {
+        var panel = document.createElement('div');
+        panel.className = 'ft-details-panel';
+
+        var header = document.createElement('div');
+        header.className = 'ft-details-header';
+
+        var avatar = document.createElement('div');
+        avatar.className = 'ft-details-avatar';
+        if (node.photoUrl) {
+            var img = document.createElement('img');
+            img.src = node.photoUrl;
+            img.alt = '';
+            avatar.appendChild(img);
+        } else if (node.hasPhoto) {
+            var photo = document.createElement('img');
+            photo.src = '/photos/members/' + node.id;
+            photo.alt = '';
+            avatar.appendChild(photo);
+        } else {
+            avatar.textContent = avatarInitials(node);
+        }
+        header.appendChild(avatar);
+
+        var titleWrap = document.createElement('div');
+        titleWrap.className = 'ft-details-title-wrap';
+        var nameEl = document.createElement('div');
+        nameEl.className = 'ft-details-name';
+        nameEl.textContent = node.label;
+        titleWrap.appendChild(nameEl);
+        if (node.isMe) {
+            var badge = document.createElement('span');
+            badge.className = 'ft-details-you-badge';
+            badge.textContent = 'You';
+            titleWrap.appendChild(badge);
+        }
+        header.appendChild(titleWrap);
+        panel.appendChild(header);
+
+        appendLifeDates(panel, node, 'ft-details-life');
+
+        appendRelativeSection(panel, 'Parents', node.parentIds);
+        appendRelativeSection(panel, 'Siblings', getSiblingIds(node));
+        appendRelativeSection(panel, 'Partners', node.partnerIds);
+        appendRelativeSection(panel, 'Children', node.childIds);
+
+        if (canEdit) {
+            var actions = document.createElement('div');
+            actions.className = 'ft-details-actions';
+
+            // Mobile/touch: expose Change picture explicitly (no hover, photo tap opens details).
+            if (!isFinePointerDesktop() && window.MemberPhoto) {
+                var photoBtn = document.createElement('button');
+                photoBtn.type = 'button';
+                photoBtn.className = 'btn btn-sm btn-outline-secondary ft-details-photo-btn';
+                photoBtn.textContent = 'Change picture';
+                photoBtn.addEventListener('click', function (e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    closeDetailsPopup();
+                    openMemberPhoto(cardEl);
+                });
+                actions.appendChild(photoBtn);
+            }
+
+            var manageBtn = document.createElement('button');
+            manageBtn.type = 'button';
+            manageBtn.className = 'btn btn-sm btn-outline-primary ft-details-manage-btn';
+            manageBtn.textContent = 'Manage';
+            manageBtn.addEventListener('click', function (e) {
+                e.preventDefault();
+                e.stopPropagation();
+                closeDetailsPopup();
+                openPopupForCard(cardEl);
+            });
+            actions.appendChild(manageBtn);
+            panel.appendChild(actions);
+        }
+
+        return panel;
+    }
+
+    function openDetails(cardEl) {
+        if (!detailsPopup || !cardEl) return;
         var memberId = cardEl.getAttribute('data-member-id');
         if (!memberId) return;
+        var node = nodeById[toId(memberId)];
+        if (!node) return;
+
+        hideHoverCard();
+        closeActionPopup();
+
+        detailsPopup._sourceCard = cardEl;
+        detailsPopup.innerHTML = '';
+        detailsPopup.appendChild(buildDetailsContent(node, cardEl));
+        detailsPopup.hidden = false;
+        detailsPopup.style.display = '';
+        positionElementInView(detailsPopup, cardEl.getBoundingClientRect());
+    }
+
+    function ensureHoverCard() {
+        if (hoverCard) return hoverCard;
+        hoverCard = document.createElement('div');
+        hoverCard.id = 'member-hover-card';
+        hoverCard.className = 'ft-member-hover-card';
+        hoverCard.setAttribute('aria-hidden', 'true');
+        hoverCard.style.display = 'none';
+        document.body.appendChild(hoverCard);
+
+        hoverCard.addEventListener('pointerenter', function () {
+            if (hoverHideTimer) {
+                clearTimeout(hoverHideTimer);
+                hoverHideTimer = null;
+            }
+        });
+        hoverCard.addEventListener('pointerleave', function () {
+            scheduleHideHover();
+        });
+        hoverCard.addEventListener('click', function (e) {
+            var manage = e.target.closest('.ft-hover-manage-btn');
+            if (!manage || !hoverSourceCard) return;
+            e.preventDefault();
+            e.stopPropagation();
+            var cardEl = hoverSourceCard;
+            hideHoverCard();
+            openPopupForCard(cardEl);
+        });
+        return hoverCard;
+    }
+
+    function hideHoverCard() {
+        if (hoverHideTimer) {
+            clearTimeout(hoverHideTimer);
+            hoverHideTimer = null;
+        }
+        hoverMemberId = null;
+        hoverSourceCard = null;
+        if (hoverCard) {
+            hoverCard.style.display = 'none';
+            hoverCard.classList.remove('ft-member-hover-card-interactive');
+            hoverCard.innerHTML = '';
+        }
+    }
+
+    function buildHoverContent(node, interactiveManage) {
+        var wrap = document.createElement('div');
+        var nameEl = document.createElement('div');
+        nameEl.className = 'ft-hover-name';
+        nameEl.textContent = node.label;
+        wrap.appendChild(nameEl);
+
+        appendLifeDates(wrap, node, 'ft-hover-meta');
+
+        function addRelLine(label, ids) {
+            if (!ids || !ids.length) return;
+            var names = [];
+            ids.forEach(function (rid) {
+                var rel = nodeById[toId(rid)];
+                if (rel) names.push(rel.label);
+            });
+            if (!names.length) return;
+            var line = document.createElement('div');
+            line.className = 'ft-hover-rel';
+            line.textContent = label + ': ' + names.join(', ');
+            wrap.appendChild(line);
+        }
+        addRelLine('Parents', node.parentIds);
+        addRelLine('Siblings', getSiblingIds(node));
+        addRelLine('Partners', node.partnerIds);
+        addRelLine('Children', node.childIds);
+
+        if (interactiveManage) {
+            var actions = document.createElement('div');
+            actions.className = 'ft-hover-actions';
+            var manageBtn = document.createElement('button');
+            manageBtn.type = 'button';
+            manageBtn.className = 'btn btn-sm btn-outline-primary ft-hover-manage-btn';
+            manageBtn.textContent = 'Manage';
+            actions.appendChild(manageBtn);
+            wrap.appendChild(actions);
+        }
+        return wrap;
+    }
+
+    function showHoverForCard(cardEl) {
+        if (!canUseHoverPreview() || isDemo) return;
+        if (isDetailsPopupOpen() || isActionPopupOpen()) return;
+        var stage = container.querySelector('.family-tree-stage');
+        if (stage && stage.classList.contains('ft-panning')) return;
+
+        var memberId = cardEl.getAttribute('data-member-id');
+        var node = nodeById[toId(memberId)];
+        if (!node) return;
+
+        if (hoverHideTimer) {
+            clearTimeout(hoverHideTimer);
+            hoverHideTimer = null;
+        }
+
+        var interactive = isPhotoOnlyView() && canEdit;
+        var card = ensureHoverCard();
+        hoverSourceCard = cardEl;
+        if (hoverMemberId !== memberId || card.classList.contains('ft-member-hover-card-interactive') !== interactive) {
+            hoverMemberId = memberId;
+            card.innerHTML = '';
+            card.appendChild(buildHoverContent(node, interactive));
+            card.classList.toggle('ft-member-hover-card-interactive', interactive);
+        }
+        card.style.display = '';
+        positionElementInView(card, cardEl.getBoundingClientRect());
+    }
+
+    function scheduleHideHover() {
+        if (hoverHideTimer) clearTimeout(hoverHideTimer);
+        hoverHideTimer = setTimeout(hideHoverCard, 180);
+    }
+
+    if (detailsPopup) {
+        detailsPopup.addEventListener('click', function (e) {
+            var relBtn = e.target.closest('.ft-details-relative');
+            if (!relBtn) return;
+            e.preventDefault();
+            e.stopPropagation();
+            var rid = relBtn.getAttribute('data-member-id');
+            closeDetailsPopup();
+            focusMemberCard('member-' + rid);
+        });
+    }
+
+    document.addEventListener('mousedown', function (e) {
+        if (isDetailsPopupOpen() &&
+            detailsPopup && !detailsPopup.contains(e.target) &&
+            !e.target.closest('.family-tree-card')) {
+            closeDetailsPopup();
+        }
+        if (isActionPopupOpen() &&
+            popup && !popup.contains(e.target) &&
+            !e.target.closest('.member-action-trigger') &&
+            !e.target.closest('.ft-details-manage-btn') &&
+            !e.target.closest('.ft-hover-manage-btn')) {
+            closeActionPopup();
+        }
+    });
+
+    document.addEventListener('keydown', function (e) {
+        if (e.key !== 'Escape') return;
+        if (isActionPopupOpen()) closeActionPopup();
+        else if (isDetailsPopupOpen()) closeDetailsPopup();
+        hideHoverCard();
+    });
+
+    function openPopupForCard(cardEl) {
+        if (!canEdit || !popup) return;
+        var memberId = cardEl.getAttribute('data-member-id');
+        if (!memberId) return;
+        hideHoverCard();
+        closeDetailsPopup();
         popup._sourceCard = cardEl;
         var rect = cardEl.getBoundingClientRect();
         popup.innerHTML = '<div class="text-muted small p-2">Loading\u2026</div>';
@@ -968,42 +1586,61 @@
                 popup.innerHTML = html;
                 var menuEl = popup.querySelector('.cascading-menu');
                 if (menuEl) initCascadingMenu(menuEl);
-                positionPopupInView(rect);
+                positionElementInView(popup, rect);
             })
             .catch(function () {
                 popup.innerHTML = '<div class="text-danger small p-2">Failed to load.</div>';
-                positionPopupInView(rect);
+                positionElementInView(popup, rect);
             });
     }
 
-    container.addEventListener('click', function (e) {
-        var avatar = e.target.closest('.member-photo-trigger');
-        if (avatar) {
-            e.preventDefault();
-            e.stopPropagation();
-            var card = avatar.closest('.family-tree-card');
-            if (!card || !window.MemberPhoto) return;
-            var memberId = card.getAttribute('data-member-id');
-            var node = nodeById[toId(memberId)];
-            window.MemberPhoto.open({
-                memberId: memberId,
-                label: node ? node.label : card.getAttribute('aria-label') || '',
-                hasPhoto: node ? !!node.hasPhoto : !!avatar.querySelector('.family-tree-card-photo'),
-                sourceCard: card
-            });
-            return;
-        }
+    if (!isDemo) {
+        container.addEventListener('click', function (e) {
+            var trigger = e.target.closest('.member-action-trigger');
+            if (trigger) {
+                e.preventDefault();
+                e.stopPropagation();
+                openPopupForCard(trigger.closest('.family-tree-card'));
+                return;
+            }
 
-        var trigger = e.target.closest('.member-action-trigger');
-        var card = e.target.closest('.family-tree-card');
-        if (trigger) {
+            var card = e.target.closest('.family-tree-card');
+            if (!card || e.target.closest('.ft-expand-down')) return;
+
+            var avatar = e.target.closest('.member-photo-trigger, .member-details-trigger');
+            // Desktop editors: avatar/photo click changes picture; body opens details.
+            // Touch / view-only: any card tap opens details.
+            if (avatar && canEdit && isFinePointerDesktop()) {
+                e.preventDefault();
+                e.stopPropagation();
+                hideHoverCard();
+                openMemberPhoto(card);
+                return;
+            }
+
             e.preventDefault();
-            e.stopPropagation();
-            openPopupForCard(trigger.closest('.family-tree-card'));
-        } else if (card && !e.target.closest('.member-action-trigger')) {
-            openPopupForCard(card);
-        }
-    });
+            openDetails(card);
+        });
+
+        container.addEventListener('pointerover', function (e) {
+            if (e.pointerType && e.pointerType !== 'mouse') return;
+            var card = e.target.closest('.family-tree-card');
+            if (!card || !container.contains(card)) return;
+            showHoverForCard(card);
+        });
+
+        container.addEventListener('pointerout', function (e) {
+            if (e.pointerType && e.pointerType !== 'mouse') return;
+            var card = e.target.closest('.family-tree-card');
+            if (!card) return;
+            var related = e.relatedTarget;
+            if (related && card.contains(related)) return;
+            if (related && hoverCard && hoverCard.contains(related)) return;
+            scheduleHideHover();
+        });
+    }
+
+    if (!popup) return;
 
     function initCascadingMenu(menu) {
         var primaryItems = menu.querySelectorAll('.cascading-item');
@@ -1020,7 +1657,7 @@
                 if (match) anyVisible = true;
             });
             if (subContainer) subContainer.classList.toggle('has-active-panel', anyVisible);
-            requestAnimationFrame(clampPopupInView);
+            requestAnimationFrame(function () { clampElementInView(popup); });
         }
         primaryItems.forEach(function (item) {
             item.addEventListener('click', function () { showPanel(item.getAttribute('data-panel')); });
@@ -1085,7 +1722,7 @@
                 btn.classList.add('active');
                 syncFormHiddenFields();
                 showCandidates();
-                requestAnimationFrame(clampPopupInView);
+                requestAnimationFrame(function () { clampElementInView(popup); });
             });
         });
         choiceBtns.forEach(function (btn) {
@@ -1093,7 +1730,7 @@
                 choiceBtns.forEach(function (b) { b.classList.remove('active'); });
                 btn.classList.add('active');
                 showChoice();
-                requestAnimationFrame(clampPopupInView);
+                requestAnimationFrame(function () { clampElementInView(popup); });
             });
         });
         if (searchInput) searchInput.addEventListener('input', showCandidates);

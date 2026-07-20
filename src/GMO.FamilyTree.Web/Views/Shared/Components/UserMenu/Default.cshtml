@@ -2,9 +2,12 @@
 
 @if (string.IsNullOrEmpty(Model.Email))
 {
-    <ul class="navbar-nav">
+    <ul class="navbar-nav align-items-sm-center gap-sm-2">
         <li class="nav-item">
-            <a class="nav-link" asp-controller="Account" asp-action="Login">Sign in</a>
+            <a class="nav-link" asp-controller="Account" asp-action="Login" asp-route-returnUrl="/Home/Index">Sign in</a>
+        </li>
+        <li class="nav-item">
+            <a class="btn btn-primary btn-sm ft-nav-signup" asp-controller="Account" asp-action="Register" asp-route-returnUrl="/Home/Index">Sign up</a>
         </li>
     </ul>
 }
@@ -47,6 +50,11 @@ else
             <li><hr class="dropdown-divider" /></li>
             <li>
                 <button type="button" class="dropdown-item profile-photo-open">Change profile picture</button>
+            </li>
+            <li>
+                <a class="dropdown-item" asp-controller="Account" asp-action="ManagePassword">
+                    @(Model.HasPassword ? "Change password" : "Set password")
+                </a>
             </li>
             <li>
                 <form asp-controller="Account" asp-action="SignOut" method="post">

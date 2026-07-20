@@ -1,0 +1,98 @@
+{
+  "nodes": [
+    {
+      "id": 1,
+      "label": "Robert",
+      "isMe": false,
+      "isMale": true,
+      "dob": "1945-03-12",
+      "row": 0,
+      "visualRank": 0,
+      "parentIds": [],
+      "childIds": [3],
+      "partnerIds": [2],
+      "birthOrder": null,
+      "photoUrl": "/images/demo/person-01.jpg"
+    },
+    {
+      "id": 2,
+      "label": "Helen",
+      "isMe": false,
+      "isMale": false,
+      "dob": "1947-08-21",
+      "row": 0,
+      "visualRank": 0.5,
+      "parentIds": [],
+      "childIds": [3],
+      "partnerIds": [1],
+      "birthOrder": null,
+      "photoUrl": "/images/demo/person-02.jpg"
+    },
+    {
+      "id": 3,
+      "label": "James",
+      "isMe": true,
+      "isMale": true,
+      "dob": "1972-11-04",
+      "row": 1,
+      "visualRank": 0,
+      "parentIds": [1, 2],
+      "childIds": [5, 6],
+      "partnerIds": [4],
+      "birthOrder": null,
+      "photoUrl": "/images/demo/person-03.jpg"
+    },
+    {
+      "id": 4,
+      "label": "Mary",
+      "isMe": false,
+      "isMale": false,
+      "dob": "1974-05-18",
+      "row": 1,
+      "visualRank": 0.5,
+      "parentIds": [],
+      "childIds": [5, 6],
+      "partnerIds": [3],
+      "birthOrder": null,
+      "photoUrl": "/images/demo/person-04.jpg"
+    },
+    {
+      "id": 5,
+      "label": "Alex",
+      "isMe": false,
+      "isMale": true,
+      "dob": "2001-02-09",
+      "row": 2,
+      "visualRank": 0,
+      "parentIds": [3, 4],
+      "childIds": [],
+      "partnerIds": [],
+      "birthOrder": 1,
+      "photoUrl": "/images/demo/person-05.jpg"
+    },
+    {
+      "id": 6,
+      "label": "Emma",
+      "isMe": false,
+      "isMale": false,
+      "dob": "2004-07-30",
+      "row": 2,
+      "visualRank": 1,
+      "parentIds": [3, 4],
+      "childIds": [],
+      "partnerIds": [],
+      "birthOrder": 2,
+      "photoUrl": "/images/demo/person-06.jpg"
+    }
+  ],
+  "edges": [
+    { "id": 1, "source": 1, "target": 3, "type": "parent" },
+    { "id": 2, "source": 2, "target": 3, "type": "parent" },
+    { "id": 3, "source": 1, "target": 2, "type": "couple" },
+    { "id": 4, "source": 3, "target": 4, "type": "couple" },
+    { "id": 5, "source": 3, "target": 5, "type": "parent" },
+    { "id": 6, "source": 4, "target": 5, "type": "parent" },
+    { "id": 7, "source": 3, "target": 6, "type": "parent" },
+    { "id": 8, "source": 4, "target": 6, "type": "parent" }
+  ]
+}
