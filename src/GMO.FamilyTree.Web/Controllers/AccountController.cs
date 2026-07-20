@@ -241,7 +241,7 @@ public class AccountController : Controller
     private async Task<string?> GetExistingUserRegistrationErrorAsync(string email)
     {
         var existing = await _userManager.FindByEmailAsync(email);
-        if (existing == null)
+        if (existing is null)
             return null;
 
         return !await _userManager.HasPasswordAsync(existing)
@@ -643,7 +643,7 @@ public class AccountController : Controller
     public async Task<IActionResult> ManagePassword()
     {
         var user = await _userManager.GetUserAsync(User);
-        if (user == null)
+        if (user is null)
             return NotFound();
 
         return await _userManager.HasPasswordAsync(user)
