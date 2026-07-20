@@ -623,11 +623,17 @@ public class FamilyMemberController : Controller
 
     private async Task<bool> RelationshipExistsAsync(long treeId, long contextId, long existingId, RelationshipType type, bool isChild, CancellationToken ct)
     {
-        if (type == RelationshipType.Couple)
-            return await _db.FamilyMemberRelationships.AnyAsync(r => r.FamilyTreeId == treeId && r.RelationshipType == RelationshipType.Couple && ((r.FromMemberId == contextId && r.ToMemberId == existingId) || (r.FromMemberId == existingId && r.ToMemberId == contextId)), ct);
-        return type is RelationshipType.Parent
-            ? await ParentRelationshipExistsAsync(treeId, contextId, existingId, isChild, ct)
-            : false;
+        return type switch
+        {
+            RelationshipType.Couple => await _db.FamilyMemberRelationships.AnyAsync(
+                r => r.FamilyTreeId == treeId
+                    && r.RelationshipType == RelationshipType.Couple
+                    && ((r.FromMemberId == contextId && r.ToMemberId == existingId)
+                        || (r.FromMemberId == existingId && r.ToMemberId == contextId)),
+                ct),
+            RelationshipType.Parent => await ParentRelationshipExistsAsync(treeId, contextId, existingId, isChild, ct),
+            _ => false,
+        };
     }
 
     private async Task<bool> ParentRelationshipExistsAsync(
