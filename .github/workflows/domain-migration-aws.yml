@@ -10,6 +10,7 @@ on:
         type: choice
         options:
           - upsert-dns-and-s3
+          - sync-s3-prefixes-only
           - retire-old-dns
           - update-iam-s3-prefix
 
@@ -40,6 +41,13 @@ jobs:
           bash DevOps/aws/route53/upsert-a-records.sh goom.life \
             familytree.goom.life=35.172.36.171 \
             familytree-dev.goom.life=35.172.36.171
+          bash DevOps/aws/s3/migrate-prefix.sh gideonogega-internal family/prod familytree/prod
+          bash DevOps/aws/s3/migrate-prefix.sh gideonogega-internal family/dev familytree/dev
+
+      - name: Sync S3 prefixes only (no Route53)
+        if: inputs.phase == 'sync-s3-prefixes-only'
+        run: |
+          chmod +x DevOps/aws/s3/*.sh
           bash DevOps/aws/s3/migrate-prefix.sh gideonogega-internal family/prod familytree/prod
           bash DevOps/aws/s3/migrate-prefix.sh gideonogega-internal family/dev familytree/dev
 
