@@ -61,12 +61,12 @@ public sealed class FamilyTreeShareService : IFamilyTreeShareService
         var invite = await _db.FamilyTreeInvites
             .FirstOrDefaultAsync(i => i.Token == token, cancellationToken);
         var inviteValidation = ValidateInvite(invite);
-        if (inviteValidation.HasValue)
-            return inviteValidation.Value;
+        if (inviteValidation is { } validation)
+            return validation;
 
         var emailValidation = ValidateInviteEmail(invite!, userEmail);
-        if (emailValidation.HasValue)
-            return emailValidation.Value;
+        if (emailValidation is { } emailResult)
+            return emailResult;
 
         return await CompleteInviteAcceptanceAsync(invite!, userId, cancellationToken);
     }
@@ -184,7 +184,7 @@ public sealed class FamilyTreeShareService : IFamilyTreeShareService
             return (InviteAcceptResult.Expired, invite.FamilyTreeId);
 
         // Email invites are single-use; link invites remain reusable until revoked/expired.
-        if (!invite.IsLinkInvite && invite.AcceptedAt != null)
+        if (invite is { IsLinkInvite: false, AcceptedAt: not null })
             return (InviteAcceptResult.NotFound, invite.FamilyTreeId);
 
         return null;

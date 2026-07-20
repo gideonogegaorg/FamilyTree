@@ -28,7 +28,7 @@
         <button type="submit" class="btn btn-primary w-100 mb-2">Log in</button>
     </form>
 
-    @if (ViewBag.ShowResendConfirmation == true)
+    @if (ViewBag.ShowResendConfirmation is true)
     {
         <p class="small mb-2">
             <a asp-action="ResendConfirmationEmail" asp-route-email="@ViewBag.ResendEmail">Resend confirmation email</a>
@@ -39,7 +39,7 @@
         <a asp-action="ForgotPassword">Forgot your password?</a>
     </p>
 
-    @if (ViewBag.GoogleAuthEnabled == true)
+    @if (ViewBag.GoogleAuthEnabled is true)
     {
         <hr class="my-3" />
         <p class="text-center small text-muted mb-2">Or</p>

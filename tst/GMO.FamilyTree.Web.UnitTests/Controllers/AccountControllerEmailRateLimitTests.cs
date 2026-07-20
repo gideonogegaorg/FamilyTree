@@ -27,7 +27,7 @@ public class AccountControllerEmailRateLimitTests : IClassFixture<AccountControl
     public async Task ForgotPassword_does_not_send_when_rate_limited()
     {
         await using var db = _f.CreateDb(nameof(ForgotPassword_does_not_send_when_rate_limited));
-        var (signIn, users) = _f.CreateIdentityManagers(db);
+        var (signIn, users) = AccountControllerFixture.CreateIdentityManagers(db);
         var user = new IdentityUser { UserName = "victim@example.com", Email = "victim@example.com", EmailConfirmed = true };
         Assert.True((await users.CreateAsync(user, "TestPassword1!")).Succeeded);
 
@@ -50,7 +50,7 @@ public class AccountControllerEmailRateLimitTests : IClassFixture<AccountControl
     public async Task ForgotPassword_does_not_send_for_google_only_user()
     {
         await using var db = _f.CreateDb(nameof(ForgotPassword_does_not_send_for_google_only_user));
-        var (signIn, users) = _f.CreateIdentityManagers(db);
+        var (signIn, users) = AccountControllerFixture.CreateIdentityManagers(db);
         var user = new IdentityUser { UserName = "google@example.com", Email = "google@example.com", EmailConfirmed = true };
         Assert.True((await users.CreateAsync(user)).Succeeded);
         await users.AddLoginAsync(user, new UserLoginInfo("Google", "key", "Google"));
@@ -67,7 +67,7 @@ public class AccountControllerEmailRateLimitTests : IClassFixture<AccountControl
     public async Task ResendConfirmationEmail_sets_temp_data_when_rate_limited()
     {
         await using var db = _f.CreateDb(nameof(ResendConfirmationEmail_sets_temp_data_when_rate_limited));
-        var (signIn, users) = _f.CreateIdentityManagers(db);
+        var (signIn, users) = AccountControllerFixture.CreateIdentityManagers(db);
         var user = new IdentityUser { UserName = "new@example.com", Email = "new@example.com", EmailConfirmed = false };
         Assert.True((await users.CreateAsync(user, "TestPassword1!")).Succeeded);
 
@@ -111,7 +111,7 @@ public class AccountControllerEmailRateLimitTests : IClassFixture<AccountControl
                 new Mock<ILineageModeService>().Object,
                 new DefaultFamilyTreeService(db),
                 new Mock<IFamilyTreeDeletionService>().Object,
-                new AccountControllerFixture().CreateExternalLoginInfoProvider("user@example.com"),
+                AccountControllerFixture.CreateExternalLoginInfoProvider("user@example.com"),
                 new Mock<IPhotoStorageService>().Object,
                 new Mock<ITreeCardViewModeService>().Object,
                 new FamilyTreeAccessService(db),

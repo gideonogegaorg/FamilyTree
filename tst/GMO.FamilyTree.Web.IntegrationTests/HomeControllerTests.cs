@@ -115,7 +115,7 @@ public class HomeControllerTests : IClassFixture<WebAppFixture>
         Assert.Equal(HttpStatusCode.Redirect, postResponse.StatusCode);
         using (var scope = _fixture.CreateScope())
         {
-            var db = _fixture.GetDbContext(scope);
+            var db = WebAppFixture.GetDbContext(scope);
             var member = await db.FamilyMembers.SingleAsync(m => m.Name == name);
             Assert.Equal(new DateOnly(1950, 7, 19), member.DOB);
             Assert.Equal(new DateOnly(2020, 3, 2), member.DOD);
@@ -155,7 +155,7 @@ public class HomeControllerTests : IClassFixture<WebAppFixture>
         long treeId;
         using (var scope = _fixture.CreateScope())
         {
-            var db = _fixture.GetDbContext(scope);
+            var db = WebAppFixture.GetDbContext(scope);
             var tree = await db.FamilyTrees.OrderByDescending(t => t.Id).FirstOrDefaultAsync();
             Assert.NotNull(tree);
             treeId = tree.Id;

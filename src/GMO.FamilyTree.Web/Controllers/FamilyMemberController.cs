@@ -14,6 +14,9 @@ namespace GMO.FamilyTree.Web.Controllers;
 [Authorize]
 public class FamilyMemberController : Controller
 {
+    private const string InvalidInputMessage = "Invalid input.";
+    private const string NotFoundMessage = "Not found";
+
     private readonly AppDbContext _db;
     private readonly ICurrentFamilyTreeService _currentTree;
     private readonly IPhotoStorageService _photos;
@@ -290,14 +293,14 @@ public class FamilyMemberController : Controller
     public async Task<IActionResult> RemoveRelation(long relationshipId, CancellationToken cancellationToken = default)
     {
         if (!ModelState.IsValid)
-            return Json(new { success = false, error = "Invalid input." });
+            return Json(new { success = false, error = InvalidInputMessage });
 
         var treeId = await _currentTree.GetCurrentFamilyTreeIdAsync(cancellationToken);
         if (!treeId.HasValue) return Json(new { success = false, error = "No tree" });
         if (!await EnsureCanEditAsync(treeId.Value, cancellationToken))
             return Json(new { success = false, error = "Forbidden" });
         var rel = await _db.FamilyMemberRelationships.FindAsync(new object[] { relationshipId }, cancellationToken);
-        if (rel == null || rel.FamilyTreeId != treeId.Value) return Json(new { success = false, error = "Not found" });
+        if (rel == null || rel.FamilyTreeId != treeId.Value) return Json(new { success = false, error = NotFoundMessage });
 
         var otherId = rel.FromMemberId;
         var contextId = rel.ToMemberId;
@@ -329,14 +332,14 @@ public class FamilyMemberController : Controller
     public async Task<IActionResult> EditMember([FromForm] EditMemberRequest request, CancellationToken cancellationToken = default)
     {
         if (!ModelState.IsValid)
-            return EditMemberError("Invalid input.");
+            return EditMemberError(InvalidInputMessage);
 
         var treeId = await _currentTree.GetCurrentFamilyTreeIdAsync(cancellationToken);
         if (!treeId.HasValue) return EditMemberError("No tree");
         if (!await EnsureCanEditAsync(treeId.Value, cancellationToken))
             return EditMemberError("Forbidden");
         var member = await _db.FamilyMembers.FindAsync(new object[] { request.MemberId }, cancellationToken);
-        if (member == null || member.FamilyTreeId != treeId.Value) return EditMemberError("Not found");
+        if (member == null || member.FamilyTreeId != treeId.Value) return EditMemberError(NotFoundMessage);
         if (string.IsNullOrWhiteSpace(request.Name)) return EditMemberError("Name is required");
         if (request.Dob.HasValue && request.Dod.HasValue && request.Dod < request.Dob)
             return EditMemberError("Date of death cannot be before date of birth.");
@@ -354,7 +357,7 @@ public class FamilyMemberController : Controller
         return Json(new { success = true });
     }
 
-    private IActionResult EditMemberError(string error) => Json(new { success = false, error });
+    private JsonResult EditMemberError(string error) => Json(new { success = false, error });
 
     private async Task ApplySetAsMeAsync(long memberId, FamilyMember member, bool setAsMe, CancellationToken cancellationToken)
     {
@@ -378,14 +381,14 @@ public class FamilyMemberController : Controller
     public async Task<IActionResult> UploadMemberPhoto(long memberId, IFormFile? photo, CancellationToken cancellationToken = default)
     {
         if (!ModelState.IsValid)
-            return Json(new { success = false, error = "Invalid input." });
+            return Json(new { success = false, error = InvalidInputMessage });
 
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (string.IsNullOrEmpty(userId))
             return Json(new { success = false, error = "Unauthorized" });
         var level = await _access.GetAccessLevelForMemberAsync(userId, memberId, cancellationToken);
         if (level < TreeAccessLevel.Editor)
-            return Json(new { success = false, error = "Not found" });
+            return Json(new { success = false, error = NotFoundMessage });
         if (photo == null || photo.Length == 0)
             return Json(new { success = false, error = "Please select an image file." });
 
@@ -395,13 +398,13 @@ public class FamilyMemberController : Controller
 
         var member = await _db.FamilyMembers.FindAsync(new object[] { memberId }, cancellationToken);
         if (member == null)
-            return Json(new { success = false, error = "Not found" });
+            return Json(new { success = false, error = NotFoundMessage });
 
         var key = PhotoStorageKeys.Member(member.FamilyTreeId, memberId, ext);
         try
         {
-            await using (var stream = photo.OpenReadStream())
-                await PhotoStorageHelper.SaveAsync(_photos, key, stream, PhotoStorageKeys.ContentTypeForExtension(ext), cancellationToken);
+            await using var stream = photo.OpenReadStream();
+            await PhotoStorageHelper.SaveAsync(_photos, key, stream, PhotoStorageKeys.ContentTypeForExtension(ext), cancellationToken);
         }
         catch (Exception ex) when (PhotoStorageHelper.IsStorageException(ex))
         {
@@ -420,14 +423,14 @@ public class FamilyMemberController : Controller
     public async Task<IActionResult> RemoveMemberPhoto(long memberId, CancellationToken cancellationToken = default)
     {
         if (!ModelState.IsValid)
-            return Json(new { success = false, error = "Invalid input." });
+            return Json(new { success = false, error = InvalidInputMessage });
 
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (string.IsNullOrEmpty(userId))
             return Json(new { success = false, error = "Unauthorized" });
         var level = await _access.GetAccessLevelForMemberAsync(userId, memberId, cancellationToken);
         if (level < TreeAccessLevel.Editor)
-            return Json(new { success = false, error = "Not found" });
+            return Json(new { success = false, error = NotFoundMessage });
 
         var member = await _db.FamilyMembers.FindAsync(new object[] { memberId }, cancellationToken);
         if (member == null || string.IsNullOrEmpty(member.PhotoKey))
@@ -620,14 +623,12 @@ public class FamilyMemberController : Controller
 
     private async Task<bool> RelationshipExistsAsync(long treeId, long contextId, long existingId, RelationshipType type, bool isChild, CancellationToken ct)
     {
-        if (type == RelationshipType.Parent)
-        {
-            if (isChild)
-                return await _db.FamilyMemberRelationships.AnyAsync(r => r.FamilyTreeId == treeId && r.FromMemberId == contextId && r.ToMemberId == existingId && r.RelationshipType == RelationshipType.Parent, ct);
-            return await _db.FamilyMemberRelationships.AnyAsync(r => r.FamilyTreeId == treeId && r.FromMemberId == existingId && r.ToMemberId == contextId && r.RelationshipType == RelationshipType.Parent, ct);
-        }
-        if (type == RelationshipType.Couple)
-            return await _db.FamilyMemberRelationships.AnyAsync(r => r.FamilyTreeId == treeId && r.RelationshipType == RelationshipType.Couple && ((r.FromMemberId == contextId && r.ToMemberId == existingId) || (r.FromMemberId == existingId && r.ToMemberId == contextId)), ct);
-        return false;
+        if (type != RelationshipType.Parent)
+            return type == RelationshipType.Couple
+                && await _db.FamilyMemberRelationships.AnyAsync(r => r.FamilyTreeId == treeId && r.RelationshipType == RelationshipType.Couple && ((r.FromMemberId == contextId && r.ToMemberId == existingId) || (r.FromMemberId == existingId && r.ToMemberId == contextId)), ct);
+
+        return isChild
+            ? await _db.FamilyMemberRelationships.AnyAsync(r => r.FamilyTreeId == treeId && r.FromMemberId == contextId && r.ToMemberId == existingId && r.RelationshipType == RelationshipType.Parent, ct)
+            : await _db.FamilyMemberRelationships.AnyAsync(r => r.FamilyTreeId == treeId && r.FromMemberId == existingId && r.ToMemberId == contextId && r.RelationshipType == RelationshipType.Parent, ct);
     }
 }

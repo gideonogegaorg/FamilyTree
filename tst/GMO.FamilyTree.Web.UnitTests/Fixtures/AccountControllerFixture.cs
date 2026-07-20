@@ -29,19 +29,12 @@ namespace GMO.FamilyTree.Web.UnitTests.Fixtures;
 /// </summary>
 public sealed class AccountControllerFixture
 {
-    private readonly IFixture _fixture;
-
-    public AccountControllerFixture()
-    {
-        _fixture = DefaultFixture.Create();
-    }
-
-    public IFixture Fixture => _fixture;
+    public IFixture Fixture { get; } = DefaultFixture.Create();
 
     /// <summary>Creates a unique in-memory database for the test.</summary>
     public AppDbContext CreateDb(string? name = null)
     {
-        var dbName = name ?? "TestDb_" + _fixture.Create<Guid>().ToString("N")[..12];
+        var dbName = name ?? "TestDb_" + Fixture.Create<Guid>().ToString("N")[..12];
         var options = new DbContextOptionsBuilder<AppDbContext>()
             .UseInMemoryDatabase(dbName)
             .Options;
@@ -49,7 +42,7 @@ public sealed class AccountControllerFixture
     }
 
     /// <summary>Creates SignInManager and UserManager backed by the given DbContext.</summary>
-    public (SignInManager<IdentityUser>, UserManager<IdentityUser>) CreateIdentityManagers(
+    public static (SignInManager<IdentityUser>, UserManager<IdentityUser>) CreateIdentityManagers(
         AppDbContext db,
         IdentityUser? existingUser = null)
     {
@@ -59,10 +52,7 @@ public sealed class AccountControllerFixture
         services.AddSingleton<IHttpContextAccessor, HttpContextAccessor>();
         services.AddSingleton(db);
         services.AddScoped<AppDbContext>(_ => db);
-        services.AddIdentityCore<IdentityUser>(o =>
-            {
-                o.SignIn.RequireConfirmedEmail = true;
-            })
+        services.AddIdentityCore<IdentityUser>(o => o.SignIn.RequireConfirmedEmail = true)
             .AddEntityFrameworkStores<AppDbContext>()
             .AddDefaultTokenProviders()
             .AddSignInManager();
@@ -93,11 +83,11 @@ public sealed class AccountControllerFixture
     }
 
     /// <summary>Creates an external login info provider. Happy path: pass email (e.g. "user@example.com"). Exception paths: pass null (no info) or "" (empty email).</summary>
-    public IExternalLoginInfoProvider CreateExternalLoginInfoProvider(string? email) =>
+    public static IExternalLoginInfoProvider CreateExternalLoginInfoProvider(string? email) =>
         new ExternalLoginInfoProviderMock(email).Object;
 
     /// <summary>Creates an IUrlHelper with redirect defaults. Pass contentReturn for tests that expect a specific return URL.</summary>
-    public IUrlHelper CreateUrlHelper(string? contentReturn = null) =>
+    public static IUrlHelper CreateUrlHelper(string? contentReturn = null) =>
         (contentReturn != null ? UrlHelperMock.WithContentReturn(contentReturn) : new UrlHelperMock(contentReturn)).Object;
 
     /// <summary>Creates AccountController with the given dependencies. Uses happy-path mocks by default; pass optional services to override (e.g. for exception paths).</summary>
@@ -122,7 +112,7 @@ public sealed class AccountControllerFixture
         var treeCardViewMode = new Mock<ITreeCardViewModeService>().Object;
         var access = new FamilyTreeAccessService(db);
 
-        var emailSender = _fixture.Create<Mock<IEmailSender>>().Object;
+        var emailSender = Fixture.Create<Mock<IEmailSender>>().Object;
         var googleAuth = new GoogleAuthOptionsMock().Object;
         var rateLimiter = CreateAllowAllRateLimiter();
         var logger = Microsoft.Extensions.Logging.Abstractions.NullLogger<AccountController>.Instance;

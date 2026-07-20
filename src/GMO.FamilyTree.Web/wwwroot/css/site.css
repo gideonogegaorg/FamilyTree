@@ -186,7 +186,7 @@ footer.footer a {
 .share-invite-card-type {
   margin-bottom: 0.65rem;
   color: var(--ft-ink);
-  word-break: break-word;
+  overflow-wrap: break-word;
 }
 .share-invite-card-meta {
   display: grid;
@@ -206,7 +206,7 @@ footer.footer a {
   margin: 0.15rem 0 0;
   font-size: 0.875rem;
   color: var(--ft-ink);
-  word-break: break-word;
+  overflow-wrap: break-word;
 }
 .share-invite-card-actions {
   display: flex;
@@ -708,7 +708,7 @@ button.family-tree-card-avatar.member-photo-trigger:focus-visible {
   -webkit-line-clamp: 2;
   line-clamp: 2;
   overflow: hidden;
-  word-break: break-word;
+  overflow-wrap: break-word;
 }
 .family-tree-card-meta {
   font-size: 0.72rem;

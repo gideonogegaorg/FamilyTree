@@ -26,7 +26,7 @@ public class AccountControllerTwoFactorTests : IClassFixture<AccountControllerFi
     public async Task Login_redirects_to_2fa_when_required()
     {
         await using var db = _f.CreateDb(nameof(Login_redirects_to_2fa_when_required));
-        var users = _f.CreateIdentityManagers(db).Item2;
+        var users = AccountControllerFixture.CreateIdentityManagers(db).Item2;
         var signIn = new Mock<SignInManager<IdentityUser>>(
             users,
             Mock.Of<IHttpContextAccessor>(),
@@ -51,7 +51,7 @@ public class AccountControllerTwoFactorTests : IClassFixture<AccountControllerFi
     public async Task Login_success_redirects_home_and_enables_email_2fa()
     {
         await using var db = _f.CreateDb(nameof(Login_success_redirects_home_and_enables_email_2fa));
-        var (_, users) = _f.CreateIdentityManagers(db);
+        var (_, users) = AccountControllerFixture.CreateIdentityManagers(db);
         var user = new IdentityUser { UserName = "setup@example.com", Email = "setup@example.com", EmailConfirmed = true };
         Assert.True((await users.CreateAsync(user, "TestPassword1!")).Succeeded);
 
@@ -80,7 +80,7 @@ public class AccountControllerTwoFactorTests : IClassFixture<AccountControllerFi
     public async Task LoginWith2fa_GET_sends_email_code()
     {
         await using var db = _f.CreateDb(nameof(LoginWith2fa_GET_sends_email_code));
-        var (_, users) = _f.CreateIdentityManagers(db);
+        var (_, users) = AccountControllerFixture.CreateIdentityManagers(db);
         var user = new IdentityUser { UserName = "2fa@example.com", Email = "2fa@example.com", EmailConfirmed = true };
         Assert.True((await users.CreateAsync(user, "TestPassword1!")).Succeeded);
         Assert.True((await users.SetTwoFactorEnabledAsync(user, true)).Succeeded);
@@ -100,7 +100,7 @@ public class AccountControllerTwoFactorTests : IClassFixture<AccountControllerFi
         var result = await controller.LoginWith2fa(rememberMe: false, returnUrl: "/Home/Index");
 
         var view = Assert.IsType<ViewResult>(result);
-        Assert.IsType<LoginWith2faViewModel>(view.Model);
+        Assert.IsType<LoginWith2FaViewModel>(view.Model);
         Assert.True((bool)controller.ViewBag.EmailCodeSent!);
         email.Verify(e => e.SendEmailAsync(
             user.Email!,
@@ -114,7 +114,7 @@ public class AccountControllerTwoFactorTests : IClassFixture<AccountControllerFi
     public async Task LoginWith2fa_POST_verifies_email_code()
     {
         await using var db = _f.CreateDb(nameof(LoginWith2fa_POST_verifies_email_code));
-        var (_, users) = _f.CreateIdentityManagers(db);
+        var (_, users) = AccountControllerFixture.CreateIdentityManagers(db);
         var user = new IdentityUser { UserName = "verify@example.com", Email = "verify@example.com", EmailConfirmed = true };
         Assert.True((await users.CreateAsync(user, "TestPassword1!")).Succeeded);
         Assert.True((await users.SetTwoFactorEnabledAsync(user, true)).Succeeded);
@@ -131,7 +131,7 @@ public class AccountControllerTwoFactorTests : IClassFixture<AccountControllerFi
             .ReturnsAsync(Microsoft.AspNetCore.Identity.SignInResult.Success);
 
         var controller = CreateAnonymousController(db, signIn.Object, users, new Mock<IEmailSender>().Object);
-        var result = await controller.LoginWith2fa(new LoginWith2faViewModel
+        var result = await controller.LoginWith2fa(new LoginWith2FaViewModel
         {
             TwoFactorCode = code,
             RememberMe = false,
@@ -147,7 +147,7 @@ public class AccountControllerTwoFactorTests : IClassFixture<AccountControllerFi
     public async Task LoginWith2fa_POST_rejects_invalid_code()
     {
         await using var db = _f.CreateDb(nameof(LoginWith2fa_POST_rejects_invalid_code));
-        var (_, users) = _f.CreateIdentityManagers(db);
+        var (_, users) = AccountControllerFixture.CreateIdentityManagers(db);
         var user = new IdentityUser { UserName = "badcode@example.com", Email = "badcode@example.com", EmailConfirmed = true };
         Assert.True((await users.CreateAsync(user, "TestPassword1!")).Succeeded);
         Assert.True((await users.SetTwoFactorEnabledAsync(user, true)).Succeeded);
@@ -162,7 +162,7 @@ public class AccountControllerTwoFactorTests : IClassFixture<AccountControllerFi
             .ReturnsAsync(Microsoft.AspNetCore.Identity.SignInResult.Failed);
 
         var controller = CreateAnonymousController(db, signIn.Object, users, new Mock<IEmailSender>().Object);
-        var result = await controller.LoginWith2fa(new LoginWith2faViewModel
+        var result = await controller.LoginWith2fa(new LoginWith2FaViewModel
         {
             TwoFactorCode = "000000",
             RememberMe = false,
@@ -177,7 +177,7 @@ public class AccountControllerTwoFactorTests : IClassFixture<AccountControllerFi
     public async Task LoginWith2fa_GET_sets_rate_limited_flag_when_email_blocked()
     {
         await using var db = _f.CreateDb(nameof(LoginWith2fa_GET_sets_rate_limited_flag_when_email_blocked));
-        var (_, users) = _f.CreateIdentityManagers(db);
+        var (_, users) = AccountControllerFixture.CreateIdentityManagers(db);
         var user = new IdentityUser { UserName = "rl@example.com", Email = "rl@example.com", EmailConfirmed = true };
         Assert.True((await users.CreateAsync(user, "TestPassword1!")).Succeeded);
         Assert.True((await users.SetTwoFactorEnabledAsync(user, true)).Succeeded);
@@ -204,7 +204,7 @@ public class AccountControllerTwoFactorTests : IClassFixture<AccountControllerFi
     {
         await using var db = _f.CreateDb(nameof(ExternalLoginCallback_bypasses_two_factor));
         var existingUser = new IdentityUser { UserName = "g@example.com", Email = "g@example.com", EmailConfirmed = true };
-        var (_, userManager) = _f.CreateIdentityManagers(db, existingUser);
+        var (_, userManager) = AccountControllerFixture.CreateIdentityManagers(db, existingUser);
         await userManager.AddLoginAsync(existingUser, AccountControllerFixture.CreateExternalLoginInfo("g@example.com"));
         Assert.True((await userManager.AddPasswordAsync(existingUser, "TestPassword1!")).Succeeded);
 
@@ -218,8 +218,8 @@ public class AccountControllerTwoFactorTests : IClassFixture<AccountControllerFi
 
         var controller = _f.CreateAccountController(
             signIn.Object, userManager, db,
-            _f.CreateExternalLoginInfoProvider("g@example.com"),
-            _f.CreateUrlHelper("/home"));
+            AccountControllerFixture.CreateExternalLoginInfoProvider("g@example.com"),
+            AccountControllerFixture.CreateUrlHelper("/home"));
 
         var result = await controller.ExternalLoginCallback(returnUrl: "/home");
 
@@ -245,7 +245,7 @@ public class AccountControllerTwoFactorTests : IClassFixture<AccountControllerFi
         var treeCardViewMode = new Mock<ITreeCardViewModeService>().Object;
         var access = new FamilyTreeAccessService(db);
         var googleAuth = new GoogleAuthOptionsMock().Object;
-        var external = _f.CreateExternalLoginInfoProvider("user@example.com");
+        var external = AccountControllerFixture.CreateExternalLoginInfoProvider("user@example.com");
 
         var controller = new AccountController(
             new AccountControllerDependencies(

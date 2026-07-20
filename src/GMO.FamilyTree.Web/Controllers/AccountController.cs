@@ -22,6 +22,13 @@ namespace GMO.FamilyTree.Web.Controllers;
 [Authorize]
 public class AccountController : Controller
 {
+    private const string DefaultReturnUrlPath = "~/Home/Index";
+    private const string HomeIndexPath = "/Home/Index";
+    private const string AccountControllerName = "Account";
+    private const string ReturnUrlViewDataKey = "ReturnUrl";
+    private const string AddPasswordErrorView = "AddPasswordError";
+    private const string InvalidOrExpiredLinkMessage = "Invalid or expired link.";
+
     private readonly SignInManager<IdentityUser> _signInManager;
     private readonly UserManager<IdentityUser> _userManager;
     private readonly IEmailSender _emailSender;
@@ -63,7 +70,7 @@ public class AccountController : Controller
     [HttpGet]
     public IActionResult Login(string? returnUrl = null)
     {
-        ViewData["ReturnUrl"] = returnUrl;
+        ViewData[ReturnUrlViewDataKey] = returnUrl;
         ViewBag.GoogleAuthEnabled = _googleAuth.CurrentValue.Enabled;
         return View(new LoginViewModel { ReturnUrl = returnUrl });
     }
@@ -73,8 +80,8 @@ public class AccountController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Login(LoginViewModel model, string? returnUrl = null, CancellationToken cancellationToken = default)
     {
-        returnUrl ??= Url.Content("~/Home/Index");
-        ViewData["ReturnUrl"] = returnUrl;
+        returnUrl ??= Url.Content(DefaultReturnUrlPath);
+        ViewData[ReturnUrlViewDataKey] = returnUrl;
         ViewBag.GoogleAuthEnabled = _googleAuth.CurrentValue.Enabled;
 
         if (ModelState.IsValid)
@@ -107,7 +114,7 @@ public class AccountController : Controller
     [HttpGet]
     public IActionResult SignIn(string? returnUrl = null)
     {
-        var redirectUri = Url.Action(nameof(ExternalLoginCallback), "Account", new { returnUrl }) ?? "/";
+        var redirectUri = Url.Action(nameof(ExternalLoginCallback), AccountControllerName, new { returnUrl }) ?? "/";
         var properties = _signInManager.ConfigureExternalAuthenticationProperties(
             GoogleDefaults.AuthenticationScheme, redirectUri);
         return Challenge(properties, GoogleDefaults.AuthenticationScheme);
@@ -117,7 +124,7 @@ public class AccountController : Controller
     [HttpGet]
     public async Task<IActionResult> ExternalLoginCallback(string? returnUrl = null, string? remoteError = null, CancellationToken cancellationToken = default)
     {
-        returnUrl ??= Url.Content("~/Home/Index");
+        returnUrl ??= Url.Content(DefaultReturnUrlPath);
         var remoteErrorResult = HandleExternalLoginRemoteError(returnUrl, remoteError);
         if (remoteErrorResult != null)
             return remoteErrorResult;
@@ -154,7 +161,7 @@ public class AccountController : Controller
         return LocalRedirect(returnUrl);
     }
 
-    private IActionResult? HandleExternalLoginRemoteError(string returnUrl, string? remoteError)
+    private RedirectToActionResult? HandleExternalLoginRemoteError(string returnUrl, string? remoteError)
     {
         if (string.IsNullOrEmpty(remoteError))
             return null;
@@ -162,7 +169,7 @@ public class AccountController : Controller
         return RedirectToAction(nameof(Login), new { returnUrl });
     }
 
-    private IActionResult RedirectToLoginWithError(string returnUrl, string message)
+    private RedirectToActionResult RedirectToLoginWithError(string returnUrl, string message)
     {
         ModelState.AddModelError(string.Empty, message);
         return RedirectToAction(nameof(Login), new { returnUrl });
@@ -205,7 +212,7 @@ public class AccountController : Controller
     [HttpGet]
     public IActionResult Register(string? returnUrl = null)
     {
-        ViewData["ReturnUrl"] = returnUrl;
+        ViewData[ReturnUrlViewDataKey] = returnUrl;
         return View(new RegisterViewModel { ReturnUrl = returnUrl });
     }
 
@@ -214,8 +221,8 @@ public class AccountController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> Register(RegisterViewModel model, string? returnUrl = null, CancellationToken cancellationToken = default)
     {
-        returnUrl ??= Url.Content("~/Home/Index");
-        ViewData["ReturnUrl"] = returnUrl;
+        returnUrl ??= Url.Content(DefaultReturnUrlPath);
+        ViewData[ReturnUrlViewDataKey] = returnUrl;
 
         if (!ModelState.IsValid)
             return View(model);
@@ -332,7 +339,7 @@ public class AccountController : Controller
             return View(model);
 
         var user = await _userManager.FindByEmailAsync(model.Email);
-        if (user != null
+        if (user is not null
             && !await _userManager.IsEmailConfirmedAsync(user)
             && !await SendConfirmationEmailAsync(user))
         {
@@ -354,6 +361,7 @@ public class AccountController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> ForgotPassword(ForgotPasswordViewModel model, CancellationToken cancellationToken = default)
     {
+        _ = cancellationToken;
         if (ModelState.IsValid)
         {
             var user = await _userManager.FindByEmailAsync(model.Email);
@@ -364,7 +372,7 @@ public class AccountController : Controller
                 return RedirectToAction(nameof(ForgotPasswordConfirmation));
 
             var token = await _userManager.GeneratePasswordResetTokenAsync(user);
-            var callbackUrl = Url.Action(nameof(ResetPassword), "Account", new { token, email = user.Email }, Request.Scheme)!;
+            var callbackUrl = Url.Action(nameof(ResetPassword), AccountControllerName, new { token, email = user.Email }, Request.Scheme)!;
             var (html, text) = TransactionalEmail.LinkMessage(
                 model.Email,
                 $"We received a password reset request for your {TransactionalEmail.Brand} account.",
@@ -404,6 +412,7 @@ public class AccountController : Controller
     [ValidateAntiForgeryToken]
     public async Task<IActionResult> ResetPassword(ResetPasswordViewModel model, CancellationToken cancellationToken = default)
     {
+        _ = cancellationToken;
         if (!ModelState.IsValid)
             return View(model);
 
@@ -437,7 +446,7 @@ public class AccountController : Controller
     [HttpGet]
     public IActionResult UploadPhoto()
     {
-        return Redirect("/Home/Index");
+        return Redirect(HomeIndexPath);
     }
 
     [HttpPost]
@@ -451,7 +460,7 @@ public class AccountController : Controller
         if (string.IsNullOrEmpty(userId))
             return WantsJson()
                 ? Json(new { success = false, error = "You must be signed in." })
-                : Redirect("/Home/Index");
+                : Redirect(HomeIndexPath);
 
         if (photo == null || photo.Length == 0)
             return PhotoUploadResult("Please select an image file.");
@@ -470,8 +479,8 @@ public class AccountController : Controller
 
         try
         {
-            await using (var stream = photo.OpenReadStream())
-                await PhotoStorageHelper.SaveAsync(_photos, key, stream, PhotoStorageKeys.ContentTypeForExtension(ext), cancellationToken);
+            await using var stream = photo.OpenReadStream();
+            await PhotoStorageHelper.SaveAsync(_photos, key, stream, PhotoStorageKeys.ContentTypeForExtension(ext), cancellationToken);
         }
         catch (Exception ex) when (PhotoStorageHelper.IsStorageException(ex))
         {
@@ -488,7 +497,7 @@ public class AccountController : Controller
             return Json(new { success = true, photoUrl = "/photos/profiles/me" });
 
         TempData["PhotoSuccess"] = "Profile picture updated.";
-        return Redirect("/Home/Index");
+        return Redirect(HomeIndexPath);
     }
 
     private bool WantsJson() =>
@@ -501,7 +510,7 @@ public class AccountController : Controller
             return Json(new { success = false, error });
 
         TempData["PhotoError"] = error;
-        return Redirect("/Home/Index");
+        return Redirect(HomeIndexPath);
     }
 
     [HttpPost]
@@ -515,7 +524,7 @@ public class AccountController : Controller
             ? (TreeCardViewMode)mode
             : TreeCardViewMode.Standard;
         await _treeCardViewMode.SetAsync(value, cancellationToken);
-        return Redirect("/Home/Index");
+        return Redirect(HomeIndexPath);
     }
 
     [HttpPost]
@@ -530,7 +539,7 @@ public class AccountController : Controller
             return NotFound();
 
         await _currentFamilyTree.SetCurrentFamilyTreeIdAsync(id, cancellationToken);
-        return Redirect("/Home/Index");
+        return Redirect(HomeIndexPath);
     }
 
     [HttpPost]
@@ -544,7 +553,7 @@ public class AccountController : Controller
             ? (TreeViewOrientation)orientation
             : TreeViewOrientation.Horizontal;
         await _treeViewOrientation.SetOrientationAsync(value, cancellationToken);
-        return Redirect("/Home/Index");
+        return Redirect(HomeIndexPath);
     }
 
     [HttpPost]
@@ -560,7 +569,7 @@ public class AccountController : Controller
         var result = await _familyTreeDeletion.DeleteAsync(userId, id, cancellationToken);
         return result == FamilyTreeDeleteResult.NotFound
             ? NotFound()
-            : Redirect("/Home/Index");
+            : Redirect(HomeIndexPath);
     }
 
     [HttpPost]
@@ -574,7 +583,7 @@ public class AccountController : Controller
             ? (LineageMode)mode
             : LineageMode.Paternal;
         await _lineageMode.SetAsync(value, cancellationToken);
-        return Redirect("/Home/Index");
+        return Redirect(HomeIndexPath);
     }
 
     [AllowAnonymous]
@@ -594,18 +603,18 @@ public class AccountController : Controller
         else
             ViewBag.EmailRateLimited = true;
 
-        return View(new LoginWith2faViewModel { RememberMe = rememberMe, ReturnUrl = returnUrl });
+        return View(new LoginWith2FaViewModel { RememberMe = rememberMe, ReturnUrl = returnUrl });
     }
 
     [AllowAnonymous]
     [HttpPost]
     [ValidateAntiForgeryToken]
-    public async Task<IActionResult> LoginWith2fa(LoginWith2faViewModel model, CancellationToken cancellationToken = default)
+    public async Task<IActionResult> LoginWith2fa(LoginWith2FaViewModel model, CancellationToken cancellationToken = default)
     {
         if (!ModelState.IsValid)
             return View(model);
 
-        var returnUrl = model.ReturnUrl ?? Url.Content("~/Home/Index");
+        var returnUrl = model.ReturnUrl ?? Url.Content(DefaultReturnUrlPath);
         var user = await _signInManager.GetTwoFactorAuthenticationUserAsync();
         if (user == null)
             return RedirectToAction(nameof(Login), new { returnUrl });
@@ -697,17 +706,17 @@ public class AccountController : Controller
     public async Task<IActionResult> ConfirmAddPassword(string userId, string code)
     {
         if (string.IsNullOrEmpty(userId) || string.IsNullOrEmpty(code))
-            return View("AddPasswordError", "Invalid or expired link.");
+            return View(AddPasswordErrorView, InvalidOrExpiredLinkMessage);
 
         var user = await _userManager.FindByIdAsync(userId);
         if (user == null)
-            return View("AddPasswordError", "Invalid or expired link.");
+            return View(AddPasswordErrorView, InvalidOrExpiredLinkMessage);
 
         if (await _userManager.HasPasswordAsync(user))
-            return View("AddPasswordError", "This account already has a password. Sign in and use Change password instead.");
+            return View(AddPasswordErrorView, "This account already has a password. Sign in and use Change password instead.");
 
         if (!await _userManager.IsEmailConfirmedAsync(user))
-            return View("AddPasswordError", "Confirm your email before adding a password.");
+            return View(AddPasswordErrorView, "Confirm your email before adding a password.");
 
         string token;
         try
@@ -716,11 +725,11 @@ public class AccountController : Controller
         }
         catch (FormatException)
         {
-            return View("AddPasswordError", "Invalid or expired link.");
+            return View(AddPasswordErrorView, InvalidOrExpiredLinkMessage);
         }
 
         if (!await _userManager.VerifyUserTokenAsync(user, TokenOptions.DefaultProvider, AddPasswordTokenPurpose, token))
-            return View("AddPasswordError", "Invalid or expired link.");
+            return View(AddPasswordErrorView, InvalidOrExpiredLinkMessage);
 
         return View("AddPassword", new AddPasswordViewModel { UserId = userId, Code = code });
     }
@@ -735,13 +744,13 @@ public class AccountController : Controller
 
         var user = await _userManager.FindByIdAsync(model.UserId);
         if (user == null)
-            return View("AddPasswordError", "Invalid or expired link.");
+            return View(AddPasswordErrorView, InvalidOrExpiredLinkMessage);
 
         if (await _userManager.HasPasswordAsync(user))
-            return View("AddPasswordError", "This account already has a password. Sign in and use Change password instead.");
+            return View(AddPasswordErrorView, "This account already has a password. Sign in and use Change password instead.");
 
         if (!await _userManager.IsEmailConfirmedAsync(user))
-            return View("AddPasswordError", "Confirm your email before adding a password.");
+            return View(AddPasswordErrorView, "Confirm your email before adding a password.");
 
         string token;
         try
@@ -750,11 +759,11 @@ public class AccountController : Controller
         }
         catch (FormatException)
         {
-            return View("AddPasswordError", "Invalid or expired link.");
+            return View(AddPasswordErrorView, InvalidOrExpiredLinkMessage);
         }
 
         if (!await _userManager.VerifyUserTokenAsync(user, TokenOptions.DefaultProvider, AddPasswordTokenPurpose, token))
-            return View("AddPasswordError", "Invalid or expired link.");
+            return View(AddPasswordErrorView, InvalidOrExpiredLinkMessage);
 
         var result = await _userManager.AddPasswordAsync(user, model.Password);
         if (!result.Succeeded)
@@ -768,10 +777,10 @@ public class AccountController : Controller
         await EnsureEmailTwoFactorEnabledAsync(user);
 
         var signedIn = await _userManager.GetUserAsync(User);
-        if (signedIn != null && signedIn.Id == user.Id)
+        if (signedIn?.Id == user.Id)
             return RedirectToAction("Index", "Home");
 
-        return RedirectToAction(nameof(Login), new { returnUrl = "/Home/Index" });
+        return RedirectToAction(nameof(Login), new { returnUrl = HomeIndexPath });
     }
 
     [HttpPost]
@@ -820,7 +829,7 @@ public class AccountController : Controller
         var token = await _userManager.GenerateUserTokenAsync(
             user, TokenOptions.DefaultProvider, AddPasswordTokenPurpose);
         var code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(token));
-        var callbackUrl = Url.Action(nameof(ConfirmAddPassword), "Account", new { userId = user.Id, code }, Request.Scheme)!;
+        var callbackUrl = Url.Action(nameof(ConfirmAddPassword), AccountControllerName, new { userId = user.Id, code }, Request.Scheme)!;
         var (html, text) = TransactionalEmail.LinkMessage(
             user.Email!,
             $"Confirm that you want to add a password to your {TransactionalEmail.Brand} account.",
@@ -839,7 +848,7 @@ public class AccountController : Controller
     {
         var code = await _userManager.GenerateEmailConfirmationTokenAsync(user);
         code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
-        var callbackUrl = Url.Action(nameof(ConfirmEmail), "Account", new { userId = user.Id, code }, Request.Scheme)!;
+        var callbackUrl = Url.Action(nameof(ConfirmEmail), AccountControllerName, new { userId = user.Id, code }, Request.Scheme)!;
         var (html, text) = TransactionalEmail.LinkMessage(
             user.Email!,
             $"You created a {TransactionalEmail.Brand} account with this email. Confirm your address to finish signing up.",

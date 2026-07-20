@@ -1,4 +1,5 @@
 using System.Net;
+using System.Text.RegularExpressions;
 
 using GMO.FamilyTree.Web.Data;
 
@@ -8,8 +9,10 @@ using Xunit;
 
 namespace GMO.FamilyTree.Web.IntegrationTests;
 
-public class FamilyTreeCrudTests : IClassFixture<WebAppFixture>
+public partial class FamilyTreeCrudTests : IClassFixture<WebAppFixture>
 {
+    [GeneratedRegex(@"name=""Uid""[^>]*value=""([^""]+)""")]
+    private static partial Regex UidInputRegex();
     private readonly WebAppFixture _fixture;
     private readonly HttpClient _client;
 
@@ -127,7 +130,7 @@ public class FamilyTreeCrudTests : IClassFixture<WebAppFixture>
         var rowSlice = indexHtml[namePos..];
         var editLinkStart = rowSlice.IndexOf("/FamilyTree/Edit/", StringComparison.Ordinal);
         Assert.True(editLinkStart >= 0);
-        var path = rowSlice.Substring(editLinkStart, rowSlice.IndexOf('"', editLinkStart) - editLinkStart);
+        var path = rowSlice[editLinkStart..rowSlice.IndexOf('"', editLinkStart)];
         var id = long.Parse(path.Split('/').Last());
 
         // Act
@@ -156,11 +159,11 @@ public class FamilyTreeCrudTests : IClassFixture<WebAppFixture>
         Assert.True(namePos >= 0);
         var rowSlice = indexHtml[namePos..];
         var editLinkStart = rowSlice.IndexOf("/FamilyTree/Edit/", StringComparison.Ordinal);
-        var path = rowSlice.Substring(editLinkStart, rowSlice.IndexOf('"', editLinkStart) - editLinkStart);
+        var path = rowSlice[editLinkStart..rowSlice.IndexOf('"', editLinkStart)];
         var id = long.Parse(path.Split('/').Last());
         var editPageHtml = await (await _client.GetAsync($"/FamilyTree/Edit/{id}")).Content.ReadAsStringAsync();
         var token = GetAntiforgeryTokenFromHtml(editPageHtml);
-        var uidMatch = System.Text.RegularExpressions.Regex.Match(editPageHtml, @"name=""Uid""[^>]*value=""([^""]+)""");
+        var uidMatch = UidInputRegex().Match(editPageHtml);
         var uid = uidMatch.Success ? uidMatch.Groups[1].Value : Guid.NewGuid().ToString();
         var newName = "Updated " + Guid.NewGuid().ToString("N")[..6];
         var editForm = new Dictionary<string, string>
@@ -201,7 +204,7 @@ public class FamilyTreeCrudTests : IClassFixture<WebAppFixture>
         Assert.True(namePos >= 0);
         var rowSlice = indexHtml[namePos..];
         var editLinkStart = rowSlice.IndexOf("/FamilyTree/Edit/", StringComparison.Ordinal);
-        var path = rowSlice.Substring(editLinkStart, rowSlice.IndexOf('"', editLinkStart) - editLinkStart);
+        var path = rowSlice[editLinkStart..rowSlice.IndexOf('"', editLinkStart)];
         var id = long.Parse(path.Split('/').Last());
         var editForm = new Dictionary<string, string>
         {
@@ -238,7 +241,7 @@ public class FamilyTreeCrudTests : IClassFixture<WebAppFixture>
         var rowSlice = indexHtml[namePos..];
         var deleteLinkStart = rowSlice.IndexOf("/FamilyTree/Delete/", StringComparison.Ordinal);
         Assert.True(deleteLinkStart >= 0);
-        var path = rowSlice.Substring(deleteLinkStart, rowSlice.IndexOf('"', deleteLinkStart) - deleteLinkStart);
+        var path = rowSlice[deleteLinkStart..rowSlice.IndexOf('"', deleteLinkStart)];
         var id = long.Parse(path.Split('/').Last());
 
         // Act
@@ -264,7 +267,7 @@ public class FamilyTreeCrudTests : IClassFixture<WebAppFixture>
         long id;
         using (var scope = _fixture.CreateScope())
         {
-            var db = _fixture.GetDbContext(scope);
+            var db = WebAppFixture.GetDbContext(scope);
             var tree = await db.FamilyTrees.FirstOrDefaultAsync(t => t.Name == name);
             Assert.NotNull(tree);
             id = tree.Id;

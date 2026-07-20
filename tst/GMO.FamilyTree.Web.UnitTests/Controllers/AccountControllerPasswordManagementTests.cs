@@ -29,7 +29,7 @@ public class AccountControllerPasswordManagementTests : IClassFixture<AccountCon
     public async Task SetPassword_succeeds_for_signed_in_user_without_password()
     {
         await using var db = _f.CreateDb(nameof(SetPassword_succeeds_for_signed_in_user_without_password));
-        var (signIn, users) = _f.CreateIdentityManagers(db);
+        var (signIn, users) = AccountControllerFixture.CreateIdentityManagers(db);
         var user = new IdentityUser { UserName = "g@example.com", Email = "g@example.com", EmailConfirmed = true };
         Assert.True((await users.CreateAsync(user)).Succeeded);
 
@@ -53,7 +53,7 @@ public class AccountControllerPasswordManagementTests : IClassFixture<AccountCon
     public async Task AddPassword_with_valid_token_succeeds_and_redirects_home_when_signed_in()
     {
         await using var db = _f.CreateDb(nameof(AddPassword_with_valid_token_succeeds_and_redirects_home_when_signed_in));
-        var (signIn, users) = _f.CreateIdentityManagers(db);
+        var (signIn, users) = AccountControllerFixture.CreateIdentityManagers(db);
         var user = new IdentityUser { UserName = "add@example.com", Email = "add@example.com", EmailConfirmed = true };
         Assert.True((await users.CreateAsync(user)).Succeeded);
 
@@ -80,7 +80,7 @@ public class AccountControllerPasswordManagementTests : IClassFixture<AccountCon
     public async Task AddPassword_when_anonymous_redirects_to_login()
     {
         await using var db = _f.CreateDb(nameof(AddPassword_when_anonymous_redirects_to_login));
-        var (signIn, users) = _f.CreateIdentityManagers(db);
+        var (signIn, users) = AccountControllerFixture.CreateIdentityManagers(db);
         var user = new IdentityUser { UserName = "anon@example.com", Email = "anon@example.com", EmailConfirmed = true };
         Assert.True((await users.CreateAsync(user)).Succeeded);
 
@@ -106,7 +106,7 @@ public class AccountControllerPasswordManagementTests : IClassFixture<AccountCon
     public async Task AddPassword_with_invalid_token_fails()
     {
         await using var db = _f.CreateDb(nameof(AddPassword_with_invalid_token_fails));
-        var (signIn, users) = _f.CreateIdentityManagers(db);
+        var (signIn, users) = AccountControllerFixture.CreateIdentityManagers(db);
         var user = new IdentityUser { UserName = "bad@example.com", Email = "bad@example.com", EmailConfirmed = true };
         Assert.True((await users.CreateAsync(user)).Succeeded);
 
@@ -128,7 +128,7 @@ public class AccountControllerPasswordManagementTests : IClassFixture<AccountCon
     public async Task AddPassword_rejected_when_password_already_set()
     {
         await using var db = _f.CreateDb(nameof(AddPassword_rejected_when_password_already_set));
-        var (signIn, users) = _f.CreateIdentityManagers(db);
+        var (signIn, users) = AccountControllerFixture.CreateIdentityManagers(db);
         var user = new IdentityUser { UserName = "has@example.com", Email = "has@example.com", EmailConfirmed = true };
         Assert.True((await users.CreateAsync(user, "TestPassword1!")).Succeeded);
 
@@ -152,7 +152,7 @@ public class AccountControllerPasswordManagementTests : IClassFixture<AccountCon
     public async Task ConfirmAddPassword_with_valid_token_shows_form()
     {
         await using var db = _f.CreateDb(nameof(ConfirmAddPassword_with_valid_token_shows_form));
-        var (signIn, users) = _f.CreateIdentityManagers(db);
+        var (signIn, users) = AccountControllerFixture.CreateIdentityManagers(db);
         var user = new IdentityUser { UserName = "form@example.com", Email = "form@example.com", EmailConfirmed = true };
         Assert.True((await users.CreateAsync(user)).Succeeded);
 
@@ -173,7 +173,7 @@ public class AccountControllerPasswordManagementTests : IClassFixture<AccountCon
     public async Task ChangePassword_succeeds_for_password_user()
     {
         await using var db = _f.CreateDb(nameof(ChangePassword_succeeds_for_password_user));
-        var (signIn, users) = _f.CreateIdentityManagers(db);
+        var (signIn, users) = AccountControllerFixture.CreateIdentityManagers(db);
         var user = new IdentityUser { UserName = "chg@example.com", Email = "chg@example.com", EmailConfirmed = true };
         Assert.True((await users.CreateAsync(user, "TestPassword1!")).Succeeded);
 
@@ -195,7 +195,7 @@ public class AccountControllerPasswordManagementTests : IClassFixture<AccountCon
     public async Task ManagePassword_shows_change_when_has_password()
     {
         await using var db = _f.CreateDb(nameof(ManagePassword_shows_change_when_has_password));
-        var (signIn, users) = _f.CreateIdentityManagers(db);
+        var (signIn, users) = AccountControllerFixture.CreateIdentityManagers(db);
         var user = new IdentityUser { UserName = "mp@example.com", Email = "mp@example.com", EmailConfirmed = true };
         Assert.True((await users.CreateAsync(user, "TestPassword1!")).Succeeded);
 
@@ -210,7 +210,7 @@ public class AccountControllerPasswordManagementTests : IClassFixture<AccountCon
     public async Task ManagePassword_shows_set_when_no_password()
     {
         await using var db = _f.CreateDb(nameof(ManagePassword_shows_set_when_no_password));
-        var (signIn, users) = _f.CreateIdentityManagers(db);
+        var (signIn, users) = AccountControllerFixture.CreateIdentityManagers(db);
         var user = new IdentityUser { UserName = "np@example.com", Email = "np@example.com", EmailConfirmed = true };
         Assert.True((await users.CreateAsync(user)).Succeeded);
 
@@ -225,7 +225,7 @@ public class AccountControllerPasswordManagementTests : IClassFixture<AccountCon
     public async Task Register_existing_google_only_email_shows_add_password_guidance()
     {
         await using var db = _f.CreateDb(nameof(Register_existing_google_only_email_shows_add_password_guidance));
-        var (signIn, users) = _f.CreateIdentityManagers(db);
+        var (signIn, users) = AccountControllerFixture.CreateIdentityManagers(db);
         var user = new IdentityUser { UserName = "exists@example.com", Email = "exists@example.com", EmailConfirmed = true };
         Assert.True((await users.CreateAsync(user)).Succeeded);
 
@@ -273,7 +273,7 @@ public class AccountControllerPasswordManagementTests : IClassFixture<AccountCon
         var treeCardViewMode = new Mock<ITreeCardViewModeService>().Object;
         var access = new FamilyTreeAccessService(db);
         var googleAuth = new GoogleAuthOptionsMock().Object;
-        var external = _f.CreateExternalLoginInfoProvider("user@example.com");
+        var external = AccountControllerFixture.CreateExternalLoginInfoProvider("user@example.com");
 
         var controller = new AccountController(
             new AccountControllerDependencies(

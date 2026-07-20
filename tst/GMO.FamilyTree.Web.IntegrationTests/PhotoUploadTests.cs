@@ -124,7 +124,7 @@ public sealed class PhotoUploadTests : IClassFixture<WebAppFixture>
         }
 
         using var scope = _fixture.CreateScope();
-        var db = _fixture.GetDbContext(scope);
+        var db = WebAppFixture.GetDbContext(scope);
         var member = await db.FamilyMembers.AsNoTracking().FirstAsync();
         return member.Id;
     }

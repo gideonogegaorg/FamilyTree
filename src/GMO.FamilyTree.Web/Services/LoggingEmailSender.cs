@@ -17,15 +17,18 @@ public sealed class LoggingEmailSender : IEmailSender
 
     public Task SendEmailAsync(string email, string subject, string htmlMessage, string plainTextMessage, string operation)
     {
-        var toProtected = _logProtector.Protect(email);
-        var subjectProtected = _logProtector.Protect(subject);
-        _logger.LogInformation(
-            "Email (not sent): Operation={Operation}, ToProtected={ToProtected}, SubjectProtected={SubjectProtected}, HtmlLength={HtmlLength}, TextLength={TextLength}",
-            operation,
-            toProtected,
-            subjectProtected,
-            htmlMessage.Length,
-            plainTextMessage.Length);
+        if (_logger.IsEnabled(LogLevel.Information))
+        {
+            var toProtected = _logProtector.Protect(email);
+            var subjectProtected = _logProtector.Protect(subject);
+            _logger.LogInformation(
+                "Email (not sent): Operation={Operation}, ToProtected={ToProtected}, SubjectProtected={SubjectProtected}, HtmlLength={HtmlLength}, TextLength={TextLength}",
+                operation,
+                toProtected,
+                subjectProtected,
+                htmlMessage.Length,
+                plainTextMessage.Length);
+        }
         return Task.CompletedTask;
     }
 }

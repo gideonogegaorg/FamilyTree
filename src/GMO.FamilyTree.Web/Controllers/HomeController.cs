@@ -17,6 +17,11 @@ namespace GMO.FamilyTree.Web.Controllers;
 [Authorize]
 public class HomeController : Controller
 {
+    private const string FamilyTreeControllerName = "FamilyTree";
+
+    private static readonly JsonSerializerOptions DemoReadJsonOptions = new() { PropertyNameCaseInsensitive = true };
+    private static readonly JsonSerializerOptions CamelCaseJsonOptions = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+
     private readonly AppDbContext _db;
     private readonly ICurrentFamilyTreeService _currentTree;
     private readonly ITreeViewOrientationService _treeViewOrientation;
@@ -49,9 +54,9 @@ public class HomeController : Controller
             return View(new LandingPageViewModel());
 
         await using var stream = System.IO.File.OpenRead(demoPath);
-        var readOpts = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+        var readOpts = DemoReadJsonOptions;
         var demo = await JsonSerializer.DeserializeAsync<LandingDemoTreeDto>(stream, readOpts, cancellationToken);
-        var writeOpts = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+        var writeOpts = CamelCaseJsonOptions;
         return View(new LandingPageViewModel
         {
             DemoNodesJson = demo?.Nodes != null ? JsonSerializer.Serialize(demo.Nodes, writeOpts) : "[]",
@@ -66,13 +71,13 @@ public class HomeController : Controller
         var treeId = await _currentTree.GetCurrentFamilyTreeIdAsync(cancellationToken);
         if (!treeId.HasValue)
         {
-            return RedirectToAction(nameof(FamilyTreeController.Index), "FamilyTree");
+            return RedirectToAction(nameof(FamilyTreeController.Index), FamilyTreeControllerName);
         }
 
         var tree = await _db.FamilyTrees.FindAsync(new object[] { treeId.Value }, cancellationToken);
         if (tree == null)
         {
-            return RedirectToAction(nameof(FamilyTreeController.Index), "FamilyTree");
+            return RedirectToAction(nameof(FamilyTreeController.Index), FamilyTreeControllerName);
         }
 
         var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -80,7 +85,7 @@ public class HomeController : Controller
             || !await _access.CanViewAsync(currentUserId, treeId.Value, cancellationToken))
         {
             await _currentTree.SetCurrentFamilyTreeIdAsync(null, cancellationToken);
-            return RedirectToAction(nameof(FamilyTreeController.Index), "FamilyTree");
+            return RedirectToAction(nameof(FamilyTreeController.Index), FamilyTreeControllerName);
         }
 
         var accessLevel = await _access.GetAccessLevelAsync(currentUserId, treeId.Value, cancellationToken);
@@ -108,7 +113,7 @@ public class HomeController : Controller
         var lineageMode = await _lineageMode.GetAsync(cancellationToken);
         var rankById = TreeLayoutRanking.ComputeVisualRank(cards, rowById, lineageMode);
 
-        var jsonOpts = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
+        var jsonOpts = CamelCaseJsonOptions;
         var nodesJson = JsonSerializer.Serialize(cards.Select(c => new
         {
             c.Id,
@@ -120,9 +125,9 @@ public class HomeController : Controller
             Dod = c.DOD?.ToString("yyyy-MM-dd"),
             Row = rowById.TryGetValue(c.Id, out var row) ? row : 0,
             VisualRank = rankById.TryGetValue(c.Id, out var rank) ? rank : 0.0,
-            ParentIds = c.ParentIds,
-            ChildIds = c.ChildIds,
-            PartnerIds = c.PartnerIds,
+            c.ParentIds,
+            c.ChildIds,
+            c.PartnerIds,
             c.BirthOrder,
             c.IsMale,
             HasPhoto = memberDict.TryGetValue(c.Id, out var mem) && !string.IsNullOrEmpty(mem.PhotoKey)
@@ -165,9 +170,9 @@ public class HomeController : Controller
     public async Task<IActionResult> AddFirstMember(CancellationToken cancellationToken)
     {
         var treeId = await _currentTree.GetCurrentFamilyTreeIdAsync(cancellationToken);
-        if (!treeId.HasValue) return RedirectToAction(nameof(FamilyTreeController.Index), "FamilyTree");
+        if (!treeId.HasValue) return RedirectToAction(nameof(FamilyTreeController.Index), FamilyTreeControllerName);
         var tree = await _db.FamilyTrees.FindAsync(new object[] { treeId.Value }, cancellationToken);
-        if (tree == null) return RedirectToAction(nameof(FamilyTreeController.Index), "FamilyTree");
+        if (tree is null) return RedirectToAction(nameof(FamilyTreeController.Index), FamilyTreeControllerName);
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (string.IsNullOrEmpty(userId) || !await _access.CanEditAsync(userId, treeId.Value, cancellationToken))
             return Forbid();

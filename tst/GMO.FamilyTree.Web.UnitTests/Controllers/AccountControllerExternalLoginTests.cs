@@ -24,11 +24,11 @@ public class AccountControllerExternalLoginTests : IClassFixture<AccountControll
     public async Task ExternalLoginCallback_redirects_to_Login_when_remoteError_is_set()
     {
         await using var db = _f.CreateDb(nameof(ExternalLoginCallback_redirects_to_Login_when_remoteError_is_set));
-        var (signInManager, userManager) = _f.CreateIdentityManagers(db);
+        var (signInManager, userManager) = AccountControllerFixture.CreateIdentityManagers(db);
         var controller = _f.CreateAccountController(
             signInManager, userManager, db,
-            _f.CreateExternalLoginInfoProvider(null),
-            _f.CreateUrlHelper());
+            AccountControllerFixture.CreateExternalLoginInfoProvider(null),
+            AccountControllerFixture.CreateUrlHelper());
 
         var result = await controller.ExternalLoginCallback(returnUrl: "/", remoteError: "access_denied");
 
@@ -40,11 +40,11 @@ public class AccountControllerExternalLoginTests : IClassFixture<AccountControll
     public async Task ExternalLoginCallback_redirects_to_Login_when_external_info_is_null()
     {
         await using var db = _f.CreateDb(nameof(ExternalLoginCallback_redirects_to_Login_when_external_info_is_null));
-        var (signInManager, userManager) = _f.CreateIdentityManagers(db);
+        var (signInManager, userManager) = AccountControllerFixture.CreateIdentityManagers(db);
         var controller = _f.CreateAccountController(
             signInManager, userManager, db,
-            _f.CreateExternalLoginInfoProvider(null),
-            _f.CreateUrlHelper());
+            AccountControllerFixture.CreateExternalLoginInfoProvider(null),
+            AccountControllerFixture.CreateUrlHelper());
 
         var result = await controller.ExternalLoginCallback(returnUrl: "/");
 
@@ -56,11 +56,11 @@ public class AccountControllerExternalLoginTests : IClassFixture<AccountControll
     public async Task ExternalLoginCallback_redirects_to_Login_when_email_claim_missing()
     {
         await using var db = _f.CreateDb(nameof(ExternalLoginCallback_redirects_to_Login_when_email_claim_missing));
-        var (signInManager, userManager) = _f.CreateIdentityManagers(db);
+        var (signInManager, userManager) = AccountControllerFixture.CreateIdentityManagers(db);
         var controller = _f.CreateAccountController(
             signInManager, userManager, db,
-            _f.CreateExternalLoginInfoProvider(""),
-            _f.CreateUrlHelper());
+            AccountControllerFixture.CreateExternalLoginInfoProvider(""),
+            AccountControllerFixture.CreateUrlHelper());
 
         var result = await controller.ExternalLoginCallback(returnUrl: "/");
 
@@ -73,11 +73,11 @@ public class AccountControllerExternalLoginTests : IClassFixture<AccountControll
     {
         await using var db = _f.CreateDb(nameof(ExternalLoginCallback_signs_in_existing_user_and_local_redirects));
         var existingUser = new IdentityUser { UserName = "u@example.com", Email = "u@example.com", EmailConfirmed = true };
-        var (signInManager, userManager) = _f.CreateIdentityManagers(db, existingUser);
+        var (signInManager, userManager) = AccountControllerFixture.CreateIdentityManagers(db, existingUser);
         var controller = _f.CreateAccountController(
             signInManager, userManager, db,
-            _f.CreateExternalLoginInfoProvider("u@example.com"),
-            _f.CreateUrlHelper("/home"));
+            AccountControllerFixture.CreateExternalLoginInfoProvider("u@example.com"),
+            AccountControllerFixture.CreateUrlHelper("/home"));
 
         var result = await controller.ExternalLoginCallback(returnUrl: "/home");
 
@@ -89,11 +89,11 @@ public class AccountControllerExternalLoginTests : IClassFixture<AccountControll
     public async Task ExternalLoginCallback_creates_user_when_not_found_then_signs_in_and_redirects()
     {
         await using var db = _f.CreateDb(nameof(ExternalLoginCallback_creates_user_when_not_found_then_signs_in_and_redirects));
-        var (signInManager, userManager) = _f.CreateIdentityManagers(db);
+        var (signInManager, userManager) = AccountControllerFixture.CreateIdentityManagers(db);
         var controller = _f.CreateAccountController(
             signInManager, userManager, db,
-            _f.CreateExternalLoginInfoProvider("new@example.com"),
-            _f.CreateUrlHelper());
+            AccountControllerFixture.CreateExternalLoginInfoProvider("new@example.com"),
+            AccountControllerFixture.CreateUrlHelper());
 
         var result = await controller.ExternalLoginCallback(returnUrl: "/");
 
@@ -108,11 +108,11 @@ public class AccountControllerExternalLoginTests : IClassFixture<AccountControll
     {
         await using var db = _f.CreateDb(nameof(ExternalLoginCallback_confirms_unconfirmed_email_for_existing_user));
         var existingUser = new IdentityUser { UserName = "squat@example.com", Email = "squat@example.com", EmailConfirmed = false };
-        var (signInManager, userManager) = _f.CreateIdentityManagers(db, existingUser);
+        var (signInManager, userManager) = AccountControllerFixture.CreateIdentityManagers(db, existingUser);
         var controller = _f.CreateAccountController(
             signInManager, userManager, db,
-            _f.CreateExternalLoginInfoProvider("squat@example.com"),
-            _f.CreateUrlHelper("/home"));
+            AccountControllerFixture.CreateExternalLoginInfoProvider("squat@example.com"),
+            AccountControllerFixture.CreateUrlHelper("/home"));
 
         var result = await controller.ExternalLoginCallback(returnUrl: "/home");
 

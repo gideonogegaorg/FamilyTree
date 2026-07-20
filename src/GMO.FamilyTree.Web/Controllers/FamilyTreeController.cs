@@ -31,8 +31,7 @@ public sealed class FamilyTreeController : Controller
         _access = access;
     }
 
-    private string? _ownerId;
-    private string? OwnerId => _ownerId ??= _userManager.GetUserId(User);
+    private string? OwnerId { get => field ??= _userManager.GetUserId(User); }
 
     public async Task<IActionResult> Index(CancellationToken cancellationToken)
     {

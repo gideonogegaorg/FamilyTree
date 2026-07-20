@@ -27,8 +27,9 @@ public class TestAuthController : ControllerBase
     }
 
     [HttpGet("SignIn")]
-    public async Task<IActionResult> SignIn(CancellationToken cancellationToken)
+    public async Task<IActionResult> SignIn(CancellationToken cancellationToken = default)
     {
+        _ = cancellationToken;
         var user = await _userManager.FindByEmailAsync(TestUserEmail);
         if (user == null)
         {
