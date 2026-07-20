@@ -34,7 +34,7 @@ public class AccountControllerEmailRateLimitTests : IClassFixture<AccountControl
         var email = new Mock<IEmailSender>(MockBehavior.Strict);
         var rateLimiter = new Mock<IEmailRateLimiter>();
         rateLimiter.Setup(r => r.TryAcquire(
-                EmailRateLimitOperations.ForgotPassword,
+                EmailRateLimitOperations.ResetRequest,
                 "victim@example.com",
                 It.IsAny<string?>()))
             .Returns(false);

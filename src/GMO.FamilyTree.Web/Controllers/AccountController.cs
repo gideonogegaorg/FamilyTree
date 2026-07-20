@@ -378,7 +378,7 @@ public class AccountController : Controller
                 "Reset your password",
                 callbackUrl);
             await TrySendEmailAsync(
-                EmailRateLimitOperations.ForgotPassword,
+                EmailRateLimitOperations.ResetRequest,
                 model.Email,
                 TransactionalEmail.Subject("reset your password"),
                 html,
@@ -813,7 +813,7 @@ public class AccountController : Controller
             "Confirm adding a password",
             callbackUrl);
         return await TrySendEmailAsync(
-            EmailRateLimitOperations.AddPassword,
+            EmailRateLimitOperations.AddCredential,
             user.Email!,
             TransactionalEmail.Subject("confirm adding a password"),
             html,

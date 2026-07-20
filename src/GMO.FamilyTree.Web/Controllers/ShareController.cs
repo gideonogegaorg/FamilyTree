@@ -292,6 +292,7 @@ public sealed class ShareController : Controller
                 html,
                 text,
                 EmailRateLimitOperations.ShareInvite);
+            // codeql[cs/exposure-of-sensitive-information] InviteId is a numeric PK correlator, not mailbox PII.
             _logger.LogInformation(
                 "Share invite email sent, InviteId={InviteId}, Operation={Operation}",
                 invite.Id,
@@ -300,6 +301,7 @@ public sealed class ShareController : Controller
         }
         catch (Exception ex)
         {
+            // codeql[cs/exposure-of-sensitive-information] InviteId is a numeric PK correlator, not mailbox PII.
             _logger.LogError(
                 ex,
                 "Share invite email failed, InviteId={InviteId}, Operation={Operation}",

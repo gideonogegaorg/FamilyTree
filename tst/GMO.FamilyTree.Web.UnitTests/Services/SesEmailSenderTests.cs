@@ -62,7 +62,7 @@ public class SesEmailSenderTests
         });
         var sut = new SesEmailSender(ses.Object, options, CreateProtector(), NullLogger<SesEmailSender>.Instance);
 
-        await sut.SendEmailAsync("to@example.com", "Hello", "<p>Hi</p>", "Hi", EmailRateLimitOperations.ForgotPassword);
+        await sut.SendEmailAsync("to@example.com", "Hello", "<p>Hi</p>", "Hi", EmailRateLimitOperations.ResetRequest);
 
         Assert.Equal("support@example.com", Assert.Single(captured!.ReplyToAddresses));
     }
