@@ -136,7 +136,10 @@ public class ShareControllerTests
             var model = Assert.IsType<ShareManageViewModel>(view.Model);
             Assert.Contains("Invite sent", model.StatusMessage, StringComparison.OrdinalIgnoreCase);
             Assert.Single(await db.FamilyTreeInvites.Where(i => i.RevokedAt == null).ToListAsync());
-            email.Verify(e => e.SendEmailAsync("guest@example.com", It.IsAny<string>(), It.IsAny<string>()), Times.Once);
+            email.Verify(e => e.SendEmailAsync(
+                "guest@example.com",
+                It.Is<string>(s => s.Contains("owner@example.com", StringComparison.Ordinal)),
+                It.Is<string>(b => b.Contains("owner@example.com", StringComparison.Ordinal))), Times.Once);
         }
     }
 
@@ -224,7 +227,10 @@ public class ShareControllerTests
             var view = Assert.IsType<ViewResult>(result);
             var model = Assert.IsType<ShareManageViewModel>(view.Model);
             Assert.Contains("resent", model.StatusMessage, StringComparison.OrdinalIgnoreCase);
-            email.Verify(e => e.SendEmailAsync("guest@example.com", It.IsAny<string>(), It.IsAny<string>()), Times.Once);
+            email.Verify(e => e.SendEmailAsync(
+                "guest@example.com",
+                It.Is<string>(s => s.Contains("owner@example.com", StringComparison.Ordinal)),
+                It.Is<string>(b => b.Contains("owner@example.com", StringComparison.Ordinal))), Times.Once);
         }
     }
 
