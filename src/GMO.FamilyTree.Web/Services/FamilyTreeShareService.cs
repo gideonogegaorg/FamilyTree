@@ -189,12 +189,12 @@ public sealed class FamilyTreeShareService : IFamilyTreeShareService
 
     private static (InviteAcceptResult Result, long? TreeId)? ValidateInviteEmail(FamilyTreeInvite invite, string? userEmail)
     {
-        return invite.IsLinkInvite
-            ? null
-            : string.IsNullOrEmpty(userEmail)
-                || !string.Equals(userEmail.Trim(), invite.Email!.Trim(), StringComparison.OrdinalIgnoreCase)
-                ? (InviteAcceptResult.EmailMismatch, invite.FamilyTreeId)
-                : null;
+        if (invite.IsLinkInvite)
+            return null;
+        if (string.IsNullOrEmpty(userEmail)
+            || !string.Equals(userEmail.Trim(), invite.Email!.Trim(), StringComparison.OrdinalIgnoreCase))
+            return (InviteAcceptResult.EmailMismatch, invite.FamilyTreeId);
+        return null;
     }
 
     private async Task<(InviteAcceptResult Result, long? TreeId)> CompleteInviteAcceptanceAsync(

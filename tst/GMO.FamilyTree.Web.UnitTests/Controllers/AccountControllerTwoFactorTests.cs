@@ -247,15 +247,15 @@ public class AccountControllerTwoFactorTests : IClassFixture<AccountControllerFi
         var googleAuth = new GoogleAuthOptionsMock().Object;
         var external = AccountControllerFixture.CreateExternalLoginInfoProvider("user@example.com");
 
-        var controller = new AccountController(
+        return new AccountController(
             AccountControllerFixture.CreateDependencies(
                 signIn, users, email, googleAuth, db, currentTree, treeViewOrientation, lineageMode,
                 defaultTree, familyTreeDeletion, external, photos, treeCardViewMode, access,
                 rateLimiter ?? AccountControllerFixture.CreateAllowAllRateLimiter()),
-            Microsoft.Extensions.Logging.Abstractions.NullLogger<AccountController>.Instance);
-
-        controller.ControllerContext = new() { HttpContext = new DefaultHttpContext() };
-        controller.Url = new UrlHelperMock().Object;
-        return controller;
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<AccountController>.Instance)
+        {
+            ControllerContext = new() { HttpContext = new DefaultHttpContext() },
+            Url = new UrlHelperMock().Object
+        };
     }
 }

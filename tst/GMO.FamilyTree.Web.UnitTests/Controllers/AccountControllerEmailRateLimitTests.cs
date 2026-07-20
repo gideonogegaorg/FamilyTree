@@ -99,7 +99,7 @@ public class AccountControllerEmailRateLimitTests : IClassFixture<AccountControl
         IEmailSender emailSender,
         IEmailRateLimiter rateLimiter)
     {
-        var controller = new AccountController(
+        return new AccountController(
             AccountControllerFixture.CreateDependencies(
                 signIn,
                 users,
@@ -116,10 +116,10 @@ public class AccountControllerEmailRateLimitTests : IClassFixture<AccountControl
                 new Mock<ITreeCardViewModeService>().Object,
                 new FamilyTreeAccessService(db),
                 rateLimiter),
-            Microsoft.Extensions.Logging.Abstractions.NullLogger<AccountController>.Instance);
-
-        controller.ControllerContext = new() { HttpContext = new DefaultHttpContext() };
-        controller.Url = new UrlHelperMock().Object;
-        return controller;
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<AccountController>.Instance)
+        {
+            ControllerContext = new() { HttpContext = new DefaultHttpContext() },
+            Url = new UrlHelperMock().Object
+        };
     }
 }

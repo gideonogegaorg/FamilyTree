@@ -34,7 +34,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 ConfigureCoreServices(builder);
 ConfigurePhotoStorage(builder);
-var telemetryOptions = ConfigureTelemetry(builder);
+ConfigureTelemetry(builder);
 ConfigureDatabase(builder);
 ConfigureEmail(builder);
 

@@ -64,7 +64,7 @@ public class HomeControllerIndexTests
         var googleAuth = new Mock<IOptionsMonitor<GoogleAuthOptions>>();
         googleAuth.Setup(g => g.CurrentValue).Returns(new GoogleAuthOptions());
 
-        var controller = new HomeController(
+        return new HomeController(
             AccountControllerFixture.CreateHomeDependencies(
                 db,
                 currentTree,
@@ -73,17 +73,17 @@ public class HomeControllerIndexTests
                 new Mock<ITreeCardViewModeService>().Object,
                 new FamilyTreeAccessService(db),
                 googleAuth.Object,
-                env.Object));
-
-        controller.ControllerContext = new()
+                env.Object))
         {
-            HttpContext = new DefaultHttpContext
+            ControllerContext = new()
             {
-                User = new ClaimsPrincipal(new ClaimsIdentity(
-                    [new Claim(ClaimTypes.NameIdentifier, userId)],
-                    "test"))
+                HttpContext = new DefaultHttpContext
+                {
+                    User = new ClaimsPrincipal(new ClaimsIdentity(
+                        [new Claim(ClaimTypes.NameIdentifier, userId)],
+                        "test"))
+                }
             }
         };
-        return controller;
     }
 }
