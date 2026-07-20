@@ -625,7 +625,7 @@ public class FamilyMemberController : Controller
     {
         if (type == RelationshipType.Couple)
             return await _db.FamilyMemberRelationships.AnyAsync(r => r.FamilyTreeId == treeId && r.RelationshipType == RelationshipType.Couple && ((r.FromMemberId == contextId && r.ToMemberId == existingId) || (r.FromMemberId == existingId && r.ToMemberId == contextId)), ct);
-        if (type != RelationshipType.Parent)
+        if (type is not RelationshipType.Parent)
             return false;
 
         return isChild

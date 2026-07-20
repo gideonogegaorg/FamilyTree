@@ -189,9 +189,13 @@ public sealed class FamilyTreeShareService : IFamilyTreeShareService
 
     private static (InviteAcceptResult Result, long? TreeId)? ValidateInviteEmail(FamilyTreeInvite invite, string? userEmail)
     {
-        if (invite.IsLinkInvite)
-            return null;
+        return invite.IsLinkInvite ? null : InviteEmailMismatchIfNeeded(invite, userEmail);
+    }
 
+    private static (InviteAcceptResult Result, long? TreeId)? InviteEmailMismatchIfNeeded(
+        FamilyTreeInvite invite,
+        string? userEmail)
+    {
         return string.IsNullOrEmpty(userEmail)
             || !string.Equals(userEmail.Trim(), invite.Email!.Trim(), StringComparison.OrdinalIgnoreCase)
             ? (InviteAcceptResult.EmailMismatch, invite.FamilyTreeId)
