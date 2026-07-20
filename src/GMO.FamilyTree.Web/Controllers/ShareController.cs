@@ -13,6 +13,8 @@ namespace GMO.FamilyTree.Web.Controllers;
 [Authorize]
 public sealed class ShareController : Controller
 {
+    private const string ManageViewName = "Manage";
+
     private readonly AppDbContext _db;
     private readonly UserManager<IdentityUser> _userManager;
     private readonly IFamilyTreeAccessService _access;
@@ -67,7 +69,7 @@ public sealed class ShareController : Controller
         {
             var invalid = await BuildManageModelAsync(treeId, cancellationToken);
             invalid.CreateLink = createLink;
-            return View("Manage", invalid);
+            return ManageView(invalid);
         }
 
         var expiresAt = DaysToExpiry(createLink.ExpiresInDays);
@@ -75,7 +77,7 @@ public sealed class ShareController : Controller
         var model = await BuildManageModelAsync(treeId, cancellationToken);
         model.CreatedLinkUrl = AcceptUrl(invite.Token);
         model.StatusMessage = "Share link created. Copy it and send it to the people you want to invite.";
-        return View("Manage", model);
+        return ManageView(model);
     }
 
     [HttpPost]
@@ -90,7 +92,7 @@ public sealed class ShareController : Controller
         {
             var invalid = await BuildManageModelAsync(treeId, cancellationToken);
             invalid.CreateEmail = createEmail;
-            return View("Manage", invalid);
+            return ManageView(invalid);
         }
 
         if (!_emailRateLimiter.TryAcquire(
@@ -100,7 +102,7 @@ public sealed class ShareController : Controller
         {
             var limited = await BuildManageModelAsync(treeId, cancellationToken);
             limited.StatusMessage = "Too many emails to that address recently. Wait a few minutes and try again.";
-            return View("Manage", limited);
+            return ManageView(limited);
         }
 
         var expiresAt = DaysToExpiry(createEmail.ExpiresInDays);
@@ -112,12 +114,12 @@ public sealed class ShareController : Controller
         {
             var failed = await BuildManageModelAsync(treeId, cancellationToken);
             failed.StatusMessage = "Could not send the invite email. Please try again in a few minutes.";
-            return View("Manage", failed);
+            return ManageView(failed);
         }
 
         var model = await BuildManageModelAsync(treeId, cancellationToken);
         model.StatusMessage = $"Invite sent to {createEmail.Email}.";
-        return View("Manage", model);
+        return ManageView(model);
     }
 
     [HttpPost]
@@ -134,7 +136,7 @@ public sealed class ShareController : Controller
         await _share.RevokeInviteAsync(inviteId, userId, cancellationToken);
         var model = await BuildManageModelAsync(treeId, cancellationToken);
         model.StatusMessage = "Invite revoked.";
-        return View("Manage", model);
+        return ManageView(model);
     }
 
     [HttpPost]
@@ -154,7 +156,7 @@ public sealed class ShareController : Controller
         {
             var failed = await BuildManageModelAsync(treeId, cancellationToken);
             failed.StatusMessage = "Could not resend that invite.";
-            return View("Manage", failed);
+            return ManageView(failed);
         }
 
         if (!_emailRateLimiter.TryAcquire(
@@ -164,7 +166,7 @@ public sealed class ShareController : Controller
         {
             var limited = await BuildManageModelAsync(treeId, cancellationToken);
             limited.StatusMessage = "Too many emails to that address recently. Wait a few minutes and try again.";
-            return View("Manage", limited);
+            return ManageView(limited);
         }
 
         var invite = await _share.ResendEmailInviteAsync(inviteId, userId, cancellationToken);
@@ -172,7 +174,7 @@ public sealed class ShareController : Controller
         {
             var failed = await BuildManageModelAsync(treeId, cancellationToken);
             failed.StatusMessage = "Could not resend that invite.";
-            return View("Manage", failed);
+            return ManageView(failed);
         }
 
         var tree = await _db.FamilyTrees.AsNoTracking().FirstAsync(t => t.Id == treeId, cancellationToken);
@@ -180,12 +182,12 @@ public sealed class ShareController : Controller
         {
             var limited = await BuildManageModelAsync(treeId, cancellationToken);
             limited.StatusMessage = "Could not send the invite email. Please try again in a few minutes.";
-            return View("Manage", limited);
+            return ManageView(limited);
         }
 
         var model = await BuildManageModelAsync(treeId, cancellationToken);
         model.StatusMessage = $"Invite resent to {invite.Email}.";
-        return View("Manage", model);
+        return ManageView(model);
     }
 
     [HttpPost]
@@ -202,7 +204,7 @@ public sealed class ShareController : Controller
         await _share.RemoveCollaboratorAsync(treeId, collaboratorUserId, userId, cancellationToken);
         var model = await BuildManageModelAsync(treeId, cancellationToken);
         model.StatusMessage = "Access removed.";
-        return View("Manage", model);
+        return ManageView(model);
     }
 
     [HttpPost]
@@ -219,7 +221,7 @@ public sealed class ShareController : Controller
         await _share.ChangeCollaboratorRoleAsync(treeId, collaboratorUserId, role, userId, cancellationToken);
         var model = await BuildManageModelAsync(treeId, cancellationToken);
         model.StatusMessage = "Role updated.";
-        return View("Manage", model);
+        return ManageView(model);
     }
 
     [AllowAnonymous]
@@ -339,4 +341,6 @@ public sealed class ShareController : Controller
 
     private static DateTimeOffset? DaysToExpiry(int? days)
         => days is > 0 ? DateTimeOffset.UtcNow.AddDays(days.Value) : null;
+
+    private IActionResult ManageView(ShareManageViewModel model) => View(ManageViewName, model);
 }

@@ -17,28 +17,38 @@
                 @Html.AntiForgeryToken()
                 <input type="hidden" name="memberId" value="@Model.ContextMemberId" />
                 <div class="mb-2">
-                    <label class="form-label small mb-0" for="@(menuId)-edit-name">Name</label>
-                    <input type="text" id="@(menuId)-edit-name" name="name" class="form-control form-control-sm" value="@Model.Name" required />
+                    <label class="form-label small mb-0">
+                        Name
+                        <input type="text" id="@(menuId)-edit-name" name="name" class="form-control form-control-sm" value="@Model.Name" required />
+                    </label>
                 </div>
                 <div class="mb-2">
-                    <label class="form-label small mb-0" for="@(menuId)-edit-nickname">Nickname</label>
-                    <input type="text" id="@(menuId)-edit-nickname" name="nickName" class="form-control form-control-sm" value="@Model.NickName" />
+                    <label class="form-label small mb-0">
+                        Nickname
+                        <input type="text" id="@(menuId)-edit-nickname" name="nickName" class="form-control form-control-sm" value="@Model.NickName" />
+                    </label>
                 </div>
                 <div class="mb-2">
-                    <label class="form-label small mb-0" for="@(menuId)-edit-dob">Date of birth</label>
-                    <input type="text" id="@(menuId)-edit-dob" name="dob" class="form-control form-control-sm js-flex-date" inputmode="numeric" autocomplete="off" placeholder="YYYY-MM-DD" value="@(Model.DOB?.ToString("yyyy-MM-dd"))" />
+                    <label class="form-label small mb-0">
+                        Date of birth
+                        <input type="text" id="@(menuId)-edit-dob" name="dob" class="form-control form-control-sm js-flex-date" inputmode="numeric" autocomplete="off" placeholder="YYYY-MM-DD" value="@(Model.DOB?.ToString("yyyy-MM-dd"))" />
+                    </label>
                     <div class="form-text small">e.g. 1950-07-19, 07/19/1950, 19 Jul 1950; missing parts default to the 1st.</div>
                     <div class="invalid-feedback">Enter a valid date, e.g. 1950-07-19.</div>
                 </div>
                 <div class="mb-2">
-                    <label class="form-label small mb-0" for="@(menuId)-edit-dod">Date of death</label>
-                    <input type="text" id="@(menuId)-edit-dod" name="dod" class="form-control form-control-sm js-flex-date" inputmode="numeric" autocomplete="off" placeholder="YYYY-MM-DD" value="@(Model.DOD?.ToString("yyyy-MM-dd"))" />
+                    <label class="form-label small mb-0">
+                        Date of death
+                        <input type="text" id="@(menuId)-edit-dod" name="dod" class="form-control form-control-sm js-flex-date" inputmode="numeric" autocomplete="off" placeholder="YYYY-MM-DD" value="@(Model.DOD?.ToString("yyyy-MM-dd"))" />
+                    </label>
                     <div class="form-text small">Optional; the same flexible date formats are accepted.</div>
                     <div class="invalid-feedback">Enter a valid date, e.g. 2020-07-19.</div>
                 </div>
                 <div class="mb-2">
-                    <label class="form-label small mb-0" for="@(menuId)-edit-birthorder">Birth order</label>
-                    <input type="number" id="@(menuId)-edit-birthorder" name="birthOrder" class="form-control form-control-sm" min="1" value="@Model.BirthOrder" />
+                    <label class="form-label small mb-0">
+                        Birth order
+                        <input type="number" id="@(menuId)-edit-birthorder" name="birthOrder" class="form-control form-control-sm" min="1" value="@Model.BirthOrder" />
+                    </label>
                 </div>
                 <div class="form-check mb-2">
                     <input type="checkbox" name="isMale" value="true" class="form-check-input" id="@(menuId)-edit-male" @(Model.IsMale ? "checked" : "") />
@@ -49,11 +59,13 @@
                     <label class="form-check-label small" for="@(menuId)-edit-me">This is me</label>
                 </div>
                 <div class="mb-2">
-                    <label class="form-label small mb-0" for="@(menuId)-edit-photo">Photo</label>
+                    <label class="form-label small mb-0">
+                        Photo
+                        <input type="file" id="@(menuId)-edit-photo" name="photo" class="form-control form-control-sm member-photo-input" accept="image/jpeg,image/png,image/gif,image/webp" />
+                    </label>
                     <div class="mb-1 member-photo-preview-wrap @(Model.HasPhoto ? "" : "d-none")">
                         <img src="@(Model.HasPhoto ? $"/photos/members/{Model.ContextMemberId}" : "")" alt="" class="rounded-circle member-edit-photo-preview" width="48" height="48" style="object-fit: cover;" />
                     </div>
-                    <input type="file" id="@(menuId)-edit-photo" name="photo" class="form-control form-control-sm member-photo-input" accept="image/jpeg,image/png,image/gif,image/webp" />
                     <button type="button" class="btn btn-sm btn-link p-0 mt-1 member-photo-remove-btn @(Model.HasPhoto ? "" : "d-none")">Remove photo</button>
                 </div>
                 <button type="submit" class="btn btn-sm btn-primary">Save</button>
@@ -85,8 +97,10 @@
             </div>
             <!-- Link existing: search + candidates -->
             <div class="menu-panel-existing">
-                <label class="form-label small text-muted mb-0" for="@(menuId)-add-search">Search</label>
-                <input type="text" id="@(menuId)-add-search" class="form-control form-control-sm member-action-search mb-1" placeholder="Filter people…" />
+                <label class="form-label small text-muted mb-0">
+                    Search
+                    <input type="text" id="@(menuId)-add-search" class="form-control form-control-sm member-action-search mb-1" placeholder="Filter people…" />
+                </label>
                 <div class="menu-candidates-container" style="max-height: 180px; overflow-y: auto;">
                     <div class="menu-candidates" data-type="parent" data-ischild="false" style="display:none;">
                         @foreach (var c in Model.ParentCandidates)
@@ -120,28 +134,38 @@
                     <input type="hidden" name="RelationshipType" class="add-rel-type" value="0" />
                     <input type="hidden" name="IsChild" class="add-is-child" value="true" />
                     <div class="mb-2">
-                        <label class="form-label small mb-0" for="@(menuId)-add-name">Name</label>
-                        <input type="text" id="@(menuId)-add-name" name="Name" class="form-control form-control-sm" required />
+                        <label class="form-label small mb-0">
+                            Name
+                            <input type="text" id="@(menuId)-add-name" name="Name" class="form-control form-control-sm" required />
+                        </label>
                     </div>
                     <div class="mb-2">
-                        <label class="form-label small mb-0" for="@(menuId)-add-nickname">Nickname</label>
-                        <input type="text" id="@(menuId)-add-nickname" name="NickName" class="form-control form-control-sm" />
+                        <label class="form-label small mb-0">
+                            Nickname
+                            <input type="text" id="@(menuId)-add-nickname" name="NickName" class="form-control form-control-sm" />
+                        </label>
                     </div>
                     <div class="mb-2">
-                        <label class="form-label small mb-0" for="@(menuId)-add-dob">Date of birth</label>
-                        <input type="text" id="@(menuId)-add-dob" name="DOB" class="form-control form-control-sm js-flex-date" inputmode="numeric" autocomplete="off" placeholder="YYYY-MM-DD" />
+                        <label class="form-label small mb-0">
+                            Date of birth
+                            <input type="text" id="@(menuId)-add-dob" name="DOB" class="form-control form-control-sm js-flex-date" inputmode="numeric" autocomplete="off" placeholder="YYYY-MM-DD" />
+                        </label>
                         <div class="form-text small">e.g. 1950-07-19, 07/19/1950, 19 Jul 1950; missing parts default to the 1st.</div>
                         <div class="invalid-feedback">Enter a valid date, e.g. 1950-07-19.</div>
                     </div>
                     <div class="mb-2">
-                        <label class="form-label small mb-0" for="@(menuId)-add-dod">Date of death</label>
-                        <input type="text" id="@(menuId)-add-dod" name="DOD" class="form-control form-control-sm js-flex-date" inputmode="numeric" autocomplete="off" placeholder="YYYY-MM-DD" />
+                        <label class="form-label small mb-0">
+                            Date of death
+                            <input type="text" id="@(menuId)-add-dod" name="DOD" class="form-control form-control-sm js-flex-date" inputmode="numeric" autocomplete="off" placeholder="YYYY-MM-DD" />
+                        </label>
                         <div class="form-text small">Optional; the same flexible date formats are accepted.</div>
                         <div class="invalid-feedback">Enter a valid date, e.g. 2020-07-19.</div>
                     </div>
                     <div class="mb-2 menu-birthorder-row" style="display:none;">
-                        <label class="form-label small mb-0" for="@(menuId)-add-birthorder">Birth order</label>
-                        <input type="number" id="@(menuId)-add-birthorder" name="BirthOrder" class="form-control form-control-sm" min="1" />
+                        <label class="form-label small mb-0">
+                            Birth order
+                            <input type="number" id="@(menuId)-add-birthorder" name="BirthOrder" class="form-control form-control-sm" min="1" />
+                        </label>
                     </div>
                     <div class="form-check mb-2">
                         <input type="checkbox" name="IsMale" value="true" class="form-check-input" id="@(menuId)-add-male" />

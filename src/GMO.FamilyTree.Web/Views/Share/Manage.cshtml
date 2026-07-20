@@ -13,7 +13,7 @@
 
 @if (!string.IsNullOrEmpty(Model.StatusMessage))
 {
-    <div class="alert alert-success" role="status">@Model.StatusMessage</div>
+    <output class="alert alert-success d-block">@Model.StatusMessage</output>
 }
 @if (!string.IsNullOrEmpty(Model.CreatedLinkUrl))
 {

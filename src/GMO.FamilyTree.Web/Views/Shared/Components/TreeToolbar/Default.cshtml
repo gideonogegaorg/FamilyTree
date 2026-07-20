@@ -5,11 +5,11 @@
     <div class="ft-toolbar-row">
         <div class="ft-tree-picker">
             <div class="ft-tree-picker-wrap">
-                <button type="button" class="ft-tree-picker-btn" aria-expanded="false" aria-haspopup="listbox">
+                <button type="button" class="ft-tree-picker-btn" aria-expanded="false" aria-haspopup="true">
                     <span class="ft-tree-picker-name">@Model.CurrentTreeName</span>
                     <span class="ft-tree-picker-chevron" aria-hidden="true">&#9662;</span>
                 </button>
-                <div class="ft-tree-picker-menu" role="listbox" hidden>
+                <div class="ft-tree-picker-menu" hidden>
                     @foreach (var tree in Model.FamilyTrees)
                     {
                         <div class="ft-tree-picker-row">
@@ -17,7 +17,6 @@
                                 @Html.AntiForgeryToken()
                                 <button type="submit"
                                         class="ft-tree-picker-item @(tree.Id == Model.CurrentTreeId ? "active" : "")"
-                                        role="option"
                                         aria-selected="@(tree.Id == Model.CurrentTreeId ? "true" : "false")">
                                     @tree.Name
                                     @if (!tree.IsOwner)
@@ -88,7 +87,8 @@
     <div class="ft-subbar">
         <div class="ft-pill-group">
             <span>Layout</span>
-            <div class="ft-pills" role="group" aria-label="Tree layout orientation">
+            <fieldset class="ft-pills border-0 p-0 m-0">
+                <legend class="visually-hidden">Tree layout orientation</legend>
                 <form asp-controller="Account" asp-action="SetTreeViewOrientation" method="post">
                     @Html.AntiForgeryToken()
                     <input type="hidden" name="orientation" value="@((int)TreeViewOrientation.Horizontal)" />
@@ -99,11 +99,12 @@
                     <input type="hidden" name="orientation" value="@((int)TreeViewOrientation.Vertical)" />
                     <button type="submit" class="@(Model.TreeViewOrientation == TreeViewOrientation.Vertical ? "active" : "")">Vertical</button>
                 </form>
-            </div>
+            </fieldset>
         </div>
         <div class="ft-pill-group">
             <span>Lineage</span>
-            <div class="ft-pills" role="group" aria-label="Lineage mode">
+            <fieldset class="ft-pills border-0 p-0 m-0">
+                <legend class="visually-hidden">Lineage mode</legend>
                 <form asp-controller="Account" asp-action="SetLineageMode" method="post">
                     @Html.AntiForgeryToken()
                     <input type="hidden" name="mode" value="@((int)LineageMode.Paternal)" />
@@ -114,7 +115,7 @@
                     <input type="hidden" name="mode" value="@((int)LineageMode.Maternal)" />
                     <button type="submit" class="@(Model.LineageMode == LineageMode.Maternal ? "active" : "")">Maternal</button>
                 </form>
-            </div>
+            </fieldset>
         </div>
         <div class="ft-pill-group">
             <span>View</span>

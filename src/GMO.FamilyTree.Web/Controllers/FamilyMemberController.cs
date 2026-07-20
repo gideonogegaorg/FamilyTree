@@ -262,17 +262,17 @@ public class FamilyMemberController : Controller
     public async Task<IActionResult> EditMember(long memberId, string name, string? nickName, DateOnly? dob, DateOnly? dod, int? birthOrder, bool isMale, bool setAsMe, CancellationToken cancellationToken = default)
     {
         if (!ModelState.IsValid)
-            return Json(new { success = false, error = "Invalid input." });
+            return EditMemberError("Invalid input.");
 
         var treeId = await _currentTree.GetCurrentFamilyTreeIdAsync(cancellationToken);
-        if (!treeId.HasValue) return Json(new { success = false, error = "No tree" });
+        if (!treeId.HasValue) return EditMemberError("No tree");
         if (!await EnsureCanEditAsync(treeId.Value, cancellationToken))
-            return Json(new { success = false, error = "Forbidden" });
+            return EditMemberError("Forbidden");
         var member = await _db.FamilyMembers.FindAsync(new object[] { memberId }, cancellationToken);
-        if (member == null || member.FamilyTreeId != treeId.Value) return Json(new { success = false, error = "Not found" });
-        if (string.IsNullOrWhiteSpace(name)) return Json(new { success = false, error = "Name is required" });
+        if (member == null || member.FamilyTreeId != treeId.Value) return EditMemberError("Not found");
+        if (string.IsNullOrWhiteSpace(name)) return EditMemberError("Name is required");
         if (dob.HasValue && dod.HasValue && dod < dob)
-            return Json(new { success = false, error = "Date of death cannot be before date of birth." });
+            return EditMemberError("Date of death cannot be before date of birth.");
 
         member.Name = name.Trim();
         member.NickName = string.IsNullOrWhiteSpace(nickName) ? null : nickName.Trim();
@@ -281,6 +281,16 @@ public class FamilyMemberController : Controller
         member.BirthOrder = birthOrder;
         member.IsMale = isMale;
 
+        await ApplySetAsMeAsync(memberId, member, setAsMe, cancellationToken);
+
+        await _db.SaveChangesAsync(cancellationToken);
+        return Json(new { success = true });
+    }
+
+    private IActionResult EditMemberError(string error) => Json(new { success = false, error });
+
+    private async Task ApplySetAsMeAsync(long memberId, FamilyMember member, bool setAsMe, CancellationToken cancellationToken)
+    {
         var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (setAsMe && !string.IsNullOrEmpty(currentUserId))
         {
@@ -289,14 +299,11 @@ public class FamilyMemberController : Controller
                 .ToListAsync(cancellationToken);
             foreach (var m in others) m.UserId = null;
             member.UserId = currentUserId;
-        }
-        else if (!setAsMe && member.UserId == currentUserId)
-        {
-            member.UserId = null;
+            return;
         }
 
-        await _db.SaveChangesAsync(cancellationToken);
-        return Json(new { success = true });
+        if (!setAsMe && member.UserId == currentUserId)
+            member.UserId = null;
     }
 
     [HttpPost]
