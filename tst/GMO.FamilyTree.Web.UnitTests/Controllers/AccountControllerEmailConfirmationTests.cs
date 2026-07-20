@@ -30,7 +30,7 @@ public class AccountControllerEmailConfirmationTests : IClassFixture<AccountCont
     public async Task Register_sends_confirmation_and_does_not_sign_in()
     {
         await using var db = _f.CreateDb(nameof(Register_sends_confirmation_and_does_not_sign_in));
-        var (signIn, users) = _f.CreateIdentityManagers(db);
+        var (signIn, users) = AccountControllerFixture.CreateIdentityManagers(db);
         var email = new Mock<IEmailSender>();
         string? sentTo = null;
         email.Setup(e => e.SendEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
@@ -58,7 +58,7 @@ public class AccountControllerEmailConfirmationTests : IClassFixture<AccountCont
     public async Task ConfirmEmail_marks_user_confirmed()
     {
         await using var db = _f.CreateDb(nameof(ConfirmEmail_marks_user_confirmed));
-        var (signIn, users) = _f.CreateIdentityManagers(db);
+        var (signIn, users) = AccountControllerFixture.CreateIdentityManagers(db);
         var user = new IdentityUser { UserName = "c@example.com", Email = "c@example.com" };
         Assert.True((await users.CreateAsync(user, "TestPassword1!")).Succeeded);
         var token = await users.GenerateEmailConfirmationTokenAsync(user);
@@ -103,7 +103,7 @@ public class AccountControllerEmailConfirmationTests : IClassFixture<AccountCont
     public async Task ForgotPassword_skips_email_when_unconfirmed()
     {
         await using var db = _f.CreateDb(nameof(ForgotPassword_skips_email_when_unconfirmed));
-        var (signIn, users) = _f.CreateIdentityManagers(db);
+        var (signIn, users) = AccountControllerFixture.CreateIdentityManagers(db);
         var user = new IdentityUser { UserName = "u@example.com", Email = "u@example.com", EmailConfirmed = false };
         Assert.True((await users.CreateAsync(user, "TestPassword1!")).Succeeded);
         var email = new Mock<IEmailSender>(MockBehavior.Strict);
@@ -118,11 +118,11 @@ public class AccountControllerEmailConfirmationTests : IClassFixture<AccountCont
 
     private static UserManager<IdentityUser> CreateUserManager(AppDbContext db)
     {
-        var (_, users) = new AccountControllerFixture().CreateIdentityManagers(db);
+        var (_, users) = AccountControllerFixture.CreateIdentityManagers(db);
         return users;
     }
 
-    private AccountController CreateWithEmail(
+    private static AccountController CreateWithEmail(
         AppDbContext db,
         SignInManager<IdentityUser> signIn,
         UserManager<IdentityUser> users,
@@ -137,7 +137,7 @@ public class AccountControllerEmailConfirmationTests : IClassFixture<AccountCont
         var treeCardViewMode = new Mock<ITreeCardViewModeService>().Object;
         var access = new FamilyTreeAccessService(db);
         var googleAuth = new GoogleAuthOptionsMock().Object;
-        var external = _f.CreateExternalLoginInfoProvider("user@example.com");
+        var external = AccountControllerFixture.CreateExternalLoginInfoProvider("user@example.com");
 
         var controller = new AccountController(
             new AccountControllerDependencies(

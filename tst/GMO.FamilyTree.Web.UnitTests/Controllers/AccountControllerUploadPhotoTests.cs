@@ -27,11 +27,11 @@ public class AccountControllerUploadPhotoTests : IClassFixture<AccountController
     public async Task UploadPhoto_GET_redirects_to_home()
     {
         await using var db = _fixture.CreateDb(nameof(UploadPhoto_GET_redirects_to_home));
-        var (signInManager, userManager) = _fixture.CreateIdentityManagers(db);
+        var (signInManager, userManager) = AccountControllerFixture.CreateIdentityManagers(db);
         var controller = _fixture.CreateAccountController(
             signInManager, userManager, db,
-            _fixture.CreateExternalLoginInfoProvider("user@example.com"),
-            _fixture.CreateUrlHelper(),
+            AccountControllerFixture.CreateExternalLoginInfoProvider("user@example.com"),
+            AccountControllerFixture.CreateUrlHelper(),
             userId: "user-1");
 
         var result = controller.UploadPhoto();
@@ -103,14 +103,14 @@ public class AccountControllerUploadPhotoTests : IClassFixture<AccountController
 
     private AccountController CreateJsonController(AppDbContext db, IPhotoStorageService photos, string userId)
     {
-        var (signInManager, userManager) = _fixture.CreateIdentityManagers(db);
+        var (signInManager, userManager) = AccountControllerFixture.CreateIdentityManagers(db);
         var controller = _fixture.CreateAccountController(
             signInManager, userManager, db,
-            _fixture.CreateExternalLoginInfoProvider("user@example.com"),
-            _fixture.CreateUrlHelper(),
+            AccountControllerFixture.CreateExternalLoginInfoProvider("user@example.com"),
+            AccountControllerFixture.CreateUrlHelper(),
             photos: photos,
             userId: userId);
-        controller.ControllerContext.HttpContext.Request.Headers["X-Requested-With"] = "XMLHttpRequest";
+        controller.ControllerContext.HttpContext.Request.Headers.XRequestedWith = "XMLHttpRequest";
         controller.ControllerContext.HttpContext.Request.Headers.Accept = "application/json";
         return controller;
     }

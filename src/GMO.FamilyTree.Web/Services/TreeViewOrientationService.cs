@@ -34,8 +34,7 @@ public sealed class TreeViewOrientationService : ITreeViewOrientationService
         var orientation = profile?.TreeViewOrientation;
         if (orientation.HasValue)
         {
-            if (session != null)
-                session.SetInt32(SessionKey, (int)orientation.Value);
+            session?.SetInt32(SessionKey, (int)orientation.Value);
             return orientation.Value;
         }
         return TreeViewOrientation.Horizontal;
@@ -44,8 +43,7 @@ public sealed class TreeViewOrientationService : ITreeViewOrientationService
     public async Task SetOrientationAsync(TreeViewOrientation orientation, CancellationToken cancellationToken = default)
     {
         var session = _httpContextAccessor.HttpContext?.Session;
-        if (session != null)
-            session.SetInt32(SessionKey, (int)orientation);
+        session?.SetInt32(SessionKey, (int)orientation);
 
         var userId = _httpContextAccessor.HttpContext?.User?.FindFirstValue(ClaimTypes.NameIdentifier);
         if (string.IsNullOrEmpty(userId))

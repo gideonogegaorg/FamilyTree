@@ -12,11 +12,10 @@ namespace GMO.FamilyTree.Web.UiTests;
 /// Mobile-friendly tree viewport checks: touch contract, one-finger pan, pinch zoom, and card taps.
 /// </summary>
 [Collection("AppFixture Collection")]
-public class MobileTreeViewportTests : IAsyncLifetime
+public partial class MobileTreeViewportTests : IAsyncLifetime
 {
-    private static readonly Regex TransformRegex = new(
-        @"translate\(([-\d.]+)px,\s*([-\d.]+)px\)\s*scale\(([-\d.]+)\)",
-        RegexOptions.Compiled);
+    [GeneratedRegex(@"translate\(([-\d.]+)px,\s*([-\d.]+)px\)\s*scale\(([-\d.]+)\)", RegexOptions.Compiled)]
+    private static partial Regex TransformRegex();
 
     private readonly AppFixture _fixture;
     private IPlaywright _playwright = null!;
@@ -63,7 +62,7 @@ public class MobileTreeViewportTests : IAsyncLifetime
     {
         var transform = await page.Locator(".family-tree-world").EvaluateAsync<string>(
             "el => el.style.transform || ''");
-        var match = TransformRegex.Match(transform ?? "");
+        var match = TransformRegex().Match(transform ?? "");
         if (!match.Success)
             return (0, 0, 1);
 
@@ -173,18 +172,18 @@ public class MobileTreeViewportTests : IAsyncLifetime
             var endX = startX + 80;
             var endY = startY + 40;
 
-            var before = await ReadWorldTransformAsync(page);
+            var (beforePanX, beforePanY, _) = await ReadWorldTransformAsync(page);
 
             await DispatchTouchPointerAsync(page, "pointerdown", 1, startX, startY);
             await DispatchTouchPointerAsync(page, "pointermove", 1, startX + 20, startY + 10);
             await DispatchTouchPointerAsync(page, "pointermove", 1, endX, endY);
             await DispatchTouchPointerAsync(page, "pointerup", 1, endX, endY);
 
-            var after = await ReadWorldTransformAsync(page);
-            var dx = Math.Abs(after.PanX - before.PanX);
-            var dy = Math.Abs(after.PanY - before.PanY);
+            var (afterPanX, afterPanY, _) = await ReadWorldTransformAsync(page);
+            var dx = Math.Abs(afterPanX - beforePanX);
+            var dy = Math.Abs(afterPanY - beforePanY);
             Assert.True(dx + dy >= 40,
-                $"Expected pan after touch drag; before=({before.PanX},{before.PanY}) after=({after.PanX},{after.PanY})");
+                $"Expected pan after touch drag; before=({beforePanX},{beforePanY}) after=({afterPanX},{afterPanY})");
         }
         finally
         {
@@ -204,7 +203,7 @@ public class MobileTreeViewportTests : IAsyncLifetime
             var cx = stageBox!.X + stageBox.Width / 2;
             var cy = stageBox.Y + stageBox.Height / 2;
 
-            var before = await ReadWorldTransformAsync(page);
+            var (_, _, beforeScale) = await ReadWorldTransformAsync(page);
 
             // Two fingers close together, then spread apart (zoom in).
             await DispatchTouchPointerAsync(page, "pointerdown", 1, cx - 30, cy);
@@ -214,10 +213,10 @@ public class MobileTreeViewportTests : IAsyncLifetime
             await DispatchTouchPointerAsync(page, "pointerup", 2, cx + 90, cy);
             await DispatchTouchPointerAsync(page, "pointerup", 1, cx - 90, cy);
 
-            var after = await ReadWorldTransformAsync(page);
-            Assert.True(after.Scale > before.Scale + 0.15,
-                $"Expected pinch zoom-in; before={before.Scale}, after={after.Scale}");
-            Assert.True(after.Scale <= 2.5 + 0.01);
+            var (_, _, afterScale) = await ReadWorldTransformAsync(page);
+            Assert.True(afterScale > beforeScale + 0.15,
+                $"Expected pinch zoom-in; before={beforeScale}, after={afterScale}");
+            Assert.True(afterScale <= 2.5 + 0.01);
         }
         finally
         {

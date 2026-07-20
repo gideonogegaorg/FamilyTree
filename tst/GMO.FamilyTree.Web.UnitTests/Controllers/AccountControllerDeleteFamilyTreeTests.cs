@@ -21,11 +21,11 @@ public class AccountControllerDeleteFamilyTreeTests : IClassFixture<AccountContr
     public async Task DeleteFamilyTree_returns_NotFound_when_user_not_authenticated()
     {
         await using var db = _f.CreateDb(nameof(DeleteFamilyTree_returns_NotFound_when_user_not_authenticated));
-        var (signInManager, userManager) = _f.CreateIdentityManagers(db);
+        var (signInManager, userManager) = AccountControllerFixture.CreateIdentityManagers(db);
         var deletion = new Mock<IFamilyTreeDeletionService>();
         var controller = _f.CreateAccountController(
             signInManager, userManager, db,
-            _f.CreateExternalLoginInfoProvider("user@example.com"),
+            AccountControllerFixture.CreateExternalLoginInfoProvider("user@example.com"),
             familyTreeDeletion: deletion.Object);
 
         var result = await controller.DeleteFamilyTree(1, CancellationToken.None);
@@ -39,13 +39,13 @@ public class AccountControllerDeleteFamilyTreeTests : IClassFixture<AccountContr
     {
         await using var db = _f.CreateDb(nameof(DeleteFamilyTree_returns_NotFound_when_tree_not_found));
         var user = new IdentityUser { Id = "user-1", UserName = "user@example.com", Email = "user@example.com" };
-        var (signInManager, userManager) = _f.CreateIdentityManagers(db, user);
+        var (signInManager, userManager) = AccountControllerFixture.CreateIdentityManagers(db, user);
         var deletion = new Mock<IFamilyTreeDeletionService>();
         deletion.Setup(s => s.DeleteAsync("user-1", 9, It.IsAny<CancellationToken>()))
             .ReturnsAsync(FamilyTreeDeleteResult.NotFound);
         var controller = _f.CreateAccountController(
             signInManager, userManager, db,
-            _f.CreateExternalLoginInfoProvider("user@example.com"),
+            AccountControllerFixture.CreateExternalLoginInfoProvider("user@example.com"),
             familyTreeDeletion: deletion.Object,
             userId: "user-1");
 
@@ -59,13 +59,13 @@ public class AccountControllerDeleteFamilyTreeTests : IClassFixture<AccountContr
     {
         await using var db = _f.CreateDb(nameof(DeleteFamilyTree_redirects_Home_on_success));
         var user = new IdentityUser { Id = "user-1", UserName = "user@example.com", Email = "user@example.com" };
-        var (signInManager, userManager) = _f.CreateIdentityManagers(db, user);
+        var (signInManager, userManager) = AccountControllerFixture.CreateIdentityManagers(db, user);
         var deletion = new Mock<IFamilyTreeDeletionService>();
         deletion.Setup(s => s.DeleteAsync("user-1", 3, It.IsAny<CancellationToken>()))
             .ReturnsAsync(FamilyTreeDeleteResult.Deleted);
         var controller = _f.CreateAccountController(
             signInManager, userManager, db,
-            _f.CreateExternalLoginInfoProvider("user@example.com"),
+            AccountControllerFixture.CreateExternalLoginInfoProvider("user@example.com"),
             familyTreeDeletion: deletion.Object,
             userId: "user-1");
 

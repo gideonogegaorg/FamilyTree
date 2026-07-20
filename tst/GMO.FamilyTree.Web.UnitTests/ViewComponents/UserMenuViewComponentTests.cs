@@ -21,7 +21,7 @@ public class UserMenuViewComponentTests : IClassFixture<AccountControllerFixture
     public async Task InvokeAsync_returns_empty_model_when_not_authenticated()
     {
         await using var db = _f.CreateDb(nameof(InvokeAsync_returns_empty_model_when_not_authenticated));
-        var users = _f.CreateIdentityManagers(db).Item2;
+        var users = AccountControllerFixture.CreateIdentityManagers(db).Item2;
         var component = new UserMenuViewComponent(db, users);
         ViewComponentTestHelper.AttachContext(component);
 
@@ -37,7 +37,7 @@ public class UserMenuViewComponentTests : IClassFixture<AccountControllerFixture
     public async Task InvokeAsync_returns_email_and_photo_from_profile()
     {
         await using var db = _f.CreateDb(nameof(InvokeAsync_returns_email_and_photo_from_profile));
-        var users = _f.CreateIdentityManagers(db).Item2;
+        var users = AccountControllerFixture.CreateIdentityManagers(db).Item2;
         db.UserProfiles.Add(new UserProfile
         {
             UserId = "user-1",
@@ -60,7 +60,7 @@ public class UserMenuViewComponentTests : IClassFixture<AccountControllerFixture
     public async Task InvokeAsync_returns_email_without_photo_when_profile_missing()
     {
         await using var db = _f.CreateDb(nameof(InvokeAsync_returns_email_without_photo_when_profile_missing));
-        var users = _f.CreateIdentityManagers(db).Item2;
+        var users = AccountControllerFixture.CreateIdentityManagers(db).Item2;
         var component = new UserMenuViewComponent(db, users);
         ViewComponentTestHelper.AttachContext(
             component,
@@ -76,7 +76,7 @@ public class UserMenuViewComponentTests : IClassFixture<AccountControllerFixture
     public async Task InvokeAsync_sets_HasPassword_for_password_user()
     {
         await using var db = _f.CreateDb(nameof(InvokeAsync_sets_HasPassword_for_password_user));
-        var users = _f.CreateIdentityManagers(db).Item2;
+        var users = AccountControllerFixture.CreateIdentityManagers(db).Item2;
         var user = new IdentityUser { UserName = "pwd@example.com", Email = "pwd@example.com", EmailConfirmed = true };
         Assert.True((await users.CreateAsync(user, "TestPassword1!")).Succeeded);
 

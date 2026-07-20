@@ -14,6 +14,7 @@ namespace GMO.FamilyTree.Web.Controllers;
 public sealed class ShareController : Controller
 {
     private const string ManageViewName = "Manage";
+    private const string AcceptErrorView = "AcceptError";
 
     private readonly AppDbContext _db;
     private readonly UserManager<IdentityUser> _userManager;
@@ -221,7 +222,7 @@ public sealed class ShareController : Controller
     public async Task<IActionResult> Accept(string token, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(token))
-            return View("AcceptError", "This invite link is invalid.");
+            return View(AcceptErrorView, "This invite link is invalid.");
 
         if (User.Identity?.IsAuthenticated != true)
         {
@@ -238,10 +239,10 @@ public sealed class ShareController : Controller
         {
             InviteAcceptResult.Success when treeId.HasValue => await FinishAcceptAsync(treeId.Value, cancellationToken),
             InviteAcceptResult.AlreadyOwner when treeId.HasValue => await FinishAcceptAsync(treeId.Value, cancellationToken),
-            InviteAcceptResult.Expired => View("AcceptError", "This invite has expired."),
-            InviteAcceptResult.Revoked => View("AcceptError", "This invite was revoked."),
-            InviteAcceptResult.EmailMismatch => View("AcceptError", "Sign in with the email address this invite was sent to."),
-            _ => View("AcceptError", "This invite link is invalid or no longer available.")
+            InviteAcceptResult.Expired => View(AcceptErrorView, "This invite has expired."),
+            InviteAcceptResult.Revoked => View(AcceptErrorView, "This invite was revoked."),
+            InviteAcceptResult.EmailMismatch => View(AcceptErrorView, "Sign in with the email address this invite was sent to."),
+            _ => View(AcceptErrorView, "This invite link is invalid or no longer available.")
         };
     }
 
@@ -317,12 +318,15 @@ public sealed class ShareController : Controller
         }
         catch (Exception ex)
         {
-            // codeql[cs/exposure-of-sensitive-information] InviteId is a numeric PK correlator, not mailbox PII.
-            _logger.LogError(
-                ex,
-                "Share invite email failed, InviteId={InviteId}, Operation={Operation}",
-                invite.Id,
-                EmailRateLimitOperations.ShareInvite);
+            if (_logger.IsEnabled(LogLevel.Error))
+            {
+                // codeql[cs/exposure-of-sensitive-information] InviteId is a numeric PK correlator, not mailbox PII.
+                _logger.LogError(
+                    ex,
+                    "Share invite email failed, InviteId={InviteId}, Operation={Operation}",
+                    invite.Id,
+                    EmailRateLimitOperations.ShareInvite);
+            }
             await _share.RevokeInviteAsync(invite.Id, ownerUserId, cancellationToken);
             return false;
         }
@@ -334,5 +338,5 @@ public sealed class ShareController : Controller
     private static DateTimeOffset? DaysToExpiry(int? days)
         => days is > 0 ? DateTimeOffset.UtcNow.AddDays(days.Value) : null;
 
-    private IActionResult ManageView(ShareManageViewModel model) => View(ManageViewName, model);
+    private ViewResult ManageView(ShareManageViewModel model) => View(ManageViewName, model);
 }

@@ -36,12 +36,12 @@ public class ControllerModelStateValidationTests : IClassFixture<AccountControll
     public async Task AccountController_UploadPhoto_returns_error_when_model_state_invalid()
     {
         await using var db = _fixture.CreateDb(nameof(AccountController_UploadPhoto_returns_error_when_model_state_invalid));
-        var (signInManager, userManager) = _fixture.CreateIdentityManagers(db);
+        var (signInManager, userManager) = AccountControllerFixture.CreateIdentityManagers(db);
         var controller = _fixture.CreateAccountController(
             signInManager, userManager, db,
-            _fixture.CreateExternalLoginInfoProvider("user@example.com"),
+            AccountControllerFixture.CreateExternalLoginInfoProvider("user@example.com"),
             userId: "user-1");
-        controller.ControllerContext.HttpContext.Request.Headers["X-Requested-With"] = "XMLHttpRequest";
+        controller.ControllerContext.HttpContext.Request.Headers.XRequestedWith = "XMLHttpRequest";
         Invalidate(controller);
 
         var result = await controller.UploadPhoto(null, CancellationToken.None);
@@ -63,10 +63,10 @@ public class ControllerModelStateValidationTests : IClassFixture<AccountControll
         db.FamilyTrees.Add(new FamilyTreeEntity { Id = 1, Name = "Tree", OwnerId = "user-1" });
         await db.SaveChangesAsync();
 
-        var (signInManager, userManager) = _fixture.CreateIdentityManagers(db, user);
+        var (signInManager, userManager) = AccountControllerFixture.CreateIdentityManagers(db, user);
         var controller = _fixture.CreateAccountController(
             signInManager, userManager, db,
-            _fixture.CreateExternalLoginInfoProvider("user@example.com"),
+            AccountControllerFixture.CreateExternalLoginInfoProvider("user@example.com"),
             userId: "user-1");
         Invalidate(controller);
 
@@ -87,10 +87,10 @@ public class ControllerModelStateValidationTests : IClassFixture<AccountControll
     public async Task AccountController_LoginWith2fa_returns_bad_request_when_model_state_invalid()
     {
         await using var db = _fixture.CreateDb(nameof(AccountController_LoginWith2fa_returns_bad_request_when_model_state_invalid));
-        var (signInManager, userManager) = _fixture.CreateIdentityManagers(db);
+        var (signInManager, userManager) = AccountControllerFixture.CreateIdentityManagers(db);
         var controller = _fixture.CreateAccountController(
             signInManager, userManager, db,
-            _fixture.CreateExternalLoginInfoProvider("user@example.com"));
+            AccountControllerFixture.CreateExternalLoginInfoProvider("user@example.com"));
         Invalidate(controller);
 
         var result = await controller.LoginWith2fa(false, null);

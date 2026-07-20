@@ -49,9 +49,8 @@ public static class TreeLayoutRanking
         AlignPartnerRows(cards, rowById);
         PropagateChildRows(cards, rowById, onlyWhenMissing: false);
 
-        foreach (var c in cards)
-            if (!rowById.ContainsKey(c.Id))
-                rowById[c.Id] = 0;
+        foreach (var c in cards.Where(c => !rowById.ContainsKey(c.Id)))
+            rowById[c.Id] = 0;
 
         return rowById;
     }
@@ -144,10 +143,9 @@ public static class TreeLayoutRanking
 
             bool bloodlineA = nodeA.ParentIds.Count > 0;
             bool bloodlineB = nodeB.ParentIds.Count > 0;
-            if (bloodlineA && !bloodlineB) return true;
-            if (!bloodlineA && bloodlineB) return false;
-
-            return isPrimary(nodeA) && !isPrimary(nodeB);
+            return bloodlineA != bloodlineB
+                ? bloodlineA
+                : isPrimary(nodeA) && !isPrimary(nodeB);
         }
 
         foreach (var primary in cards.Where(c => c.PartnerIds.Count > 1))

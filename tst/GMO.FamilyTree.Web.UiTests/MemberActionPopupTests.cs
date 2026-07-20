@@ -196,7 +196,7 @@ public class MemberActionPopupTests : IAsyncLifetime
         await _page.Locator("body").ClickAsync(new() { Position = new() { X = 0, Y = 0 } });
         await Task.Delay(50);
         var display = await _page.Locator("#member-action-popup").GetAttributeAsync("style");
-        Assert.True(display?.Contains("none") == true);
+        Assert.True(display?.Contains("none") is true);
     }
 
     [Fact]
@@ -206,6 +206,6 @@ public class MemberActionPopupTests : IAsyncLifetime
         await _page.Keyboard.PressAsync("Escape");
         await Task.Delay(50);
         var display = await _page.Locator("#member-action-popup").GetAttributeAsync("style");
-        Assert.True(display?.Contains("none") == true);
+        Assert.True(display?.Contains("none") is true);
     }
 }

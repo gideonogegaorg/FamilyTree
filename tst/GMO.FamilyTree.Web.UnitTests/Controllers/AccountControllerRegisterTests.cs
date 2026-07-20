@@ -28,7 +28,7 @@ public class AccountControllerRegisterTests : IClassFixture<AccountControllerFix
     public async Task Register_deletes_user_when_default_tree_creation_fails()
     {
         await using var db = _f.CreateDb(nameof(Register_deletes_user_when_default_tree_creation_fails));
-        var (signIn, users) = _f.CreateIdentityManagers(db);
+        var (signIn, users) = AccountControllerFixture.CreateIdentityManagers(db);
 
         var defaultTree = new Mock<IDefaultFamilyTreeService>();
         defaultTree.Setup(s => s.EnsureDefaultFamilyTreeAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
@@ -38,7 +38,7 @@ public class AccountControllerRegisterTests : IClassFixture<AccountControllerFix
             signIn,
             users,
             db,
-            _f.CreateExternalLoginInfoProvider("user@example.com"),
+            AccountControllerFixture.CreateExternalLoginInfoProvider("user@example.com"),
             defaultFamilyTreeService: defaultTree.Object);
         controller.TempData = new TempDataDictionary(
             controller.ControllerContext.HttpContext,
@@ -60,7 +60,7 @@ public class AccountControllerRegisterTests : IClassFixture<AccountControllerFix
     public async Task Register_creates_default_tree_profile_and_enables_email_2fa()
     {
         await using var db = _f.CreateDb(nameof(Register_creates_default_tree_profile_and_enables_email_2fa));
-        var (signIn, users) = _f.CreateIdentityManagers(db);
+        var (signIn, users) = AccountControllerFixture.CreateIdentityManagers(db);
         var email = new Mock<IEmailSender>();
         email.Setup(e => e.SendEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
             .Returns(Task.CompletedTask);
@@ -77,7 +77,7 @@ public class AccountControllerRegisterTests : IClassFixture<AccountControllerFix
                 Mock.Of<ILineageModeService>(),
                 new DefaultFamilyTreeService(db),
                 Mock.Of<IFamilyTreeDeletionService>(),
-                _f.CreateExternalLoginInfoProvider("user@example.com"),
+                AccountControllerFixture.CreateExternalLoginInfoProvider("user@example.com"),
                 Mock.Of<IPhotoStorageService>(),
                 Mock.Of<ITreeCardViewModeService>(),
                 new FamilyTreeAccessService(db),
@@ -87,7 +87,7 @@ public class AccountControllerRegisterTests : IClassFixture<AccountControllerFix
         {
             HttpContext = new Microsoft.AspNetCore.Http.DefaultHttpContext()
         };
-        controller.Url = _f.CreateUrlHelper("/Home/Index");
+        controller.Url = AccountControllerFixture.CreateUrlHelper("/Home/Index");
         controller.TempData = new TempDataDictionary(
             controller.ControllerContext.HttpContext,
             Mock.Of<ITempDataProvider>());

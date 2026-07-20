@@ -36,7 +36,7 @@ public class PhotosIntegrationTests : IClassFixture<WebAppFixture>
         long memberId;
         using (var scope = _fixture.CreateScope())
         {
-            var db = _fixture.GetDbContext(scope);
+            var db = WebAppFixture.GetDbContext(scope);
             memberId = await db.FamilyMembers.Select(m => m.Id).FirstAsync();
         }
 
@@ -127,7 +127,7 @@ public class PhotosIntegrationTests : IClassFixture<WebAppFixture>
         long treeId;
         using (var scope = _fixture.CreateScope())
         {
-            var db = _fixture.GetDbContext(scope);
+            var db = WebAppFixture.GetDbContext(scope);
             treeId = (await db.FamilyTrees.OrderByDescending(t => t.Id).FirstAsync()).Id;
         }
 

@@ -54,12 +54,10 @@ public sealed class AppFixture : WebApplicationFactory<WebAppEntry>, IDisposable
         _testDatabaseName = "family_uitest_" + Guid.NewGuid().ToString("N")[..12];
         _testConnectionString = $"{BaseConnectionString};Database={_testDatabaseName}";
 
-        await using (var conn = new NpgsqlConnection(BaseConnectionString + ";Database=postgres"))
-        {
-            await conn.OpenAsync();
-            await using (var cmd = new NpgsqlCommand($"CREATE DATABASE \"{_testDatabaseName}\"", conn))
-                await cmd.ExecuteNonQueryAsync();
-        }
+        await using var conn = new NpgsqlConnection(BaseConnectionString + ";Database=postgres");
+        await conn.OpenAsync();
+        await using var cmd = new NpgsqlCommand($"CREATE DATABASE \"{_testDatabaseName}\"", conn);
+        await cmd.ExecuteNonQueryAsync();
     }
 
     protected override IHost CreateHost(IHostBuilder builder)
@@ -109,49 +107,37 @@ public sealed class AppFixture : WebApplicationFactory<WebAppEntry>, IDisposable
 
         await using var conn = new NpgsqlConnection(_testConnectionString);
         await conn.OpenAsync();
-        await using (var cmd = new NpgsqlCommand(sql, conn))
+        await using var cmd = new NpgsqlCommand(sql, conn);
+        try
         {
-            try
-            {
-                await cmd.ExecuteNonQueryAsync();
-            }
-            catch (Exception ex)
-            {
-                throw new InvalidOperationException($"Seed script failed: {ex.Message}", ex);
-            }
+            await cmd.ExecuteNonQueryAsync();
+        }
+        catch (Exception ex)
+        {
+            throw new InvalidOperationException($"Seed script failed: {ex.Message}", ex);
         }
 
         // Verify seed: tree 1 = 25, tree 2 = 0, tree 3 = 1, tree 4 = large (6 gen)
-        await using (var verify = new NpgsqlCommand("SELECT COUNT(*) FROM \"FamilyMembers\" WHERE \"FamilyTreeId\" = 1", conn))
-        {
-            var count = Convert.ToInt64(await verify.ExecuteScalarAsync() ?? 0);
-            if (count < 25)
-                throw new InvalidOperationException($"Seed incomplete: expected 25 members in tree 1, got {count}. Check seed_trees.sql and database schema.");
-        }
-        await using (var verify2 = new NpgsqlCommand("SELECT COUNT(*) FROM \"FamilyMembers\" WHERE \"FamilyTreeId\" = 2", conn))
-        {
-            var count2 = Convert.ToInt64(await verify2.ExecuteScalarAsync() ?? 0);
-            if (count2 != 0)
-                throw new InvalidOperationException($"Seed incomplete: expected 0 members in tree 2, got {count2}.");
-        }
-        await using (var verify3 = new NpgsqlCommand("SELECT COUNT(*) FROM \"FamilyMembers\" WHERE \"FamilyTreeId\" = 3", conn))
-        {
-            var count3 = Convert.ToInt64(await verify3.ExecuteScalarAsync() ?? 0);
-            if (count3 != 1)
-                throw new InvalidOperationException($"Seed incomplete: expected 1 member in tree 3, got {count3}.");
-        }
-        await using (var verify4 = new NpgsqlCommand("SELECT COUNT(*) FROM \"FamilyMembers\" WHERE \"FamilyTreeId\" = 4", conn))
-        {
-            var count4 = Convert.ToInt64(await verify4.ExecuteScalarAsync() ?? 0);
-            if (count4 < 85)
-                throw new InvalidOperationException($"Seed incomplete: expected at least 85 members in tree 4 (large), got {count4}.");
-        }
-        await using (var verify5 = new NpgsqlCommand("SELECT COUNT(*) FROM \"FamilyMembers\" WHERE \"FamilyTreeId\" = 5", conn))
-        {
-            var count5 = Convert.ToInt64(await verify5.ExecuteScalarAsync() ?? 0);
-            if (count5 != 5)
-                throw new InvalidOperationException($"Seed incomplete: expected 5 members in tree 5 (half-sibling), got {count5}.");
-        }
+        await using var verify = new NpgsqlCommand("SELECT COUNT(*) FROM \"FamilyMembers\" WHERE \"FamilyTreeId\" = 1", conn);
+        var count = Convert.ToInt64(await verify.ExecuteScalarAsync() ?? 0);
+        if (count < 25)
+            throw new InvalidOperationException($"Seed incomplete: expected 25 members in tree 1, got {count}. Check seed_trees.sql and database schema.");
+        await using var verify2 = new NpgsqlCommand("SELECT COUNT(*) FROM \"FamilyMembers\" WHERE \"FamilyTreeId\" = 2", conn);
+        var count2 = Convert.ToInt64(await verify2.ExecuteScalarAsync() ?? 0);
+        if (count2 != 0)
+            throw new InvalidOperationException($"Seed incomplete: expected 0 members in tree 2, got {count2}.");
+        await using var verify3 = new NpgsqlCommand("SELECT COUNT(*) FROM \"FamilyMembers\" WHERE \"FamilyTreeId\" = 3", conn);
+        var count3 = Convert.ToInt64(await verify3.ExecuteScalarAsync() ?? 0);
+        if (count3 != 1)
+            throw new InvalidOperationException($"Seed incomplete: expected 1 member in tree 3, got {count3}.");
+        await using var verify4 = new NpgsqlCommand("SELECT COUNT(*) FROM \"FamilyMembers\" WHERE \"FamilyTreeId\" = 4", conn);
+        var count4 = Convert.ToInt64(await verify4.ExecuteScalarAsync() ?? 0);
+        if (count4 < 85)
+            throw new InvalidOperationException($"Seed incomplete: expected at least 85 members in tree 4 (large), got {count4}.");
+        await using var verify5 = new NpgsqlCommand("SELECT COUNT(*) FROM \"FamilyMembers\" WHERE \"FamilyTreeId\" = 5", conn);
+        var count5 = Convert.ToInt64(await verify5.ExecuteScalarAsync() ?? 0);
+        if (count5 != 5)
+            throw new InvalidOperationException($"Seed incomplete: expected 5 members in tree 5 (half-sibling), got {count5}.");
     }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -191,8 +177,8 @@ public sealed class AppFixture : WebApplicationFactory<WebAppEntry>, IDisposable
             await using var conn = new NpgsqlConnection(BaseConnectionString + ";Database=postgres");
             await conn.OpenAsync();
             await TerminateConnectionsAsync(conn, _testDatabaseName);
-            await using (var cmd = new NpgsqlCommand($"DROP DATABASE IF EXISTS \"{_testDatabaseName}\"", conn))
-                await cmd.ExecuteNonQueryAsync();
+            await using var cmd = new NpgsqlCommand($"DROP DATABASE IF EXISTS \"{_testDatabaseName}\"", conn);
+            await cmd.ExecuteNonQueryAsync();
         }
         catch
         {

@@ -97,6 +97,24 @@ public class SesEmailSenderTests
     }
 
     [Fact]
+    public async Task SendEmailAsync_logs_success_when_information_enabled()
+    {
+        var ses = new Mock<IAmazonSimpleEmailService>();
+        ses.Setup(s => s.SendEmailAsync(It.IsAny<SendEmailRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new SendEmailResponse { MessageId = "msg-ok" });
+
+        var logger = new CollectingLogger<SesEmailSender>();
+        var options = Microsoft.Extensions.Options.Options.Create(new EmailOptions { FromAddress = "noreply@example.com" });
+        var sut = new SesEmailSender(ses.Object, options, CreateProtector(), logger);
+
+        await sut.SendEmailAsync("to@example.com", "Hello", "<p>Hi</p>", "Hi", EmailRateLimitOperations.Confirmation);
+
+        var message = Assert.Single(logger.Messages);
+        Assert.Contains("msg-ok", message, StringComparison.Ordinal);
+        Assert.Contains("Operation=", message, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public async Task SendEmailAsync_logs_and_rethrows_when_ses_fails()
     {
         var ses = new Mock<IAmazonSimpleEmailService>();

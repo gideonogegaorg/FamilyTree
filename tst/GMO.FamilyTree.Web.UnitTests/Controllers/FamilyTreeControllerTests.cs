@@ -21,9 +21,9 @@ public class FamilyTreeControllerTests
     [Fact]
     public async Task Create_POST_valid_sets_current_tree_and_redirects_to_Home()
     {
-        await using var db = _fixture.CreateDb(nameof(Create_POST_valid_sets_current_tree_and_redirects_to_Home));
+        await using var db = FamilyTreeControllerFixture.CreateDb(nameof(Create_POST_valid_sets_current_tree_and_redirects_to_Home));
         var currentTree = new CurrentFamilyTreeServiceMock();
-        var (controller, _, _) = _fixture.CreateController(db, currentTree: currentTree);
+        var (controller, _, _) = FamilyTreeControllerFixture.CreateController(db, currentTree: currentTree);
         var model = new FamilyTreeEntity { Name = "New Tree", Uid = Guid.NewGuid() };
 
         var result = await controller.Create(model, CancellationToken.None);
@@ -38,8 +38,8 @@ public class FamilyTreeControllerTests
     [Fact]
     public async Task Create_POST_empty_name_returns_view_with_validation_error()
     {
-        await using var db = _fixture.CreateDb(nameof(Create_POST_empty_name_returns_view_with_validation_error));
-        var (controller, _, _) = _fixture.CreateController(db);
+        await using var db = FamilyTreeControllerFixture.CreateDb(nameof(Create_POST_empty_name_returns_view_with_validation_error));
+        var (controller, _, _) = FamilyTreeControllerFixture.CreateController(db);
         var model = new FamilyTreeEntity { Name = "   ", Uid = Guid.NewGuid() };
 
         var result = await controller.Create(model, CancellationToken.None);
@@ -52,11 +52,11 @@ public class FamilyTreeControllerTests
     [Fact]
     public async Task Edit_POST_valid_redirects_to_Home_and_updates_name()
     {
-        await using var db = _fixture.CreateDb(nameof(Edit_POST_valid_redirects_to_Home_and_updates_name));
+        await using var db = FamilyTreeControllerFixture.CreateDb(nameof(Edit_POST_valid_redirects_to_Home_and_updates_name));
         db.FamilyTrees.Add(new FamilyTreeEntity { Uid = Guid.NewGuid(), Name = "Old", OwnerId = "owner-1" });
         await db.SaveChangesAsync();
         var entity = await db.FamilyTrees.SingleAsync();
-        var (controller, _, _) = _fixture.CreateController(db);
+        var (controller, _, _) = FamilyTreeControllerFixture.CreateController(db);
 
         var result = await controller.Edit(entity.Id, new FamilyTreeEntity { Id = entity.Id, Uid = entity.Uid, Name = "New" }, CancellationToken.None);
 
@@ -68,8 +68,8 @@ public class FamilyTreeControllerTests
     [Fact]
     public async Task Edit_POST_id_mismatch_returns_NotFound()
     {
-        await using var db = _fixture.CreateDb(nameof(Edit_POST_id_mismatch_returns_NotFound));
-        var (controller, _, _) = _fixture.CreateController(db);
+        await using var db = FamilyTreeControllerFixture.CreateDb(nameof(Edit_POST_id_mismatch_returns_NotFound));
+        var (controller, _, _) = FamilyTreeControllerFixture.CreateController(db);
 
         var result = await controller.Edit(1, new FamilyTreeEntity { Id = 2, Name = "X", Uid = Guid.NewGuid() }, CancellationToken.None);
 
@@ -79,11 +79,11 @@ public class FamilyTreeControllerTests
     [Fact]
     public async Task DeleteConfirmed_delegates_to_service_and_redirects_Home()
     {
-        await using var db = _fixture.CreateDb(nameof(DeleteConfirmed_delegates_to_service_and_redirects_Home));
+        await using var db = FamilyTreeControllerFixture.CreateDb(nameof(DeleteConfirmed_delegates_to_service_and_redirects_Home));
         var deletion = new Mock<IFamilyTreeDeletionService>();
         deletion.Setup(s => s.DeleteAsync("owner-1", 5, It.IsAny<CancellationToken>()))
             .ReturnsAsync(FamilyTreeDeleteResult.Deleted);
-        var (controller, _, _) = _fixture.CreateController(db, deletion: deletion);
+        var (controller, _, _) = FamilyTreeControllerFixture.CreateController(db, deletion: deletion);
 
         var result = await controller.DeleteConfirmed(5, CancellationToken.None);
 
@@ -95,11 +95,11 @@ public class FamilyTreeControllerTests
     [Fact]
     public async Task DeleteConfirmed_returns_NotFound_when_service_reports_not_found()
     {
-        await using var db = _fixture.CreateDb(nameof(DeleteConfirmed_returns_NotFound_when_service_reports_not_found));
+        await using var db = FamilyTreeControllerFixture.CreateDb(nameof(DeleteConfirmed_returns_NotFound_when_service_reports_not_found));
         var deletion = new Mock<IFamilyTreeDeletionService>();
         deletion.Setup(s => s.DeleteAsync(It.IsAny<string>(), It.IsAny<long>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(FamilyTreeDeleteResult.NotFound);
-        var (controller, _, _) = _fixture.CreateController(db, deletion: deletion);
+        var (controller, _, _) = FamilyTreeControllerFixture.CreateController(db, deletion: deletion);
 
         var result = await controller.DeleteConfirmed(99, CancellationToken.None);
 

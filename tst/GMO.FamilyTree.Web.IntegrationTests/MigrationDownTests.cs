@@ -27,12 +27,10 @@ public sealed class MigrationDownTests
         var dbName = "family_migdown_" + Guid.NewGuid().ToString("N")[..12];
         var connectionString = $"{BaseConnectionString};Database={dbName}";
 
-        await using (var adminConn = new NpgsqlConnection(BaseConnectionString + ";Database=postgres"))
-        {
-            await adminConn.OpenAsync();
-            await using (var cmd = new NpgsqlCommand($"CREATE DATABASE \"{dbName}\"", adminConn))
-                await cmd.ExecuteNonQueryAsync();
-        }
+        await using var adminConn = new NpgsqlConnection(BaseConnectionString + ";Database=postgres");
+        await adminConn.OpenAsync();
+        await using var createDbCmd = new NpgsqlCommand($"CREATE DATABASE \"{dbName}\"", adminConn);
+        await createDbCmd.ExecuteNonQueryAsync();
 
         try
         {
@@ -40,35 +38,31 @@ public sealed class MigrationDownTests
                 .UseNpgsql(connectionString)
                 .Options;
 
-            await using (var context = new AppDbContext(options))
-            {
-                var migrator = context.Database.GetInfrastructure().GetRequiredService<IMigrator>();
+            await using var context = new AppDbContext(options);
+            var migrator = context.Database.GetInfrastructure().GetRequiredService<IMigrator>();
 
-                // Act: apply all migrations (Up), then migrate down to zero (all Down)
-                migrator.Migrate();
-                migrator.Migrate("0");
-            }
+            // Act: apply all migrations (Up), then migrate down to zero (all Down)
+            migrator.Migrate();
+            migrator.Migrate("0");
 
             // Assert: no application tables remain (DB is empty of our schema)
-            await using (var conn = new NpgsqlConnection(connectionString))
-            {
-                await conn.OpenAsync();
-                await using var cmd = new NpgsqlCommand("""
-                    SELECT table_name
-                    FROM information_schema.tables
-                    WHERE table_schema = 'public'
-                    ORDER BY table_name
-                    """, conn);
-                await using var reader = await cmd.ExecuteReaderAsync();
-                var tables = new List<string>();
-                while (await reader.ReadAsync())
-                    tables.Add(reader.GetString(0));
+            await using var conn = new NpgsqlConnection(connectionString);
+            await conn.OpenAsync();
+            await using var cmd = new NpgsqlCommand("""
+                SELECT table_name
+                FROM information_schema.tables
+                WHERE table_schema = 'public'
+                ORDER BY table_name
+                """, conn);
+            await using var reader = await cmd.ExecuteReaderAsync();
+            var tables = new List<string>();
+            while (await reader.ReadAsync())
+                tables.Add(reader.GetString(0));
 
-                // After Migrate("0") we expect at most __EFMigrationsHistory (EF may leave it)
-                var appTables = tables.Where(t =>
-                    t != "__EFMigrationsHistory").ToList();
-                Assert.Empty(appTables);
-            }
+            // After Migrate("0") we expect at most __EFMigrationsHistory (EF may leave it)
+            var appTables = tables.Where(t =>
+                t != "__EFMigrationsHistory").ToList();
+            Assert.Empty(appTables);
         }
         finally
         {
@@ -82,17 +76,15 @@ public sealed class MigrationDownTests
         {
             await using var conn = new NpgsqlConnection(BaseConnectionString + ";Database=postgres");
             await conn.OpenAsync();
-            await using (var term = new NpgsqlCommand("""
+            await using var term = new NpgsqlCommand("""
                 SELECT pg_terminate_backend(pg_stat_activity.pid)
                 FROM pg_stat_activity
                 WHERE pg_stat_activity.datname = @db AND pid <> pg_backend_pid()
-                """, conn))
-            {
-                term.Parameters.AddWithValue("db", databaseName);
-                await term.ExecuteNonQueryAsync();
-            }
-            await using (var drop = new NpgsqlCommand($"DROP DATABASE IF EXISTS \"{databaseName}\"", conn))
-                await drop.ExecuteNonQueryAsync();
+                """, conn);
+            term.Parameters.AddWithValue("db", databaseName);
+            await term.ExecuteNonQueryAsync();
+            await using var drop = new NpgsqlCommand($"DROP DATABASE IF EXISTS \"{databaseName}\"", conn);
+            await drop.ExecuteNonQueryAsync();
         }
         catch
         {

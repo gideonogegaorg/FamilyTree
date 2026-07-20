@@ -49,14 +49,14 @@ public class FamilyTreeShareServiceTests
         {
             var invite = await sut.CreateEmailInviteAsync(treeId, "owner", "guest@example.com", TreeShareRole.Readonly, null);
 
-            var mismatch = await sut.AcceptInviteAsync(invite.Token, "other", "other@example.com");
-            Assert.Equal(InviteAcceptResult.EmailMismatch, mismatch.Result);
+            var (mismatchResult, _) = await sut.AcceptInviteAsync(invite.Token, "other", "other@example.com");
+            Assert.Equal(InviteAcceptResult.EmailMismatch, mismatchResult);
 
-            var ok = await sut.AcceptInviteAsync(invite.Token, "guest", "guest@example.com");
-            Assert.Equal(InviteAcceptResult.Success, ok.Result);
+            var (okResult, _) = await sut.AcceptInviteAsync(invite.Token, "guest", "guest@example.com");
+            Assert.Equal(InviteAcceptResult.Success, okResult);
 
-            var again = await sut.AcceptInviteAsync(invite.Token, "guest", "guest@example.com");
-            Assert.Equal(InviteAcceptResult.NotFound, again.Result);
+            var (againResult, _) = await sut.AcceptInviteAsync(invite.Token, "guest", "guest@example.com");
+            Assert.Equal(InviteAcceptResult.NotFound, againResult);
         }
     }
 
@@ -69,8 +69,8 @@ public class FamilyTreeShareServiceTests
             var invite = await sut.CreateLinkInviteAsync(treeId, "owner", TreeShareRole.Readonly, null);
             Assert.True(await sut.RevokeInviteAsync(invite.Id, "owner"));
 
-            var result = await sut.AcceptInviteAsync(invite.Token, "guest", "guest@example.com");
-            Assert.Equal(InviteAcceptResult.Revoked, result.Result);
+            var (revokedResult, _) = await sut.AcceptInviteAsync(invite.Token, "guest", "guest@example.com");
+            Assert.Equal(InviteAcceptResult.Revoked, revokedResult);
         }
     }
 
@@ -83,8 +83,8 @@ public class FamilyTreeShareServiceTests
             var invite = await sut.CreateLinkInviteAsync(
                 treeId, "owner", TreeShareRole.Readonly, DateTimeOffset.UtcNow.AddMinutes(-1));
 
-            var result = await sut.AcceptInviteAsync(invite.Token, "guest", "guest@example.com");
-            Assert.Equal(InviteAcceptResult.Expired, result.Result);
+            var (expiredResult, _) = await sut.AcceptInviteAsync(invite.Token, "guest", "guest@example.com");
+            Assert.Equal(InviteAcceptResult.Expired, expiredResult);
         }
     }
 
@@ -153,9 +153,9 @@ public class FamilyTreeShareServiceTests
         await using (db)
         {
             var invite = await sut.CreateLinkInviteAsync(treeId, "owner", TreeShareRole.Editor, null);
-            var result = await sut.AcceptInviteAsync(invite.Token, "owner", "owner@example.com");
-            Assert.Equal(InviteAcceptResult.AlreadyOwner, result.Result);
-            Assert.Equal(treeId, result.TreeId);
+            var (ownerResult, ownerTreeId) = await sut.AcceptInviteAsync(invite.Token, "owner", "owner@example.com");
+            Assert.Equal(InviteAcceptResult.AlreadyOwner, ownerResult);
+            Assert.Equal(treeId, ownerTreeId);
         }
     }
 
@@ -176,8 +176,8 @@ public class FamilyTreeShareServiceTests
             await db.SaveChangesAsync();
 
             var invite = await sut.CreateLinkInviteAsync(treeId, "owner", TreeShareRole.Editor, null);
-            var result = await sut.AcceptInviteAsync(invite.Token, "guest", "guest@example.com");
-            Assert.Equal(InviteAcceptResult.Success, result.Result);
+            var (upgradeResult, _) = await sut.AcceptInviteAsync(invite.Token, "guest", "guest@example.com");
+            Assert.Equal(InviteAcceptResult.Success, upgradeResult);
             Assert.Equal(TreeShareRole.Editor, (await db.FamilyTreeAccesses.SingleAsync()).Role);
         }
     }

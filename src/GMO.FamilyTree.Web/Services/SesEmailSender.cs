@@ -56,23 +56,30 @@ public sealed class SesEmailSender : IEmailSender
         if (!string.IsNullOrWhiteSpace(_options.ReplyToAddress))
             request.ReplyToAddresses = [_options.ReplyToAddress.Trim()];
 
-        var toProtected = _logProtector.Protect(email);
         try
         {
             var response = await _ses.SendEmailAsync(request);
-            _logger.LogInformation(
-                "SES email sent, MessageId={MessageId}, Operation={Operation}, ToProtected={ToProtected}",
-                response.MessageId,
-                operation,
-                toProtected);
+            if (_logger.IsEnabled(LogLevel.Information))
+            {
+                var toProtected = _logProtector.Protect(email);
+                _logger.LogInformation(
+                    "SES email sent, MessageId={MessageId}, Operation={Operation}, ToProtected={ToProtected}",
+                    response.MessageId,
+                    operation,
+                    toProtected);
+            }
         }
         catch (Exception ex)
         {
-            _logger.LogError(
-                ex,
-                "SES email failed, Operation={Operation}, ToProtected={ToProtected}",
-                operation,
-                toProtected);
+            if (_logger.IsEnabled(LogLevel.Error))
+            {
+                var toProtected = _logProtector.Protect(email);
+                _logger.LogError(
+                    ex,
+                    "SES email failed, Operation={Operation}, ToProtected={ToProtected}",
+                    operation,
+                    toProtected);
+            }
             throw new InvalidOperationException($"SES email failed for operation '{operation}'.", ex);
         }
     }

@@ -17,7 +17,7 @@ namespace GMO.FamilyTree.Web.UnitTests.Fixtures;
 
 public sealed class FamilyTreeControllerFixture
 {
-    public AppDbContext CreateDb(string? name = null)
+    public static AppDbContext CreateDb(string? name = null)
     {
         var dbName = name ?? "FamilyTreeCtrl_" + Guid.NewGuid().ToString("N")[..12];
         var options = new DbContextOptionsBuilder<AppDbContext>()
@@ -26,7 +26,7 @@ public sealed class FamilyTreeControllerFixture
         return new AppDbContext(options);
     }
 
-    public (FamilyTreeController Controller, CurrentFamilyTreeServiceMock CurrentTree, Mock<IFamilyTreeDeletionService> Deletion) CreateController(
+    public static (FamilyTreeController Controller, CurrentFamilyTreeServiceMock CurrentTree, Mock<IFamilyTreeDeletionService> Deletion) CreateController(
         AppDbContext db,
         string userId = "owner-1",
         CurrentFamilyTreeServiceMock? currentTree = null,

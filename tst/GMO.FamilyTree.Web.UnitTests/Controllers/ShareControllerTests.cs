@@ -14,6 +14,8 @@ using Microsoft.AspNetCore.Mvc.Routing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
+using Microsoft.Extensions.Logging;
+
 using Moq;
 
 using Xunit;
@@ -29,7 +31,8 @@ public class ShareControllerTests
         string dbName,
         string userId,
         bool authenticated = true,
-        IEmailRateLimiter? rateLimiter = null)
+        IEmailRateLimiter? rateLimiter = null,
+        ILogger<ShareController>? logger = null)
     {
         var db = CreateDb(dbName);
         db.Users.AddRange(
@@ -61,7 +64,7 @@ public class ShareControllerTests
             new ShareControllerDependencies(
                 db, userManager, access, share, current.Object, email.Object,
                 rateLimiter ?? AccountControllerFixture.CreateAllowAllRateLimiter()),
-            Microsoft.Extensions.Logging.Abstractions.NullLogger<ShareController>.Instance);
+            logger ?? Microsoft.Extensions.Logging.Abstractions.NullLogger<ShareController>.Instance);
         var http = new DefaultHttpContext();
         http.Request.Scheme = "https";
         if (authenticated)
@@ -181,7 +184,11 @@ public class ShareControllerTests
     [Fact]
     public async Task CreateEmailInvite_revokes_invite_when_send_fails()
     {
-        var (controller, db, _, email, _) = await CreateAsync(nameof(CreateEmailInvite_revokes_invite_when_send_fails), "owner");
+        var logger = new CollectingLogger<ShareController>();
+        var (controller, db, _, email, _) = await CreateAsync(
+            nameof(CreateEmailInvite_revokes_invite_when_send_fails),
+            "owner",
+            logger: logger);
         email.Setup(e => e.SendEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
             .ThrowsAsync(new InvalidOperationException("send failed"));
 
@@ -197,6 +204,7 @@ public class ShareControllerTests
             Assert.Contains("Could not send", model.StatusMessage, StringComparison.OrdinalIgnoreCase);
             var invite = await db.FamilyTreeInvites.SingleAsync();
             Assert.NotNull(invite.RevokedAt);
+            Assert.Contains("Share invite email failed", Assert.Single(logger.Messages), StringComparison.Ordinal);
         }
     }
 
@@ -387,5 +395,24 @@ public class ShareControllerTests
             Assert.Contains("Too many emails", model.StatusMessage, StringComparison.OrdinalIgnoreCase);
             email.Verify(e => e.SendEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()), Times.Never);
         }
+    }
+}
+
+file sealed class CollectingLogger<T> : ILogger<T>
+{
+    public List<string> Messages { get; } = [];
+
+    public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+    public bool IsEnabled(LogLevel logLevel) => true;
+
+    public void Log<TState>(
+        LogLevel logLevel,
+        EventId eventId,
+        TState state,
+        Exception? exception,
+        Func<TState, Exception?, string> formatter)
+    {
+        Messages.Add(formatter(state, exception));
     }
 }

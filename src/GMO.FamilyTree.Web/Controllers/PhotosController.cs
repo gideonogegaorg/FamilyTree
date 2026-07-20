@@ -56,7 +56,7 @@ public sealed class PhotosController : Controller
             return NotFound();
 
         var result = await _photos.GetAsync(member.PhotoKey, cancellationToken);
-        if (result == null)
+        if (result is null)
             return NotFound();
 
         return File(result.Stream, result.ContentType);
@@ -66,7 +66,7 @@ public sealed class PhotosController : Controller
     public Task<IActionResult> MyProfilePhoto(CancellationToken cancellationToken)
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        if (string.IsNullOrEmpty(userId))
+        if (userId is null or "")
             return Task.FromResult<IActionResult>(Unauthorized());
         return ProfilePhoto(userId, cancellationToken);
     }
@@ -103,7 +103,7 @@ public sealed class PhotosController : Controller
         return NotFound();
     }
 
-    private IActionResult? TryOpenLegacyUpload(string photoUrl)
+    private PhysicalFileResult? TryOpenLegacyUpload(string photoUrl)
     {
         var subPath = photoUrl["/uploads/".Length..];
         var uploadsBase = string.IsNullOrWhiteSpace(_paths.Uploads)

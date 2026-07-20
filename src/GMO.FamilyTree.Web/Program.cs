@@ -177,9 +177,7 @@ static void ConfigureDatabase(WebApplicationBuilder builder)
         ?? "Host=localhost;Port=5432;Database=familytree;Username=familytree;Password=familytree";
     var dataSourceBuilder = new NpgsqlDataSourceBuilder(connectionString);
     dataSourceBuilder.ConfigureTracing(o => o.ConfigureCommandEnrichmentCallback((activity, cmd) =>
-    {
-        activity?.SetTag("db.statement", cmd.CommandText);
-    }));
+        activity?.SetTag("db.statement", cmd.CommandText)));
     var npgsqlDataSource = dataSourceBuilder.Build();
     builder.Services.AddSingleton(npgsqlDataSource);
     builder.Services.AddDbContext<AppDbContext>(options => options.UseNpgsql(npgsqlDataSource));
