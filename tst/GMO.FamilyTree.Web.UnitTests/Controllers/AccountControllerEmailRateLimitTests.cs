@@ -110,8 +110,6 @@ public class AccountControllerEmailRateLimitTests : IClassFixture<AccountControl
             new Mock<ILineageModeService>().Object,
             new DefaultFamilyTreeService(db),
             new Mock<IFamilyTreeDeletionService>().Object,
-            new WebHostEnvironmentMock().Object,
-            Microsoft.Extensions.Options.Options.Create(new Options.PathsOptions()),
             new AccountControllerFixture().CreateExternalLoginInfoProvider("user@example.com"),
             new Mock<IPhotoStorageService>().Object,
             new Mock<ITreeCardViewModeService>().Object,

@@ -32,8 +32,6 @@ public class AccountController : Controller
     private readonly ILineageModeService _lineageMode;
     private readonly IDefaultFamilyTreeService _defaultFamilyTree;
     private readonly IFamilyTreeDeletionService _familyTreeDeletion;
-    private readonly IWebHostEnvironment _env;
-    private readonly PathsOptions _paths;
     private readonly IExternalLoginInfoProvider _externalLoginInfo;
     private readonly IPhotoStorageService _photos;
     private readonly ITreeCardViewModeService _treeCardViewMode;
@@ -52,8 +50,6 @@ public class AccountController : Controller
         ILineageModeService lineageMode,
         IDefaultFamilyTreeService defaultFamilyTree,
         IFamilyTreeDeletionService familyTreeDeletion,
-        IWebHostEnvironment env,
-        IOptions<PathsOptions> paths,
         IExternalLoginInfoProvider externalLoginInfo,
         IPhotoStorageService photos,
         ITreeCardViewModeService treeCardViewMode,
@@ -71,8 +67,6 @@ public class AccountController : Controller
         _lineageMode = lineageMode;
         _defaultFamilyTree = defaultFamilyTree;
         _familyTreeDeletion = familyTreeDeletion;
-        _env = env;
-        _paths = paths.Value;
         _externalLoginInfo = externalLoginInfo;
         _photos = photos;
         _treeCardViewMode = treeCardViewMode;
@@ -239,63 +233,77 @@ public class AccountController : Controller
         returnUrl ??= Url.Content("~/Home/Index");
         ViewData["ReturnUrl"] = returnUrl;
 
-        if (ModelState.IsValid)
+        if (!ModelState.IsValid)
+            return View(model);
+
+        var existingError = await GetExistingUserRegistrationErrorAsync(model.Email);
+        if (existingError != null)
         {
-            var existing = await _userManager.FindByEmailAsync(model.Email);
-            if (existing != null)
-            {
-                if (!await _userManager.HasPasswordAsync(existing))
-                {
-                    ModelState.AddModelError(string.Empty,
-                        "An account with this email already exists (for example via Google). Sign in with Google, then use Set password from your account menu.");
-                }
-                else
-                {
-                    ModelState.AddModelError(string.Empty,
-                        "An account with this email already exists. Sign in instead, or use Forgot password if you need to reset it.");
-                }
-
-                return View(model);
-            }
-
-            var user = new IdentityUser { UserName = model.Email, Email = model.Email };
-            var result = await _userManager.CreateAsync(user, model.Password);
-            if (result.Succeeded)
-            {
-                try
-                {
-                    var defaultTreeId = await _defaultFamilyTree.EnsureDefaultFamilyTreeAsync(user.Id!, cancellationToken);
-                    if (defaultTreeId.HasValue)
-                    {
-                        // User is not signed in yet, so CurrentFamilyTreeService cannot resolve claims.
-                        _db.UserProfiles.Add(new UserProfile
-                        {
-                            UserId = user.Id!,
-                            CurrentFamilyTreeId = defaultTreeId.Value
-                        });
-                        await _db.SaveChangesAsync(cancellationToken);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Default tree creation failed for {UserId}", user.Id);
-                    await _userManager.DeleteAsync(user);
-                    ModelState.AddModelError(string.Empty, "Registration failed. Please try again.");
-                    return View(model);
-                }
-
-                if (!await SendConfirmationEmailAsync(user))
-                    TempData["EmailRateLimited"] = true;
-
-                await EnsureEmailTwoFactorEnabledAsync(user);
-
-                return RedirectToAction(nameof(RegisterConfirmation), new { email = user.Email });
-            }
-            foreach (var error in result.Errors)
-                ModelState.AddModelError(string.Empty, error.Description);
+            ModelState.AddModelError(string.Empty, existingError);
+            return View(model);
         }
 
-        return View(model);
+        return await CreateRegisteredUserAsync(model, cancellationToken);
+    }
+
+    private async Task<string?> GetExistingUserRegistrationErrorAsync(string email)
+    {
+        var existing = await _userManager.FindByEmailAsync(email);
+        if (existing == null)
+            return null;
+
+        return !await _userManager.HasPasswordAsync(existing)
+            ? "An account with this email already exists (for example via Google). Sign in with Google, then use Set password from your account menu."
+            : "An account with this email already exists. Sign in instead, or use Forgot password if you need to reset it.";
+    }
+
+    private async Task<IActionResult> CreateRegisteredUserAsync(RegisterViewModel model, CancellationToken cancellationToken)
+    {
+        var user = new IdentityUser { UserName = model.Email, Email = model.Email };
+        var result = await _userManager.CreateAsync(user, model.Password);
+        if (!result.Succeeded)
+        {
+            foreach (var error in result.Errors)
+                ModelState.AddModelError(string.Empty, error.Description);
+            return View(model);
+        }
+
+        if (!await TryCreateDefaultTreeProfileAsync(user, cancellationToken))
+        {
+            ModelState.AddModelError(string.Empty, "Registration failed. Please try again.");
+            return View(model);
+        }
+
+        if (!await SendConfirmationEmailAsync(user))
+            TempData["EmailRateLimited"] = true;
+
+        await EnsureEmailTwoFactorEnabledAsync(user);
+        return RedirectToAction(nameof(RegisterConfirmation), new { email = user.Email });
+    }
+
+    private async Task<bool> TryCreateDefaultTreeProfileAsync(IdentityUser user, CancellationToken cancellationToken)
+    {
+        try
+        {
+            var defaultTreeId = await _defaultFamilyTree.EnsureDefaultFamilyTreeAsync(user.Id!, cancellationToken);
+            if (!defaultTreeId.HasValue)
+                return true;
+
+            // User is not signed in yet, so CurrentFamilyTreeService cannot resolve claims.
+            _db.UserProfiles.Add(new UserProfile
+            {
+                UserId = user.Id!,
+                CurrentFamilyTreeId = defaultTreeId.Value
+            });
+            await _db.SaveChangesAsync(cancellationToken);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Default tree creation failed for {UserId}", user.Id);
+            await _userManager.DeleteAsync(user);
+            return false;
+        }
     }
 
     [AllowAnonymous]
