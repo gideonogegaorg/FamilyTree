@@ -12,9 +12,14 @@ public sealed class LoggingEmailSender : IEmailSender
         _logger = logger;
     }
 
-    public Task SendEmailAsync(string email, string subject, string htmlMessage)
+    public Task SendEmailAsync(string email, string subject, string htmlMessage, string plainTextMessage)
     {
-        _logger.LogInformation("Email (not sent): Subject={Subject}, BodyLength={BodyLength}", subject, htmlMessage.Length);
+        _logger.LogInformation(
+            "Email (not sent): To={Email}, Subject={Subject}, HtmlLength={HtmlLength}, TextLength={TextLength}",
+            email,
+            subject,
+            htmlMessage.Length,
+            plainTextMessage.Length);
         return Task.CompletedTask;
     }
 }

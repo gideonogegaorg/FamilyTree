@@ -339,6 +339,7 @@ jobs:
           EMAIL_PROVIDER: ${{ vars.EMAIL_PROVIDER }}
           EMAIL_FROM_ADDRESS: ${{ secrets.EMAIL_FROM_ADDRESS }}
           EMAIL_FROM_DISPLAY_NAME: ${{ vars.EMAIL_FROM_DISPLAY_NAME }}
+          EMAIL_REPLY_TO_ADDRESS: ${{ vars.EMAIL_REPLY_TO_ADDRESS }}
           EMAIL_REGION: ${{ vars.EMAIL_REGION }}
           EMAIL_DOMAIN: ${{ env.FULL_HOSTNAME }}
         run: |

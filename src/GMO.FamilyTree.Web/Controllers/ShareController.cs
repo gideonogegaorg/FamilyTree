@@ -277,17 +277,13 @@ public sealed class ShareController : Controller
             var inviterEmail = string.IsNullOrWhiteSpace(inviter?.Email)
                 ? "A family tree member"
                 : inviter.Email;
-            var inviterLabel = System.Net.WebUtility.HtmlEncode(inviterEmail);
-            var treeNameEncoded = System.Net.WebUtility.HtmlEncode(treeName);
             var url = AcceptUrl(invite.Token);
             var roleLabel = invite.Role == TreeShareRole.Editor ? "edit" : "view";
-            var subject = $"{inviterEmail} invited you to {roleLabel} the \"{treeName}\" family tree";
-            var body = $"""
-                <p>{inviterLabel} invited you to <strong>{roleLabel}</strong> the family tree <strong>{treeNameEncoded}</strong>.</p>
-                <p><a href="{url}">Accept the invite</a></p>
-                <p>You'll need to sign in or create an account. This link was sent to {System.Net.WebUtility.HtmlEncode(invite.Email)}.</p>
-                """;
-            await _emailSender.SendEmailAsync(invite.Email, subject, body);
+            var subject = TransactionalEmail.Subject(
+                $"{inviterEmail} invited you to {roleLabel} \"{treeName}\"");
+            var (html, text) = TransactionalEmail.InviteMessage(
+                invite.Email, inviterEmail, roleLabel, treeName, url);
+            await _emailSender.SendEmailAsync(invite.Email, subject, html, text);
             return true;
         }
         catch (Exception)

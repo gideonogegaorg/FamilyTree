@@ -23,10 +23,13 @@ public sealed class SesEmailSender : IEmailSender
         _logger = logger;
     }
 
-    public async Task SendEmailAsync(string email, string subject, string htmlMessage)
+    public async Task SendEmailAsync(string email, string subject, string htmlMessage, string plainTextMessage)
     {
         if (string.IsNullOrWhiteSpace(_options.FromAddress))
             throw new InvalidOperationException("Email:FromAddress is required when using SES.");
+
+        if (string.IsNullOrWhiteSpace(plainTextMessage))
+            throw new ArgumentException("Plain text body is required.", nameof(plainTextMessage));
 
         var from = string.IsNullOrWhiteSpace(_options.FromDisplayName)
             ? _options.FromAddress
@@ -39,9 +42,16 @@ public sealed class SesEmailSender : IEmailSender
             Message = new Message
             {
                 Subject = new Content(subject),
-                Body = new Body { Html = new Content(htmlMessage) }
+                Body = new Body
+                {
+                    Html = new Content(htmlMessage),
+                    Text = new Content(plainTextMessage)
+                }
             }
         };
+
+        if (!string.IsNullOrWhiteSpace(_options.ReplyToAddress))
+            request.ReplyToAddresses = [_options.ReplyToAddress.Trim()];
 
         var response = await _ses.SendEmailAsync(request);
         _logger.LogInformation("SES email sent, MessageId={MessageId}", response.MessageId);

@@ -71,6 +71,7 @@
     "Provider": "^^EMAIL_PROVIDER^^",
     "FromAddress": "^^EMAIL_FROM_ADDRESS^^",
     "FromDisplayName": "^^EMAIL_FROM_DISPLAY_NAME^^",
+    "ReplyToAddress": "^^EMAIL_REPLY_TO_ADDRESS^^",
     "Region": "^^EMAIL_REGION^^",
     "RateLimit": {
       "MinIntervalSeconds": 180,

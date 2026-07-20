@@ -2,9 +2,9 @@ namespace GMO.FamilyTree.Web.Services;
 
 /// <summary>
 /// Sends email (e.g. for password reset). For development, use an implementation that logs to console/file.
-/// For production, implement with SMTP or a provider (e.g. SendGrid).
+/// For production, implement with SMTP or a provider (e.g. SES).
 /// </summary>
 public interface IEmailSender
 {
-    Task SendEmailAsync(string email, string subject, string htmlMessage);
+    Task SendEmailAsync(string email, string subject, string htmlMessage, string plainTextMessage);
 }

@@ -123,17 +123,22 @@ sudo systemctl restart familytree-dev
 | `Email:Provider` | var `EMAIL_PROVIDER` (default `Ses` on deploy) | Use `Logging` locally |
 | `Email:FromDisplayName` | var `EMAIL_FROM_DISPLAY_NAME` (default `GOOM Family Tree`) | Shown in the From header |
 | `Email:FromAddress` | derived as `noreply@{FULL_HOSTNAME}` unless secret `EMAIL_FROM_ADDRESS` is set | e.g. `noreply@familytree-dev.goom.life` / `noreply@familytree.goom.life` |
+| `Email:ReplyToAddress` | var `EMAIL_REPLY_TO_ADDRESS` (optional) | Monitored reply address; omitted when empty |
 | `Email:Region` | var `EMAIL_REGION` (default `us-east-1`) | Must match the SES region |
 
 SES setup checklist (region `us-east-1`):
 
 1. Verify sending domains in SES: `goom.life`, `familytree.goom.life`, `familytree-dev.goom.life` (Easy DKIM **Successful**).
 2. Publish Easy DKIM CNAMEs in Route53 (`goom.life` zone) and SPF TXT (`v=spf1 include:amazonses.com ~all`).
-3. Publish DMARC monitor-only TXT at `_dmarc.goom.life`: `v=DMARC1; p=none;`.
-4. Production access: **GRANTED** (case `178365954000258`). Account is out of the SES sandbox (`ProductionAccessEnabled=true`, enforcement `HEALTHY`).
-5. Enable account-level suppression for `BOUNCE` and `COMPLAINT` (`aws sesv2 put-account-suppression-attributes`). Monitor reputation and the suppression list in the SES Console; remove an address from the list before re-inviting if a bounce/complaint was a false positive.
-6. Grant the EC2 instance role (`EC2-Certbot-Role`) `ses:SendEmail` and `ses:SendRawEmail` (inline policy `FamilyTreeSesSendPolicy`).
-7. Set GitHub environment variables on `dev` / `prod`: `EMAIL_PROVIDER=Ses`, `EMAIL_REGION=us-east-1`, `EMAIL_FROM_DISPLAY_NAME=GOOM Family Tree`; redeploy and smoke-test register confirmation, forgot-password, or a share invite.
+3. Custom MAIL FROM (SPF alignment): `bounce.familytree.goom.life` and `bounce.familytree-dev.goom.life` with MX `10 feedback-smtp.us-east-1.amazonses.com` and SPF `v=spf1 include:amazonses.com ~all`. SES status must be **SUCCESS**.
+4. DMARC (monitor) at `_dmarc.goom.life` with Postmark aggregate reporting, e.g. `v=DMARC1; p=none; pct=100; rua=mailto:re+…@dmarc.postmarkapp.com; sp=none; aspf=r;`. Verify in [Postmark DMARC](https://dmarc.postmarkapp.com). After ~2–4 weeks of clean digests, consider `p=quarantine` then `p=reject`; BIMI only after enforcement.
+5. Production access: **GRANTED**. Account is out of the SES sandbox (`ProductionAccessEnabled=true`, enforcement `HEALTHY`).
+6. Account-level suppression for `BOUNCE` and `COMPLAINT` (`aws sesv2 put-account-suppression-attributes`). Remove an address from the suppression list before re-inviting if a bounce/complaint was a false positive.
+7. Configuration set `familytree`: reputation metrics on, `TlsPolicy=REQUIRE`, event destination `bounce-complaint-delivery` → SNS topic `familytree-ses-events` (BOUNCE/COMPLAINT/DELIVERY), attached as the default on both sending identities.
+8. CloudWatch alarms on SNS topic `familytree-ses-alerts` (subscribe a monitored inbox via SNS; confirm the subscription): `familytree-ses-complaint-rate` (≥ 0.1%), `familytree-ses-bounce-rate` (≥ 5%).
+9. Optional: [Google Postmaster Tools](https://postmaster.google.com) for `goom.life` — add the TXT verification token Google shows to Route53, then verify. Gives Gmail spam-rate / domain-reputation dashboards.
+10. Grant the EC2 instance role (`EC2-Certbot-Role`) `ses:SendEmail` and `ses:SendRawEmail` (inline policy `FamilyTreeSesSendPolicy`).
+11. Set GitHub environment variables on `dev` / `prod`: `EMAIL_PROVIDER=Ses`, `EMAIL_REGION=us-east-1`, `EMAIL_FROM_DISPLAY_NAME=GOOM Family Tree`, and optionally `EMAIL_REPLY_TO_ADDRESS`; redeploy and smoke-test register confirmation, forgot-password, or a share invite.
 
 ---
 

@@ -17,7 +17,7 @@ public class LoggingEmailSenderTests
         var sut = new LoggingEmailSender(logger);
 
         // Act
-        await sut.SendEmailAsync("test@example.com", "Test Subject", "<p>Body</p>");
+        await sut.SendEmailAsync("test@example.com", "Test Subject", "<p>Body</p>", "Body");
 
         // Assert
         // No throw; completes. Optional: assert logger was called via a test logger sink.

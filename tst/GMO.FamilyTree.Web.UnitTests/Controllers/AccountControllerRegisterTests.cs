@@ -62,7 +62,7 @@ public class AccountControllerRegisterTests : IClassFixture<AccountControllerFix
         await using var db = _f.CreateDb(nameof(Register_creates_default_tree_profile_and_enables_email_2fa));
         var (signIn, users) = _f.CreateIdentityManagers(db);
         var email = new Mock<IEmailSender>();
-        email.Setup(e => e.SendEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
+        email.Setup(e => e.SendEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()))
             .Returns(Task.CompletedTask);
 
         var controller = new AccountController(
