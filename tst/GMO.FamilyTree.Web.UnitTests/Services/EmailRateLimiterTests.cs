@@ -27,22 +27,22 @@ public class EmailRateLimiterTests
     public void TryAcquire_allows_first_send()
     {
         var limiter = CreateLimiter();
-        Assert.True(limiter.TryAcquire(EmailRateLimitOperations.ForgotPassword, "user@example.com", "1.2.3.4"));
+        Assert.True(limiter.TryAcquire(EmailRateLimitOperations.ResetRequest, "user@example.com", "1.2.3.4"));
     }
 
     [Fact]
     public void TryAcquire_blocks_repeat_within_min_interval()
     {
         var limiter = CreateLimiter(minIntervalSeconds: 300);
-        Assert.True(limiter.TryAcquire(EmailRateLimitOperations.ForgotPassword, "user@example.com", "1.2.3.4"));
-        Assert.False(limiter.TryAcquire(EmailRateLimitOperations.ForgotPassword, "user@example.com", "1.2.3.4"));
+        Assert.True(limiter.TryAcquire(EmailRateLimitOperations.ResetRequest, "user@example.com", "1.2.3.4"));
+        Assert.False(limiter.TryAcquire(EmailRateLimitOperations.ResetRequest, "user@example.com", "1.2.3.4"));
     }
 
     [Fact]
     public void TryAcquire_allows_different_operations_independently()
     {
         var limiter = CreateLimiter(minIntervalSeconds: 300);
-        Assert.True(limiter.TryAcquire(EmailRateLimitOperations.ForgotPassword, "user@example.com", "1.2.3.4"));
+        Assert.True(limiter.TryAcquire(EmailRateLimitOperations.ResetRequest, "user@example.com", "1.2.3.4"));
         Assert.True(limiter.TryAcquire(EmailRateLimitOperations.Confirmation, "user@example.com", "1.2.3.4"));
     }
 
@@ -50,16 +50,16 @@ public class EmailRateLimiterTests
     public void TryAcquire_blocks_after_max_per_recipient_per_hour()
     {
         var limiter = CreateLimiter(minIntervalSeconds: 0, maxPerRecipientPerHour: 2);
-        Assert.True(limiter.TryAcquire(EmailRateLimitOperations.ForgotPassword, "user@example.com", "1.2.3.4"));
-        Assert.True(limiter.TryAcquire(EmailRateLimitOperations.ForgotPassword, "user@example.com", "1.2.3.4"));
-        Assert.False(limiter.TryAcquire(EmailRateLimitOperations.ForgotPassword, "user@example.com", "1.2.3.4"));
+        Assert.True(limiter.TryAcquire(EmailRateLimitOperations.ResetRequest, "user@example.com", "1.2.3.4"));
+        Assert.True(limiter.TryAcquire(EmailRateLimitOperations.ResetRequest, "user@example.com", "1.2.3.4"));
+        Assert.False(limiter.TryAcquire(EmailRateLimitOperations.ResetRequest, "user@example.com", "1.2.3.4"));
     }
 
     [Fact]
     public void TryAcquire_blocks_after_max_per_ip_per_hour()
     {
         var limiter = CreateLimiter(minIntervalSeconds: 0, maxPerRecipientPerHour: 100, maxPerIpPerHour: 2);
-        Assert.True(limiter.TryAcquire(EmailRateLimitOperations.ForgotPassword, "a@example.com", "9.9.9.9"));
+        Assert.True(limiter.TryAcquire(EmailRateLimitOperations.ResetRequest, "a@example.com", "9.9.9.9"));
         Assert.True(limiter.TryAcquire(EmailRateLimitOperations.Confirmation, "b@example.com", "9.9.9.9"));
         Assert.False(limiter.TryAcquire(EmailRateLimitOperations.ShareInvite, "c@example.com", "9.9.9.9"));
     }
@@ -68,16 +68,16 @@ public class EmailRateLimiterTests
     public void TryAcquire_does_not_consume_recipient_when_ip_limited()
     {
         var limiter = CreateLimiter(minIntervalSeconds: 0, maxPerRecipientPerHour: 10, maxPerIpPerHour: 1);
-        Assert.True(limiter.TryAcquire(EmailRateLimitOperations.ForgotPassword, "a@example.com", "9.9.9.9"));
-        Assert.False(limiter.TryAcquire(EmailRateLimitOperations.ForgotPassword, "b@example.com", "9.9.9.9"));
-        Assert.True(limiter.TryAcquire(EmailRateLimitOperations.ForgotPassword, "b@example.com", "8.8.8.8"));
+        Assert.True(limiter.TryAcquire(EmailRateLimitOperations.ResetRequest, "a@example.com", "9.9.9.9"));
+        Assert.False(limiter.TryAcquire(EmailRateLimitOperations.ResetRequest, "b@example.com", "9.9.9.9"));
+        Assert.True(limiter.TryAcquire(EmailRateLimitOperations.ResetRequest, "b@example.com", "8.8.8.8"));
     }
 
     [Fact]
     public void TryAcquire_null_ip_uses_shared_unknown_bucket()
     {
         var limiter = CreateLimiter(minIntervalSeconds: 0, maxPerRecipientPerHour: 100, maxPerIpPerHour: 2);
-        Assert.True(limiter.TryAcquire(EmailRateLimitOperations.ForgotPassword, "a@example.com", null));
+        Assert.True(limiter.TryAcquire(EmailRateLimitOperations.ResetRequest, "a@example.com", null));
         Assert.True(limiter.TryAcquire(EmailRateLimitOperations.Confirmation, "b@example.com", null));
         Assert.False(limiter.TryAcquire(EmailRateLimitOperations.ShareInvite, "c@example.com", null));
     }

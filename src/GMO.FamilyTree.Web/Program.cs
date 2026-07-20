@@ -128,15 +128,13 @@ if (telemetryOptions.Enabled && hasOtlpEndpoint)
 
 builder.Services.AddMetrics(otelBuilder, telemetryOptions, _ => { });
 
-// PostgreSQL data source with OpenTelemetry enrichment (statements + parameters).
+// PostgreSQL data source with OpenTelemetry enrichment (SQL text only — never bind parameter values).
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
     ?? "Host=localhost;Port=5432;Database=familytree;Username=familytree;Password=familytree";
 var dataSourceBuilder = new NpgsqlDataSourceBuilder(connectionString);
 dataSourceBuilder.ConfigureTracing(o => o.ConfigureCommandEnrichmentCallback((activity, cmd) =>
 {
     activity?.SetTag("db.statement", cmd.CommandText);
-    foreach (NpgsqlParameter p in cmd.Parameters)
-        activity?.SetTag($"db.query.parameter.{p.ParameterName}", p.Value?.ToString() ?? "(null)");
 }));
 var npgsqlDataSource = dataSourceBuilder.Build();
 builder.Services.AddSingleton(npgsqlDataSource);
@@ -149,6 +147,9 @@ builder.Services.AddHealthChecks()
 
 // Add services to the container.
 builder.Services.AddControllersWithViews();
+
+builder.Services.AddDataProtection();
+builder.Services.AddSingleton<IEmailLogProtector, EmailLogProtector>();
 
 var emailProvider = builder.Configuration["Email:Provider"] ?? "Logging";
 if (emailProvider.Equals("Ses", StringComparison.OrdinalIgnoreCase)

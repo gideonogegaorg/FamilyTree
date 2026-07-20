@@ -20,6 +20,7 @@ public sealed class ShareController : Controller
     private readonly ICurrentFamilyTreeService _currentTree;
     private readonly IEmailSender _emailSender;
     private readonly IEmailRateLimiter _emailRateLimiter;
+    private readonly ILogger<ShareController> _logger;
 
     public ShareController(
         AppDbContext db,
@@ -28,7 +29,8 @@ public sealed class ShareController : Controller
         IFamilyTreeShareService share,
         ICurrentFamilyTreeService currentTree,
         IEmailSender emailSender,
-        IEmailRateLimiter emailRateLimiter)
+        IEmailRateLimiter emailRateLimiter,
+        ILogger<ShareController> logger)
     {
         _db = db;
         _userManager = userManager;
@@ -37,6 +39,7 @@ public sealed class ShareController : Controller
         _currentTree = currentTree;
         _emailSender = emailSender;
         _emailRateLimiter = emailRateLimiter;
+        _logger = logger;
     }
 
     [HttpGet]
@@ -277,21 +280,33 @@ public sealed class ShareController : Controller
             var inviterEmail = string.IsNullOrWhiteSpace(inviter?.Email)
                 ? "A family tree member"
                 : inviter.Email;
-            var inviterLabel = System.Net.WebUtility.HtmlEncode(inviterEmail);
-            var treeNameEncoded = System.Net.WebUtility.HtmlEncode(treeName);
             var url = AcceptUrl(invite.Token);
             var roleLabel = invite.Role == TreeShareRole.Editor ? "edit" : "view";
-            var subject = $"{inviterEmail} invited you to {roleLabel} the \"{treeName}\" family tree";
-            var body = $"""
-                <p>{inviterLabel} invited you to <strong>{roleLabel}</strong> the family tree <strong>{treeNameEncoded}</strong>.</p>
-                <p><a href="{url}">Accept the invite</a></p>
-                <p>You'll need to sign in or create an account. This link was sent to {System.Net.WebUtility.HtmlEncode(invite.Email)}.</p>
-                """;
-            await _emailSender.SendEmailAsync(invite.Email, subject, body);
+            var subject = TransactionalEmail.Subject(
+                $"{inviterEmail} invited you to {roleLabel} \"{treeName}\"");
+            var (html, text) = TransactionalEmail.InviteMessage(
+                invite.Email, inviterEmail, roleLabel, treeName, url);
+            await _emailSender.SendEmailAsync(
+                invite.Email,
+                subject,
+                html,
+                text,
+                EmailRateLimitOperations.ShareInvite);
+            // codeql[cs/exposure-of-sensitive-information] InviteId is a numeric PK correlator, not mailbox PII.
+            _logger.LogInformation(
+                "Share invite email sent, InviteId={InviteId}, Operation={Operation}",
+                invite.Id,
+                EmailRateLimitOperations.ShareInvite);
             return true;
         }
-        catch (Exception)
+        catch (Exception ex)
         {
+            // codeql[cs/exposure-of-sensitive-information] InviteId is a numeric PK correlator, not mailbox PII.
+            _logger.LogError(
+                ex,
+                "Share invite email failed, InviteId={InviteId}, Operation={Operation}",
+                invite.Id,
+                EmailRateLimitOperations.ShareInvite);
             await _share.RevokeInviteAsync(invite.Id, ownerUserId, cancellationToken);
             return false;
         }

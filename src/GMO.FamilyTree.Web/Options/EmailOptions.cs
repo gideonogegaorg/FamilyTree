@@ -9,5 +9,7 @@ public sealed class EmailOptions
 
     public string FromAddress { get; set; } = string.Empty;
     public string FromDisplayName { get; set; } = "GOOM Family Tree";
+    /// <summary>Optional monitored reply address (Reply-To header). Empty = omit.</summary>
+    public string ReplyToAddress { get; set; } = string.Empty;
     public string Region { get; set; } = "us-east-1";
 }

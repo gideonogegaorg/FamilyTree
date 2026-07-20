@@ -75,6 +75,7 @@ if [ -z "${EMAIL_FROM_ADDRESS:-}" ] && [ -n "${EMAIL_DOMAIN:-}" ]; then
 fi
 replace "EMAIL_FROM_ADDRESS"             "${EMAIL_FROM_ADDRESS:-}"
 replace "EMAIL_FROM_DISPLAY_NAME"        "${EMAIL_FROM_DISPLAY_NAME:-GOOM Family Tree}"
+replace "EMAIL_REPLY_TO_ADDRESS"         "${EMAIL_REPLY_TO_ADDRESS:-}"
 replace "EMAIL_REGION"                   "${EMAIL_REGION:-us-east-1}"
 replace_bool "IS_PRODUCTION"              "${IS_PRODUCTION:-false}"
 

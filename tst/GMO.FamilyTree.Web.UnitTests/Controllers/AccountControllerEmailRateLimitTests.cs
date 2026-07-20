@@ -34,7 +34,7 @@ public class AccountControllerEmailRateLimitTests : IClassFixture<AccountControl
         var email = new Mock<IEmailSender>(MockBehavior.Strict);
         var rateLimiter = new Mock<IEmailRateLimiter>();
         rateLimiter.Setup(r => r.TryAcquire(
-                EmailRateLimitOperations.ForgotPassword,
+                EmailRateLimitOperations.ResetRequest,
                 "victim@example.com",
                 It.IsAny<string?>()))
             .Returns(false);
@@ -43,7 +43,7 @@ public class AccountControllerEmailRateLimitTests : IClassFixture<AccountControl
         var result = await controller.ForgotPassword(new ForgotPasswordViewModel { Email = "victim@example.com" });
 
         Assert.IsType<RedirectToActionResult>(result);
-        email.Verify(e => e.SendEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()), Times.Never);
+        email.Verify(e => e.SendEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()), Times.Never);
     }
 
     [Fact]
@@ -60,7 +60,7 @@ public class AccountControllerEmailRateLimitTests : IClassFixture<AccountControl
         var result = await controller.ForgotPassword(new ForgotPasswordViewModel { Email = "google@example.com" });
 
         Assert.IsType<RedirectToActionResult>(result);
-        email.Verify(e => e.SendEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()), Times.Never);
+        email.Verify(e => e.SendEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()), Times.Never);
     }
 
     [Fact]
@@ -89,7 +89,7 @@ public class AccountControllerEmailRateLimitTests : IClassFixture<AccountControl
         var redirect = Assert.IsType<RedirectToActionResult>(result);
         Assert.Equal(nameof(AccountController.RegisterConfirmation), redirect.ActionName);
         Assert.True(controller.TempData.ContainsKey("EmailRateLimited"));
-        email.Verify(e => e.SendEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()), Times.Never);
+        email.Verify(e => e.SendEmailAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()), Times.Never);
     }
 
     private static AccountController CreateController(

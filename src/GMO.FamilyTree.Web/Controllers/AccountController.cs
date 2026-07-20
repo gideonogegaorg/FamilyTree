@@ -1,6 +1,5 @@
 using System.Security.Claims;
 using System.Text;
-using System.Text.Encodings.Web;
 
 using GMO.FamilyTree.Web.Data;
 using GMO.FamilyTree.Web.Extensions;
@@ -373,11 +372,18 @@ public class AccountController : Controller
 
             var token = await _userManager.GeneratePasswordResetTokenAsync(user);
             var callbackUrl = Url.Action(nameof(ResetPassword), "Account", new { token, email = user.Email }, Request.Scheme)!;
-            await TrySendEmailAsync(
-                EmailRateLimitOperations.ForgotPassword,
+            var (html, text) = TransactionalEmail.LinkMessage(
                 model.Email,
+                $"We received a password reset request for your {TransactionalEmail.Brand} account.",
                 "Reset your password",
-                $"Please reset your password by <a href='{callbackUrl}'>clicking here</a>.");
+                callbackUrl);
+            await TrySendEmailAsync(
+                EmailRateLimitOperations.ResetRequest,
+                model.Email,
+                TransactionalEmail.Subject("reset your password"),
+                html,
+                text,
+                user.Id);
             return RedirectToAction(nameof(ForgotPasswordConfirmation));
         }
 
@@ -801,11 +807,18 @@ public class AccountController : Controller
             user, TokenOptions.DefaultProvider, AddPasswordTokenPurpose);
         var code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(token));
         var callbackUrl = Url.Action(nameof(ConfirmAddPassword), "Account", new { userId = user.Id, code }, Request.Scheme)!;
-        return await TrySendEmailAsync(
-            EmailRateLimitOperations.AddPassword,
+        var (html, text) = TransactionalEmail.LinkMessage(
             user.Email!,
+            $"Confirm that you want to add a password to your {TransactionalEmail.Brand} account.",
             "Confirm adding a password",
-            $"Confirm that you want to add a password to your GOOM Family Tree account by <a href='{HtmlEncoder.Default.Encode(callbackUrl)}'>clicking here</a>. If you did not request this, you can ignore this message.");
+            callbackUrl);
+        return await TrySendEmailAsync(
+            EmailRateLimitOperations.AddCredential,
+            user.Email!,
+            TransactionalEmail.Subject("confirm adding a password"),
+            html,
+            text,
+            user.Id);
     }
 
     private async Task<bool> SendConfirmationEmailAsync(IdentityUser user)
@@ -813,20 +826,50 @@ public class AccountController : Controller
         var code = await _userManager.GenerateEmailConfirmationTokenAsync(user);
         code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
         var callbackUrl = Url.Action(nameof(ConfirmEmail), "Account", new { userId = user.Id, code }, Request.Scheme)!;
+        var (html, text) = TransactionalEmail.LinkMessage(
+            user.Email!,
+            $"You created a {TransactionalEmail.Brand} account with this email. Confirm your address to finish signing up.",
+            "Confirm your email",
+            callbackUrl);
         return await TrySendEmailAsync(
             EmailRateLimitOperations.Confirmation,
             user.Email!,
-            "Confirm your email",
-            $"Please confirm your account by <a href='{HtmlEncoder.Default.Encode(callbackUrl)}'>clicking here</a>.");
+            TransactionalEmail.Subject("confirm your email"),
+            html,
+            text,
+            user.Id);
     }
 
-    private async Task<bool> TrySendEmailAsync(string operation, string recipientEmail, string subject, string htmlMessage)
+    private async Task<bool> TrySendEmailAsync(
+        string operation,
+        string recipientEmail,
+        string subject,
+        string htmlMessage,
+        string plainTextMessage,
+        string? userId = null)
     {
         if (!_emailRateLimiter.TryAcquire(operation, recipientEmail, GetClientIp()))
+        {
+            if (userId is null)
+                _logger.LogWarning("Email rate limit denied, Operation={Operation}", operation);
+            else
+                _logger.LogWarning("Email rate limit denied, Operation={Operation}, UserId={UserId}", operation, userId);
             return false;
+        }
 
-        await _emailSender.SendEmailAsync(recipientEmail, subject, htmlMessage);
-        return true;
+        try
+        {
+            await _emailSender.SendEmailAsync(recipientEmail, subject, htmlMessage, plainTextMessage, operation);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            if (userId is null)
+                _logger.LogError(ex, "Email send failed, Operation={Operation}", operation);
+            else
+                _logger.LogError(ex, "Email send failed, Operation={Operation}, UserId={UserId}", operation, userId);
+            return false;
+        }
     }
 
     private string GetClientIp() => HttpContext.GetClientIpForRateLimit();
@@ -869,10 +912,16 @@ public class AccountController : Controller
             return false;
 
         var code = await _userManager.GenerateTwoFactorTokenAsync(user, TokenOptions.DefaultEmailProvider);
+        var (html, text) = TransactionalEmail.CodeMessage(
+            email,
+            $"Use this code to finish signing in to {TransactionalEmail.Brand}.",
+            code);
         return await TrySendEmailAsync(
             EmailRateLimitOperations.TwoFactor,
             email,
-            "Your sign-in code",
-            $"Your sign-in code is: <strong>{HtmlEncoder.Default.Encode(code)}</strong>. It expires shortly.");
+            TransactionalEmail.Subject("your sign-in code"),
+            html,
+            text,
+            user.Id);
     }
 }
