@@ -1,6 +1,3 @@
-using System.Security.Cryptography;
-using System.Text;
-
 using GMO.FamilyTree.Web.Extensions;
 using GMO.FamilyTree.Web.Options;
 
@@ -36,18 +33,18 @@ public sealed class EmailRateLimiter : IEmailRateLimiter
 
         if (!TryAcquireIp(ip))
         {
-            _logger.LogWarning("Email rate limit exceeded for client IP {ClientIp}", HashForKey(ip));
+            _logger.LogWarning("Email rate limit exceeded for client IP {ClientIp}", LogValueHasher.Hash(ip));
             return false;
         }
 
         var email = recipientEmail.Trim().ToLowerInvariant();
-        var recipientKey = $"email-rate:recipient:{HashForKey(operation)}:{HashForKey(email)}";
+        var recipientKey = $"email-rate:recipient:{LogValueHasher.Hash(operation)}:{LogValueHasher.Hash(email)}";
         if (!TryAcquireRecipient(recipientKey))
         {
             _logger.LogWarning(
                 "Email rate limit exceeded for a recipient bucket, Operation={Operation}, RecipientHash={RecipientHash}",
                 operation,
-                HashForKey(email));
+                LogValueHasher.Hash(email));
             return false;
         }
 
@@ -67,7 +64,7 @@ public sealed class EmailRateLimiter : IEmailRateLimiter
 
     private bool TryAcquireIp(string clientIp)
     {
-        var key = $"email-rate:ip:{HashForKey(clientIp)}";
+        var key = $"email-rate:ip:{LogValueHasher.Hash(clientIp)}";
         return TryAcquireBucket(key, TimeSpan.Zero, TimeSpan.FromHours(1), Math.Max(1, _options.MaxPerIpPerHour));
     }
 
@@ -105,12 +102,6 @@ public sealed class EmailRateLimiter : IEmailRateLimiter
     {
         while (bucket.RecentSends.Count > 0 && now - bucket.RecentSends.Peek() > window)
             bucket.RecentSends.Dequeue();
-    }
-
-    private static string HashForKey(string value)
-    {
-        var hash = SHA256.HashData(Encoding.UTF8.GetBytes(value));
-        return Convert.ToHexString(hash);
     }
 
     private sealed class RateLimitBucket
